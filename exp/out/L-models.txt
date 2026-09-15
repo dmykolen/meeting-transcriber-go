@@ -1,0 +1,29 @@
+EXPERIMENT L — the model behind the wording
+
+Agreement is against the owner's WhisperX run, which used large-v3 at full
+precision. That flatters large-v3 and it is worth remembering. Speed is on
+this machine, with Metal, at eight threads.
+
+==============================================================================
+meet-test   167 s of audio, 274 reference words
+==============================================================================
+  model         rows   agreement median    p90      pace     size
+  ────────────────────────────────────────────────────────────────────────────────────
+  turbo-q5_0    40     83      % 0.37      2.07     47x      574 MB — what ships
+  turbo-f16     42     85      % 0.38      2.20     42x      1.6 GB — the same model, unsqueezed
+  large-v3-f16  40     85      % 0.32      1.60     16x      3.1 GB — not distilled at all
+
+==============================================================================
+daily   728 s of audio, 1432 reference words
+==============================================================================
+  model         rows   agreement median    p90      pace     size
+  ────────────────────────────────────────────────────────────────────────────────────
+  turbo-q5_0    198    89      % 0.23      1.15     52x      574 MB — what ships
+  turbo-f16     196    90      % 0.24      0.96     46x      1.6 GB — the same model, unsqueezed
+  large-v3-f16  148    91      % 0.30      1.46     17x      3.1 GB — not distilled at all
+
+  agreement  of the reference's words, how many we wrote the same
+  median     how far apart the two put a word, in seconds
+  pace       times faster than real time
+
+  transcripts in exp/out/L-<clip>-<model>.txt

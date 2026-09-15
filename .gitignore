@@ -1,0 +1,10 @@
+# whisper.cpp is cloned and built here by `make whisper`
+build/
+
+# Local frontend and Wails development artifacts
+frontend/node_modules/
+frontend/.bindings-tmp-*/
+.DS_Store
+
+# Local experiment media is not part of the application source
+exp/truth/*.m4a

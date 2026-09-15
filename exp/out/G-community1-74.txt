@@ -1,0 +1,24 @@
+EXPERIMENT G — pyannote community-1, against the owner's ear
+the same two signals experiment 11 measured, and the same question
+
+  3:04–4:56  Сергій
+  4:56–4:59  Kovalenko Ostap
+  5:00–6:12  Сергій
+
+community-1 loaded on mps in 2s
+
+── mix
+   6 speakers found, 33s (42x realtime)
+   3:04–4:56  Сергій             → SPEAKER_04   holds 100%
+   4:56–4:59  Kovalenko Ostap   → SPEAKER_04   holds 79%
+   5:00–6:12  Сергій             → SPEAKER_04   holds 98%
+   the stranger is one speaker      yes
+   and not the enrolled one         NO
+
+── tap
+   5 speakers found, 39s (35x realtime)
+   3:04–4:56  Сергій             → SPEAKER_02   holds 100%
+   4:56–4:59  Kovalenko Ostap   → SPEAKER_04   holds 100%
+   5:00–6:12  Сергій             → SPEAKER_02   holds 97%
+   the stranger is one speaker      yes
+   and not the enrolled one         yes

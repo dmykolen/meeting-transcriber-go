@@ -1,0 +1,35 @@
+EXPERIMENT M — a glossary, and the context it costs
+
+glossary: Northwind, Azure, OpenAI, DevOps, CRM, Jira, Confluence, GitLab, Kafka, Oracle, SQLModel, Kubernetes, VPN, API, LLM, VectorDB, IDM, Active Directory, Teams, Excel, роадмап, спринт, деплой, реліз.
+
+==============================================================================
+meet-test   167 s, 274 reference words
+==============================================================================
+  setup       rows   agreement  median   repeats  longest  pace
+  ────────────────────────────────────────────────────────────────────────────
+  ships       40     83       % 0.37     0        1        49x
+  ctx-64      33     82       % 0.39     0        1        43x
+  ctx-224     34     83       % 0.55     0        1        44x
+  gloss-64    38     81       % 0.46     0        1        50x
+  gloss-224   31     81       % 0.36     0        1        41x
+
+==============================================================================
+daily   728 s, 1432 reference words
+==============================================================================
+  setup       rows   agreement  median   repeats  longest  pace
+  ────────────────────────────────────────────────────────────────────────────
+  ships       198    89       % 0.23     1        2        52x
+  ctx-64      166    88       % 0.34     0        1        52x
+  ctx-224     227    89       % 0.20     0        1        40x
+  gloss-64    172    88       % 0.32     0        1        49x
+  gloss-224   191    89       % 0.21     1        2        36x
+
+  agreement  of the reference's words, how many we wrote the same
+  repeats    rows whose text repeats the row before them
+  longest    the longest run of one row repeating — the failure mode
+
+  ships       no context, no glossary — what ships
+  ctx-64      context back on, still no glossary — what context alone costs
+  ctx-224     more context, no glossary
+  gloss-64    the glossary, in a small window
+  gloss-224   the glossary, in a window big enough to hold it

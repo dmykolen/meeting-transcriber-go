@@ -1,0 +1,82 @@
+EXPERIMENT F — segmentation, embedding and channel, against the owner's ear
+recording 74 — a planning meeting, 1380.2 s
+
+He says:
+  3:04–4:56  Сергій
+  4:56–4:59  Kovalenko Ostap
+  5:00–6:12  Сергій
+
+The two Сергій windows must agree with each other and must NOT share a
+label with the Kovalenko window. Everything else is detail.
+
+── as it ships
+   5 speakers found, 1m1s (23x realtime)
+   3:04–4:56  Сергій             → speaker 0   holds 100%
+   4:56–4:59  Kovalenko Ostap   → speaker 0   holds 100%
+   5:00–6:12  Сергій             → speaker 0   holds 88%
+   the stranger is one speaker      yes
+   and not the enrolled one         NO
+
+── + zh_en embedding
+   17 speakers found, 1m0s (23x realtime)
+   3:04–4:56  Сергій             → speaker 4   holds 95%
+   4:56–4:59  Kovalenko Ostap   → speaker 4   holds 100%
+   5:00–6:12  Сергій             → speaker 4   holds 98%
+   the stranger is one speaker      yes
+   and not the enrolled one         NO
+
+── + ERes2NetV2
+   11 speakers found, 3m2s (8x realtime)
+   3:04–4:56  Сергій             → speaker 4   holds 100%
+   4:56–4:59  Kovalenko Ostap   → speaker 4   holds 100%
+   5:00–6:12  Сергій             → speaker 4   holds 98%
+   the stranger is one speaker      yes
+   and not the enrolled one         NO
+
+── reverb segmentation
+   6 speakers found, 6m33s (4x realtime)
+   3:04–4:56  Сергій             → speaker 0   holds 100%
+   4:56–4:59  Kovalenko Ostap   → speaker 0   holds 100%
+   5:00–6:12  Сергій             → speaker 0   holds 100%
+   the stranger is one speaker      yes
+   and not the enrolled one         NO
+
+── reverb + zh_en
+   15 speakers found, 6m35s (3x realtime)
+   3:04–4:56  Сергій             → speaker 2   holds 100%
+   4:56–4:59  Kovalenko Ostap   → speaker 2   holds 100%
+   5:00–6:12  Сергій             → speaker 2   holds 96%
+   the stranger is one speaker      yes
+   and not the enrolled one         NO
+
+── tap only, as it ships
+   5 speakers found, 52s (26x realtime)
+   3:04–4:56  Сергій             → speaker 2   holds 69%
+   4:56–4:59  Kovalenko Ostap   → speaker 2   holds 100%
+   5:00–6:12  Сергій             → speaker 2   holds 85%
+   the stranger is one speaker      yes
+   and not the enrolled one         NO
+
+── tap only + zh_en
+   14 speakers found, 53s (26x realtime)
+   3:04–4:56  Сергій             → speaker 3   holds 100%
+   4:56–4:59  Kovalenko Ostap   → speaker 2   holds 100%
+   5:00–6:12  Сергій             → speaker 3   holds 97%
+   the stranger is one speaker      yes
+   and not the enrolled one         yes
+
+── tap only, tighter (0.7)
+   26 speakers found, 53s (26x realtime)
+   3:04–4:56  Сергій             → speaker 8   holds 100%
+   4:56–4:59  Kovalenko Ostap   → speaker 12  holds 100%
+   5:00–6:12  Сергій             → speaker 8   holds 97%
+   the stranger is one speaker      yes
+   and not the enrolled one         yes
+
+── tap only, shorter floor
+   14 speakers found, 53s (26x realtime)
+   3:04–4:56  Сергій             → speaker 3   holds 100%
+   4:56–4:59  Kovalenko Ostap   → speaker 2   holds 100%
+   5:00–6:12  Сергій             → speaker 3   holds 97%
+   the stranger is one speaker      yes
+   and not the enrolled one         yes

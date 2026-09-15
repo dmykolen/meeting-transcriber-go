@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 660 400" width="660" height="400">
+  <!-- What somebody sees when they open the disk image. One instruction, and
+       nothing else: drag the app onto the folder. -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0.6" y2="1">
+      <stop offset="0" stop-color="#16151C"/>
+      <stop offset="1" stop-color="#0E0D13"/>
+    </linearGradient>
+  </defs>
+  <rect width="660" height="400" fill="url(#bg)"/>
+
+  <text x="330" y="64" text-anchor="middle" font-family="-apple-system, Helvetica Neue, Helvetica"
+        font-size="21" font-weight="600" fill="#F2F1F6" letter-spacing="-0.2">Meeting Transcriber</text>
+  <text x="330" y="90" text-anchor="middle" font-family="-apple-system, Helvetica Neue, Helvetica"
+        font-size="13" fill="#8E8B9B">Drag it onto Applications, then open it</text>
+
+  <!-- The arrow sits between where the two icons are placed by the AppleScript
+       in the Makefile: 180,215 and 480,215. -->
+  <g stroke="#6D4BE0" stroke-width="2.5" fill="none" opacity="0.75" stroke-linecap="round">
+    <path d="M262 215 H 392"/>
+    <path d="M378 202 L 393 215 L 378 228"/>
+  </g>
+
+  <text x="330" y="352" text-anchor="middle" font-family="-apple-system, Helvetica Neue, Helvetica"
+        font-size="11" fill="#5C5A68">It downloads what it needs the first time you open it. Everything stays on your Mac.</text>
+</svg>

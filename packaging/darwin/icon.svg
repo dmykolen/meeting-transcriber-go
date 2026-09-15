@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <!-- The app icon. Rendered to AppIcon.icns by packaging/darwin/make-icon.sh,
+       which is run by hand when this file changes — the result is committed, so
+       building the app needs nothing installed.
+
+       Apple's grid: the rounded square occupies 824 of 1024 with a corner
+       radius of 185, which is what makes it sit at the same visual weight as
+       every other icon in the Dock. -->
+  <defs>
+    <linearGradient id="tile" x1="0" y1="0" x2="0.35" y2="1">
+      <stop offset="0" stop-color="#8B6BF0"/>
+      <stop offset="0.55" stop-color="#6D4BE0"/>
+      <stop offset="1" stop-color="#4A2FA8"/>
+    </linearGradient>
+    <linearGradient id="sheen" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.28"/>
+      <stop offset="0.5" stop-color="#FFFFFF" stop-opacity="0.04"/>
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
+    </linearGradient>
+    <filter id="cast" x="-20%" y="-20%" width="140%" height="150%">
+      <feDropShadow dx="0" dy="10" stdDeviation="18" flood-color="#1A0F3D" flood-opacity="0.45"/>
+    </filter>
+  </defs>
+
+  <g filter="url(#cast)">
+    <rect x="100" y="100" width="824" height="824" rx="185" fill="url(#tile)"/>
+    <rect x="100" y="100" width="824" height="824" rx="185" fill="url(#sheen)"/>
+    <rect x="100" y="100" width="824" height="824" rx="185" fill="none"
+          stroke="#FFFFFF" stroke-opacity="0.16" stroke-width="3"/>
+  </g>
+
+  <!-- The bars of a level meter, which is what this app is: something that is
+       always listening. Uneven on purpose — a flat row reads as a logo, an
+       uneven one reads as sound. -->
+  <g fill="#FFFFFF" opacity="0.96">
+    <rect x="266" y="452" width="46" height="120" rx="23"/>
+    <rect x="346" y="392" width="46" height="240" rx="23"/>
+    <rect x="426" y="302" width="46" height="420" rx="23"/>
+    <rect x="506" y="356" width="46" height="312" rx="23"/>
+    <rect x="586" y="418" width="46" height="188" rx="23"/>
+    <rect x="666" y="466" width="46" height="92" rx="23"/>
+  </g>
+
+  <!-- One bar still lit after the others have fallen: it is listening now. -->
+  <rect x="746" y="404" width="46" height="216" rx="23" fill="#FFD8A8"/>
+</svg>

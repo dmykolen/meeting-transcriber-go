@@ -1,0 +1,53 @@
+EXPERIMENT D — a switch instead of a sum
+recording 74 — a planning meeting, 1380.2 s
+
+Two numbers decide this:
+  ECHO  how loud the leftover copy of the far side is, relative to them.
+        Under -25 dB nobody hears it. At -13 dB everybody does.
+  YOU   how much of your own voice survives, where only you are talking.
+        0 dB is untouched. Anything under -3 dB is a recording that lost you.
+
+── fold as it ships (duck 0.25)
+   sum: system + mic*0.25
+   ECHO  median  -19.1 dB   p75  -13.5   p90   -7.9   audible in 1553 of 1574 (99%)
+   YOU   -1.8 dB ← noticeably quieter than you were
+
+── fold, ducked to 0.05
+   same sum, twenty times quieter a second copy
+   ECHO  median  -20.5 dB   p75  -14.6   p90   -8.7   audible in 1536 of 1574 (98%)
+   YOU   -1.8 dB ← noticeably quieter than you were
+
+── fold, ducked to 0.02
+   same sum, near enough to a switch
+   ECHO  median  -21.4 dB   p75  -15.5   p90   -9.2   audible in 1506 of 1574 (96%)
+   YOU   -1.8 dB ← noticeably quieter than you were
+
+── switch, soft
+   one owner per instant, ramped
+   ECHO  median   -8.7 dB   p75   -2.8   p90    1.3   audible in 1405 of 1574 (89%)
+   YOU   -0.0 dB ← you come through as recorded
+
+── switch, hard
+   one owner per instant, no ramp
+   ECHO  median   -9.1 dB   p75   -3.0   p90    1.0   audible in 1393 of 1574 (89%)
+   YOU   +0.0 dB ← you come through as recorded
+
+── switch, soft, tap 200 ms earlier
+   aligned, then one owner per instant
+   ECHO  median  -16.7 dB   p75   -8.4   p90   -2.4   audible in 1173 of 1579 (74%)
+   YOU   -0.0 dB ← you come through as recorded
+
+── switch, soft, tap 230 ms earlier
+   aligned, then one owner per instant
+   ECHO  median  -23.3 dB   p75  -13.8   p90   -7.1   audible in 877 of 1589 (55%)
+   YOU   -0.0 dB ← you come through as recorded
+
+── switch, soft, tap 260 ms earlier
+   aligned, then one owner per instant
+   ECHO  median  -15.1 dB   p75   -7.2   p90   -2.5   audible in 1257 of 1583 (79%)
+   YOU   -0.0 dB ← you come through as recorded
+
+
+What to read from this: ducking harder buys decibels of echo at the price
+of your own voice, because it is still a sum. A switch pays neither price,
+because at any instant only one channel is in the mix at all.

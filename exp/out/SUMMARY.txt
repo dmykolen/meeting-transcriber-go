@@ -1,0 +1,107 @@
+THREE EXPERIMENTS ON "a planning meeting" (recording 74, 23 min)
+========================================================================
+
+The repetition the owner reported is NOT echo. It is in the transcript, and
+Whisper put it there. As shipped, this meeting contains "Данію." ten times in a
+row, one row per second, from 15:31 to 15:42.
+
+
+A — WHISPER SETTINGS                                    A-whisper-74.txt
+------------------------------------------------------------------------
+  setting                          rows   loops   longest run   speed
+  as it ships                       281      10          10x     44x
+  max_text_ctx = 0                  210       0           —      56x   ← fix
+  temperature fallback only         281      10          10x     33x
+  max_text_ctx 0 + fallback         210       0           —      35x
+  the same + beam 5                 210       0           —      21x
+
+  One setting is enough. max_text_ctx = 0 is whisper.cpp's name for
+  "condition_on_previous_text = False": the decoder stops being fed its own
+  previous output, so it cannot lock into a groove. It removes every repetition
+  and is FASTER than what ships. The temperature fallback does nothing at all
+  here, and beam search only costs time.
+
+
+B — PARAKEET INSTEAD OF WHISPER                        B-parakeet-74.txt
+------------------------------------------------------------------------
+                    rows   loops   cyrillic letters   russian letters   speed
+  parakeet            11       0               5701                 0    8.1x
+  whisper            281      10              10367                 0   11.4x
+
+  Parakeet does not loop — it structurally cannot. But it transcribed eleven
+  rows for a twenty-three minute meeting, roughly one every two minutes, and
+  what it produced is largely nonsense: "Тому це дефої теперізм, виконувати
+  агресію". Half the letters of the Whisper run and none of the meaning. It is
+  also slower.
+
+  The earlier worry — that Parakeet decides a Ukrainian meeting is Russian —
+  did not repeat here: zero Russian-only letters. It is simply much worse on
+  this material, and slower.
+
+  Verdict: not a replacement.
+
+
+C — THE TWO CHANNELS TRANSCRIBED SEPARATELY                C-split-74.txt
+------------------------------------------------------------------------
+  microphone (the owner)      406 rows,  1m41s,  no clustering ran at all
+  system tap (everyone else)  260 rows,  2m17s,  5 speakers
+  both, interleaved           666 rows,  1 repetition (a real one: "Ні, ні, ні.")
+
+  Scored against what the owner heard:
+
+    3:04–4:56  he says Сергій            → tap says SPEAKER_02
+    4:56–4:59  he says Kovalenko Ostap  → tap says SPEAKER_02
+    5:00–6:12  he says Сергій            → tap says SPEAKER_02
+
+  The two Сергій stretches agree with each other and come back as a speaker of
+  their own rather than as somebody the app already knows. That is the correct
+  answer for a person nobody has enrolled, and it is exactly what the shipping
+  pipeline gets wrong: today both stretches are labelled "Kovalenko Ostap", a
+  stranger folded into an enrolled person, which nothing downstream can undo.
+
+  The three-second Kovalenko interjection at 4:56 is missed. It is shorter than
+  the diarizer's min_duration_on and sits inside a long stretch of one voice.
+
+  What C does NOT fix on its own: the microphone hears the far side through the
+  speakers, so the microphone transcript also contains their words. Adding the
+  two transcripts together double-counts. That is a routing decision per row —
+  which channel owns this moment — not sample-level echo cancellation, and it
+  is a much smaller problem than the one that has been chased for days.
+
+
+D — A SWITCH INSTEAD OF A SUM                              D-switch-74.txt
+------------------------------------------------------------------------
+  The owner worked out in one sentence what days of DSP did not: the recording
+  is fine, the mixing is not. media/fold.go ends with
+
+      out[i] = system[i] + mic[i]*gain
+
+  which is a SUM. The microphone is ducked to 0.25 while the far side talks but
+  it is still added, and it still holds their voice coming back off the
+  speakers. Every remote sentence is therefore in the mix twice.
+
+  mix                                ECHO median   audible   YOU
+  fold as it ships (duck 0.25)           -19.1 dB      99%   -1.8 dB
+  fold, ducked to 0.05                   -20.5 dB      98%   -1.8 dB
+  fold, ducked to 0.02                   -21.4 dB      96%   -1.8 dB
+  switch, not aligned                     -8.7 dB      89%   -0.0 dB
+  switch, tap 200 ms earlier             -16.7 dB      74%   -0.0 dB
+  switch, tap 230 ms earlier             -23.3 dB      55%   -0.0 dB   ← best
+  switch, tap 260 ms earlier             -15.1 dB      79%   -0.0 dB
+
+  Two things to read here.
+
+  Ducking harder does almost nothing (-19.1 to -21.4 dB for a twelve-fold
+  change) and costs the owner's own voice 1.8 dB every time, because it is
+  still a sum. A switch costs his voice NOTHING — 0.0 dB in every case — since
+  at any instant only one channel is in the mix at all.
+
+  And the switch only works aligned. Unaligned it is worse than the fold: it
+  changes hands a quarter of a second late at both ends of every sentence. The
+  sweep peaks at 230 ms, which is the same figure experiment 4 arrived at by a
+  completely different route.
+
+  What is left at -23.3 dB is double-talk: while both are speaking the
+  microphone legitimately owns the moment and carries their room copy with it.
+  That is the part a real echo canceller would finish — and now it would
+  converge, because the channels line up.

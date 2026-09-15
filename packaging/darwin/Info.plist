@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleName</key>
+	<string>Meeting Transcriber</string>
+	<key>CFBundleDisplayName</key>
+	<string>Meeting Transcriber</string>
+	<key>CFBundleExecutable</key>
+	<string>MeetingTranscriber</string>
+	<key>CFBundleIconFile</key>
+	<string>AppIcon</string>
+
+	<!-- macOS ties a privacy grant to this identifier. Change it and the
+	     microphone and system-audio permissions are asked for again — or worse,
+	     silently refused while the app records silence. It is fixed, for good. -->
+	<key>CFBundleIdentifier</key>
+	<string>com.dmykolen.meetingtranscriber</string>
+
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>0.1.0</string>
+	<key>CFBundleVersion</key>
+	<string>1</string>
+	<key>NSHighResolutionCapable</key>
+	<true/>
+
+	<!-- Core Audio process taps, which is how the other participants are heard,
+	     arrived in macOS 14.2. -->
+	<key>LSMinimumSystemVersion</key>
+	<string>14.2</string>
+
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Records your voice so meetings can be written down on this machine.</string>
+	<key>NSAudioCaptureUsageDescription</key>
+	<string>Records what the other participants say, so a transcript is not just your half of the conversation.</string>
+</dict>
+</plist>

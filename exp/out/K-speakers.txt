@@ -1,0 +1,72 @@
+EXPERIMENT K — who is talking
+
+audio      meet-test.m4a   167.3 s
+reference  274 words of speech, 3 speakers, 118.0 s of it
+
+  segmentation  embedding       threshold speakers  agree    coverage  took
+  ────────────────────────────────────────────────────────────────────────────────────────────
+  pyannote-3.0  campplus-zh_en  0.40      8         70     % 92      % 7.2   s  ←
+  pyannote-3.0  campplus-zh_en  0.50      7         71     % 92      % 7.3   s  ←
+  pyannote-3.0  campplus-zh_en  0.60      7         71     % 92      % 7.2   s
+  pyannote-3.0  campplus-zh_en  0.70      5         72     % 92      % 7.2   s  ←
+  pyannote-3.0  campplus-zh_en  0.80      3         61     % 92      % 7.2   s
+  pyannote-3.0  campplus-zh_en  0.90      3         61     % 92      % 7.2   s
+  pyannote-3.0  campplus-zh_en  1.00      3         61     % 92      % 7.2   s
+  pyannote-3.0  campplus-zh_en  1.10      2         50     % 92      % 7.2   s
+  pyannote-3.0  campplus-zh_en  told 3    3         50     % 92      % 7.3   s
+
+  pyannote-3.0  eres2netv2      0.40      5         83     % 92      % 22.5  s  ←
+  pyannote-3.0  eres2netv2      0.50      4         68     % 92      % 23.1  s
+  pyannote-3.0  eres2netv2      0.60      4         68     % 92      % 22.4  s
+  pyannote-3.0  eres2netv2      0.70      4         50     % 92      % 22.2  s
+  pyannote-3.0  eres2netv2      0.80      3         50     % 92      % 22.2  s
+  pyannote-3.0  eres2netv2      0.90      2         50     % 92      % 22.2  s
+  pyannote-3.0  eres2netv2      1.00      2         50     % 92      % 22.3  s
+  pyannote-3.0  eres2netv2      1.10      1         51     % 92      % 22.2  s
+  pyannote-3.0  eres2netv2      told 3    2         50     % 92      % 22.4  s
+
+  pyannote-3.0  titanet-large   0.40      11        54     % 91      % 13.2  s
+  pyannote-3.0  titanet-large   0.50      9         63     % 92      % 15.8  s
+  pyannote-3.0  titanet-large   0.60      8         58     % 92      % 13.6  s
+  pyannote-3.0  titanet-large   0.70      8         58     % 92      % 13.2  s
+  pyannote-3.0  titanet-large   0.80      5         52     % 92      % 13.2  s
+  pyannote-3.0  titanet-large   0.90      3         54     % 92      % 13.2  s
+  pyannote-3.0  titanet-large   1.00      2         50     % 92      % 13.2  s
+  pyannote-3.0  titanet-large   1.10      2         50     % 92      % 13.2  s
+  pyannote-3.0  titanet-large   told 3    2         50     % 92      % 13.1  s
+
+  reverb-v2     campplus-zh_en  0.40      8         58     % 100     % 45.6  s
+  reverb-v2     campplus-zh_en  0.50      7         77     % 100     % 46.1  s
+  reverb-v2     campplus-zh_en  0.60      6         75     % 100     % 45.8  s
+  reverb-v2     campplus-zh_en  0.70      5         75     % 100     % 45.9  s
+  reverb-v2     campplus-zh_en  0.80      5         75     % 100     % 45.9  s
+  reverb-v2     campplus-zh_en  0.90      3         76     % 100     % 46.0  s
+  reverb-v2     campplus-zh_en  1.00      2         59     % 100     % 46.0  s
+  reverb-v2     campplus-zh_en  1.10      1         58     % 100     % 46.3  s
+  reverb-v2     campplus-zh_en  told 3    3         76     % 100     % 46.1  s
+
+  reverb-v2     eres2netv2      0.40      5         75     % 100     % 65.0  s
+  reverb-v2     eres2netv2      0.50      4         75     % 100     % 65.4  s
+  reverb-v2     eres2netv2      0.60      4         75     % 100     % 64.7  s
+  reverb-v2     eres2netv2      0.70      4         75     % 100     % 64.6  s
+  reverb-v2     eres2netv2      0.80      2         56     % 100     % 65.0  s
+  reverb-v2     eres2netv2      0.90      2         56     % 100     % 64.7  s
+  reverb-v2     eres2netv2      1.00      2         56     % 100     % 64.5  s
+  reverb-v2     eres2netv2      1.10      1         58     % 100     % 65.1  s
+  reverb-v2     eres2netv2      told 3    2         56     % 100     % 64.9  s
+
+  reverb-v2     titanet-large   0.40      8         79     % 100     % 54.1  s
+  reverb-v2     titanet-large   0.50      6         79     % 100     % 53.9  s
+  reverb-v2     titanet-large   0.60      6         80     % 100     % 54.3  s
+  reverb-v2     titanet-large   0.70      4         73     % 100     % 53.7  s
+  reverb-v2     titanet-large   0.80      4         73     % 100     % 52.9  s
+  reverb-v2     titanet-large   0.90      2         56     % 100     % 54.0  s
+  reverb-v2     titanet-large   1.00      2         56     % 100     % 54.2  s
+  reverb-v2     titanet-large   1.10      1         58     % 100     % 54.0  s
+  reverb-v2     titanet-large   told 3    2         56     % 100     % 53.8  s
+
+  best: pyannote-3.0 + eres2netv2 at 0.40 at 83%
+
+  agree     of the reference's speech, how much we name the same way
+  coverage  of the reference's speech, how much our spans cover at all
+  the app ships pyannote-3.0 + campplus-zh_en at 0.90
