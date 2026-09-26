@@ -4,6 +4,7 @@ build/
 # Local frontend and Wails development artifacts
 frontend/node_modules/
 frontend/.bindings-tmp-*/
+frontend/.env*.local
 .DS_Store
 
 # Local experiment media is not part of the application source

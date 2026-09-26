@@ -9,6 +9,11 @@
   writes searchable transcripts, and keeps decisions and follow-up work in one place.
 </p>
 
+<p align="center">
+  <strong>Interactive demo:</strong>
+  download <a href="docs/demo.html"><code>docs/demo.html</code></a> and open it locally.
+</p>
+
 Meeting Transcriber is for people who leave a call knowing that something
 important was decided, but not where it was said or who agreed to do it. It
 records the microphone and the other side of the call, turns the audio into a
@@ -359,3 +364,11 @@ and [Notarizing macOS software before distribution](https://developer.apple.com/
 > Do not send only `build/mt`. The `.app` is what carries the native libraries,
 > system-audio helper, app identity, icon, and privacy descriptions. The DMG is
 > the intended hand-off.
+
+## Development references
+
+- [Architecture](.spec/architecture.md)
+- [Engineering decisions](.spec/decisions.md)
+- [Experiments](.spec/experiments.md)
+- [Roadmap](.spec/roadmap.md)
+- [MCP setup](docs/mcp.md)

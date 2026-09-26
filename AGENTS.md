@@ -1,322 +1,273 @@
 # AGENTS.md
 
-This file applies to the entire repository.
+This file applies to the entire repository. It is the operating contract for
+coding agents working on Meeting Transcriber.
 
 ## Product
 
-Meeting Transcriber is a local-first macOS desktop app that records meetings,
-separates speakers, creates transcripts, extracts decisions and action items,
-maintains project memory, and exposes the archive to AI clients through MCP.
+Meeting Transcriber is a local-first macOS desktop app. It records microphone
+and system audio, transcribes locally, separates and recognises speakers, keeps
+meeting and project knowledge in SQLite, and exposes the archive through a
+read-only MCP server.
 
-The application is:
+Stack:
 
-- Go with Wails v3;
-- React 19, TypeScript, Vite, Tailwind CSS, Motion, and Lucide on the frontend;
-- SQLite-backed;
-- packaged as one macOS application bundle;
-- designed for Ukrainian-speaking teams that naturally mix English technical
-  terms into their work.
+- Go 1.26 and Wails v3
+- React 19, TypeScript, Vite, Tailwind CSS, Motion, and Lucide
+- SQLite
+- whisper.cpp and sherpa-onnx
+- optional OpenAI calls behind `internal/insights`
 
-## The standard
+The owner communicates in Ukrainian. Reply in Ukrainian. Keep code, comments,
+documentation, logs, and technical identifiers in English. The product UI is
+Ukrainian, with familiar English technical terms where that is clearer.
 
-Do not deliver the first acceptable implementation. Deliver the version that
-makes the product feel inevitable.
+## Source of truth
 
-For visual work, “modern” is not a style. Establish a strong concept, make the
-product itself the visual evidence, and remove anything that does not strengthen
-the story.
-
-The successful product-demo reference is `demo.html`. Preserve its quality bar,
-not its exact composition. Future work should feel related but must not become a
-template with different text.
-
-## Source priority
+Use this order when information conflicts:
 
 1. The current user request.
-2. This file.
-3. Actual source code and the running product.
-4. Installed library APIs and build configuration.
+2. Running code and tests.
+3. This file.
+4. The focused documents in `.spec/`.
+5. Current upstream documentation and installed library source.
 
-Do not let generic templates, stale plans, old mockups, or unrelated Markdown
-files dilute a clear request. Read another document only when the task directly
-requires facts from it. For implementation truth, prefer executable code,
-runtime behavior, and installed versions.
+Do not treat old chat history, generated prose, experiment output, or a stale
+comment as truth. Verify behavior in code and, when practical, by running it.
 
-## Product interface character
+Useful references:
 
-The interface is a quiet instrument, not a cheerful SaaS dashboard.
+- [Architecture](.spec/architecture.md)
+- [Engineering decisions](.spec/decisions.md)
+- [Experiments](.spec/experiments.md)
+- [Roadmap](.spec/roadmap.md)
 
-- Dark, focused, precise, and native to macOS.
-- Dense enough for daily work, but never cluttered.
-- Violet is the identity color. Cool near-neutral surfaces make it feel vivid.
-- Bright green and coral are functional status colors, not decoration.
-- Typography must handle Ukrainian properly. Geologica is the established
-  product face.
-- State facts without judging people.
-- No exclamation marks, congratulatory language, “Oops”, or chatty helper copy.
-- Every wait must have a named visible state.
-- Errors must say what happened and what the user can do.
-- Prefer fewer boxes, borders, labels, and words.
-- Do not automatically move the user between tabs.
-- Destructive actions must be quiet, reversible, keyboard-accessible, and must
-  not cover or move content when they appear.
-- Hover may enhance an action but must never be its only entry point.
+## The overriding code rule
 
-## Interaction and motion
+Write the smallest amount of code that completely solves the current problem.
 
-Motion must explain change, reveal structure, or create narrative tension. It
-must not exist merely because animation is available.
+- Prefer direct, idiomatic Go and TypeScript.
+- Prefer one obvious function over a framework of helpers.
+- Do not add factories, registries, base classes, wrappers, adapters, or
+  interfaces for requirements that do not exist.
+- A helper used once usually belongs inline.
+- Do not create a new package merely to move a few lines elsewhere.
+- Avoid duplication, but do not invent an abstraction to remove three simple
+  repeated lines.
+- Use a mature library directly when it already solves the problem.
+- Every new dependency must earn its place.
+- Optimize for the engineer opening the file tomorrow, not for architectural
+  symmetry.
 
-Prefer:
+Do not fix unrelated issues or reformat unrelated files. Preserve user changes
+in a dirty worktree.
 
-- scroll-linked transforms;
-- masked or clipped reveals;
-- sticky scenes with internal progression;
-- perspective and layered depth;
-- coordinated entrances and exits;
-- spatial continuity between related states;
-- subtle ambient motion;
-- short physical easing with deliberate deceleration;
-- opacity and transforms over layout-triggering animation.
+## Research before implementation
 
-Avoid:
+Library and platform knowledge becomes stale quickly.
 
-- every element fading upward;
-- bouncing or elastic easing;
-- random particles unrelated to the product;
-- spinning gradients used as decoration;
-- gratuitous glass cards;
-- endless carousels;
-- horizontal slide decks;
-- scroll hijacking that ignores user intent;
-- animation that delays access to content;
-- motion that makes screenshots harder to read.
+- Check current official documentation, source, and tests before using an
+  unfamiliar or version-sensitive API.
+- Verify the installed version with `go doc`, source inspection, or TypeScript
+  types. Trust the installed runtime over a blog post.
+- Search the repository for prior art before adding a new pattern.
+- When a technology choice matters, compare realistic alternatives and explain
+  the chosen tradeoff briefly.
+- Do not claim a performance or quality improvement without measuring it.
 
-Always support `prefers-reduced-motion`. The reduced-motion version must remain
-complete and understandable, not blank or half-revealed.
+## Architecture boundaries
 
-## Cinematic HTML presentations
+- `main.go` is the composition root.
+- `internal/audio` captures microphone and system audio.
+- `internal/listen` owns detection, preroll, recording, and live text.
+- `internal/media` decodes, aligns, folds, and prepares playback.
+- `internal/engine` owns transcription, diarization, and voice embeddings.
+- `internal/store` owns SQLite and deterministic derived data.
+- `internal/library` owns the processing queue and transcript-derived artifacts.
+- `internal/service` is the Wails and MCP application surface.
+- `internal/insights` is the only outbound AI boundary.
+- `frontend/src` is the product interface.
 
-When asked for a demo, pitch, showcase, landing experience, or HTML
-presentation, use the following standard.
+Share the existing database, library, engine, and service objects. Do not create
+parallel stores, background coordinators, or a second source of truth.
 
-### Format
+The frontend is embedded into the Go executable. MCP is part of that same
+executable. Do not introduce a separate daemon or companion binary without an
+explicit requirement.
 
-- Produce one self-contained HTML file unless the user explicitly asks for a
-  framework project.
-- Embed screenshots, icons, fonts, CSS, and JavaScript.
-- Do not depend on CDNs, remote fonts, external scripts, or network access.
-- Keep the result directly openable with `open path/to/file.html`.
-- Prefer WebP for embedded screenshots.
-- Keep the file below 1 MiB when practical. Never bypass the repository's
-  large-file check; optimize the artifact instead.
+## Non-negotiable runtime contracts
 
-### Narrative
+- The app window appears before models are downloaded or loaded. Heavy model
+  work stays in the background.
+- Transcription, diarization, playback, analytics, and keyword search work
+  locally. OpenAI remains optional.
+- Downloaded models and tools such as FFmpeg live in the app-managed home
+  directory. The macOS `audiotee` helper is deliberately bundled inside the
+  `.app`.
+- The microphone is the left channel and system audio is the right channel.
+  Do not collapse them before logic that depends on channel ownership.
+- Live capture has priority over queued historical processing.
+- Audio retention must never remove transcripts, summaries, notes, or project
+  state.
+- A human edit wins over model output. Pinned project items must not be
+  silently rewritten.
+- The MCP HTTP endpoint remains loopback-only. MCP tools remain explicit about
+  read-only and destructive behavior. Never expose API keys or raw voiceprint
+  vectors.
+- Run the packaged app through the `.app` bundle. Launching a bare executable
+  changes macOS privacy attribution.
 
-Do not make a conventional deck. Build one continuous vertical experience.
+Read `.spec/decisions.md` before changing audio alignment, VAD, timestamps,
+speaker thresholds, voice matching, model settings, project-state updates, or
+startup behavior.
 
-- Scrolling is the timeline.
-- A wheel or trackpad movement should reveal, assemble, separate, focus, or
-  dismiss information rather than merely translate the page downward.
-- Use tall scene containers with sticky full-viewport stages.
-- Derive normalized per-scene progress and expose it through CSS custom
-  properties.
-- Let one scene visually transform into the next.
-- Use 6–9 strong scenes rather than many weak sections.
-- Give the story an arc: problem → transformation → proof → strategic value →
-  trust → memorable ending.
+## Error and state handling
 
-The viewer should understand the value without a presenter explaining every
-screen.
+Nothing important fails silently.
 
-### Content
+- Return useful errors at boundaries.
+- Do not add broad catches, empty fallbacks, or success-shaped failure values.
+- A background worker must survive one failed job and record where it failed.
+- Long operations expose a named state and progress where available.
+- Startup, downloads, model loading, recording phases, processing phases, and
+  MCP lifecycle remain observable in logs or UI.
+- Invalid external/request input is rejected explicitly.
+- Persisted config is different: malformed or legacy values fall back per
+  setting and must not prevent the app window from opening.
 
-- Use minimal copy and maximum visual proof.
-- Headlines should be short enough to say aloud in one breath.
-- Every sentence must earn its place.
-- Do not add generic claims such as “revolutionize your workflow”, “seamless
-  experience”, or “unlock the power of AI”.
-- Promote outcomes, not implementation details.
-- Show the actual app instead of drawing fake dashboard cards.
-- Use concrete product data, decisions, owners, dates, questions, and sources.
-- Never fabricate measured savings or adoption claims.
+## Testing
 
-### Real product screenshots
+Test the real path around the expensive boundary.
 
-Real screenshots are mandatory when the product can be run.
+- Stub the ASR, diarizer, network model, or operating-system boundary—not the
+  application method being tested.
+- Fakes must reject inputs the real dependency rejects.
+- Use realistic configuration, including blank optional values.
+- Add regression coverage for bugs tightly coupled to a change.
+- Run the narrowest relevant test first, then the broader suite when risk
+  warrants it.
+- Frontend work is not done after `npm run build`: exercise it in a real
+  browser and, for native behavior, in the Wails app.
+- Any JavaScript console error is a failure.
+- Media-path verification must use formats supported by the test browser.
 
-1. Start the current app or its design-data mode.
-2. Set a deliberate viewport.
-3. Navigate to representative states.
-4. Populate interactions when needed: enter a search query, ask a question, open
-   a transcript, select a project, or expose integration settings.
-5. Move the pointer away and wait for hover effects to settle.
-6. Capture several distinct states, not variations of one screen.
-7. Inspect every screenshot before embedding it.
-
-Use screenshots as scene material:
-
-- crop them;
-- layer them;
-- move them through depth;
-- reveal details with masks or lenses;
-- extract key facts into the foreground;
-- preserve enough resolution for the UI to remain credible.
-
-Do not present screenshots as a plain gallery or a row of laptop mockups.
-
-### Creative direction
-
-Choose a concept before writing markup. The concept should connect directly to
-the product.
-
-Good examples for this product:
-
-- spoken fragments condensing into institutional memory;
-- a meeting becoming decisions, owners, and open questions;
-- a lens searching across transcripts, notes, and projects;
-- a stack of meetings resolving into one current project state;
-- MCP clients orbiting the same local knowledge source;
-- sound becoming a persistent visual signal.
-
-The concept must determine layout, motion, rhythm, and transitions. Do not apply
-effects independently.
-
-### Visual system
-
-- Use one dominant background family and one clear identity accent.
-- Use large scale contrast: cinematic headlines against small operational
-  labels.
-- Prefer asymmetry and controlled off-screen composition over centered card
-  grids.
-- Build depth with scale, perspective, occlusion, blur, and contrast—not heavy
-  drop shadows alone.
-- Use ambient texture sparingly to avoid sterile flat color.
-- Keep screenshots visually dominant.
-- End with one memorable line and a strong color-field change.
-
-## Required presentation workflow
-
-Do not skip steps.
-
-1. **Inspect the actual product**
-   - Read the relevant UI code and data shapes.
-   - Run the current interface.
-   - Identify the product outcomes that matter to the requested audience.
-
-2. **Capture evidence**
-   - Capture real screens at a consistent high-resolution viewport.
-   - Include at least four substantially different product states.
-
-3. **Define the story**
-   - Write the scene sequence before styling.
-   - Remove any scene that repeats the previous claim.
-   - Keep supporting copy intentionally sparse.
-
-4. **Build**
-   - Implement the complete experience in one coherent pass.
-   - Use native browser capabilities before adding libraries.
-   - Keep JavaScript small and deterministic.
-   - Animate `transform` and `opacity` whenever possible.
-
-5. **Optimize**
-   - Convert screenshots to an efficient format.
-   - Embed each unique asset only as many times as necessary.
-   - Remove dead CSS, placeholders, external dependencies, and unused captures.
-
-6. **Verify in a real browser**
-   - Open the final file, not a partial development proxy.
-   - Scroll through every scene.
-   - Check intermediate progress, not only scene starts.
-   - Test desktop and mobile viewports.
-   - Confirm there is no horizontal overflow.
-   - Confirm every embedded image has non-zero natural dimensions.
-   - Confirm console errors and page errors are zero.
-   - Confirm no remote resource requests occur.
-   - Emulate reduced motion and verify the entire story remains visible.
-   - Collect screenshots of the presentation itself as evidence.
-
-## Frontend implementation rules
-
-- Reuse existing product primitives when editing the app.
-- Add an abstraction only when it removes real repeated behavior.
-- Keep components direct and readable.
-- Do not create wrapper components that only rename props.
-- Avoid broad state-management machinery for local state.
-- Preserve keyboard access, ARIA names, focus visibility, and native semantics.
-- Use icon-only controls only when they have accessible labels and tooltips.
-- Do not hide absent-data problems behind broad catches or silent empty states.
-- Respect the established compact desktop layout.
-- Do not redesign unrelated screens while implementing one feature.
-
-## Backend implementation rules
-
-- Prefer direct, idiomatic Go.
-- Keep packages and functions small and responsibility-driven.
-- Share the existing database and service objects rather than introducing
-  parallel stores or coordinators.
-- Do not add factories, registries, interfaces, or wrappers for hypothetical
-  future requirements.
-- Validate inputs at the boundary and return useful errors.
-- Do not swallow failures.
-- Preserve local-first behavior and avoid exposing secrets.
-- MCP tools must remain explicit about read-only and destructive behavior.
-- Measure performance claims; do not present estimates as measurements.
-
-## Commands
-
-Run from the repository root unless stated otherwise.
+Core commands:
 
 ```bash
-# Build the frontend
-cd frontend && npm run build
-
-# Run the frontend in development mode
-cd frontend && npm run dev
-
-# Build the Go executable
-make
-
-# Build and open the macOS app bundle
-make run
-
-# Build the distributable app bundle
-make bundle
-
-# Build the DMG
-make dmg
-
-# Run Go vet and tests
 make test
+cd frontend && npm run build
+make bundle
+make run
 ```
 
-Use the smallest validation command that covers the change, then expand only if
-the result indicates broader risk.
+## Experiments
+
+Performance, audio quality, ASR behavior, diarization thresholds, and model
+choices are decided by experiments, not intuition.
+
+- All experimental programs live in `exp/NN_name/`.
+- Ground truth lives in `exp/truth/`.
+- Reproducible text results live in `exp/out/`.
+- Do not commit raw private meeting audio.
+- Start with a baseline, vary one thing, run against a real recording and the
+  edge case that broke the previous attempt, and record the numbers.
+- An experiment may print aggressively and be ugly. Production code may not.
+- Move an idea into `internal/` only after the result beats the current behavior
+  on explicit acceptance criteria.
+- Update `.spec/decisions.md` when an experiment changes a shipping choice.
+- Keep failed experiments when they prevent the same dead end from being tried
+  again.
+
+See `.spec/experiments.md` before changing the model or audio pipeline.
+
+## UI character
+
+The app is a quiet, exact, unhurried instrument—not a cheerful SaaS dashboard.
+
+- Dark, compact, and native to macOS.
+- Violet is the identity color. Cool near-neutral surfaces make it vivid.
+- Bright green and coral communicate state; they are not decoration.
+- Use Geologica and preserve good Ukrainian typography.
+- State facts without judging people.
+- No celebratory copy, exclamation marks, “Oops”, or chatty helper text.
+- Every wait has a visible name. A spinner-free unexplained pause is a bug.
+- Errors explain what happened and what the user can do.
+- Prefer fewer boxes, borders, labels, and words.
+- Do not create a dashboard of generic metric cards when a document, timeline,
+  or direct manipulation communicates the information better.
+- A tab does its own job. Do not navigate on the user's behalf.
+- Preserve the current workspace model: timeline, recordings, reader, project
+  dock, and direct links back to evidence.
+
+## UI interaction rules
+
+- Motion explains a state or spatial relationship; it is not decoration.
+- Prefer transform and opacity with short, deliberate easing.
+- Avoid bounce, elastic motion, generic fade-up sequences, random particles,
+  and gratuitous glass.
+- Infinite animations must not block transition completion.
+- Respect `prefers-reduced-motion`.
+- Hover is an enhancement, never the only way to act.
+- Reserve space for contextual actions so content does not jump.
+- Destructive actions are quiet and reversible. Prefer bin + undo over a
+  confirmation dialog.
+- Icon-only controls require accessible names and useful tooltips.
+- Preserve keyboard navigation and visible focus.
+- Use `<template x-if>` rather than hidden content when absent data would still
+  be dereferenced.
+
+For repeated visual patterns, extract a shared primitive only after the pattern
+is genuinely repeated. Keep the DOM shallow and the content dominant.
+
+## Frontend workflow
+
+Run the real frontend with sample data:
+
+```bash
+cd frontend
+VITE_DESIGN=1 npm run dev
+```
+
+Use sample data only for visual development. Before finishing:
+
+1. Build the production frontend.
+2. Exercise the affected flow at desktop and narrow widths.
+3. Check hover, focus, keyboard, loading, empty, success, and error states.
+4. Record console errors.
+5. Run the packaged app when the change depends on Wails, permissions, audio,
+   filesystem behavior, or MCP.
+
+## Documentation
+
+- `README.md` is public product and onboarding documentation.
+- `.spec/` contains concise internal architecture, decisions, experiments, and
+  roadmap documents.
+- `docs/` contains user-facing supporting artifacts.
+- Do not create new planning or status Markdown files in the repository root.
+- Update an existing canonical document instead.
+- Delete historical implementation plans after their durable decisions are
+  captured.
+- Keep documentation factual, concise, and linked to current paths.
+
+## Open-source hygiene
+
+- Never commit secrets, private recordings, local databases, model files,
+  caches, or machine-specific build output.
+- Keep the repository buildable from a clean checkout.
+- Use pinned native dependencies when reproducibility depends on them.
+- Preserve license notices for third-party components.
+- Do not add screenshots or binaries larger than necessary.
+- Before finishing, inspect `git status`, `git diff --check`, and the final diff.
 
 ## Definition of done
 
-A task is not done because the file exists.
+A task is complete only when:
 
-For product UI:
-
-- the requested behavior works in the native app or browser;
-- loading, empty, error, and success states are coherent;
-- keyboard and pointer interactions work;
-- there are no console errors;
-- the changed screen has been visually inspected.
-
-For a presentation:
-
-- the story is understandable with minimal text;
-- actual product screenshots are used;
-- scrolling controls meaningful visual change;
-- every scene earns its place;
-- desktop and mobile work;
-- reduced motion works;
-- the file is self-contained;
-- the final artifact passes repository checks;
-- the result has been opened and viewed from beginning to end.
-
-Before finishing, re-read the result and remove anything generic, repetitive,
-decorative without purpose, or recognizably produced from an AI landing-page
-template.
+- the requested behavior is implemented end to end;
+- existing behavior is preserved unless intentionally changed;
+- the relevant tests and build pass;
+- user-visible states and errors are coherent;
+- the UI was inspected when UI changed;
+- documentation and generated bindings are updated where required;
+- temporary files and processes are cleaned up;
+- the diff contains no unrelated work.
