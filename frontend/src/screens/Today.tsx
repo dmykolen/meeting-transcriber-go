@@ -14,6 +14,7 @@ import {
   length,
   many,
   when,
+  why,
   type Briefing,
   type Outstanding,
 } from "../api"
@@ -46,7 +47,7 @@ export default function Today({ onOpen }: { onOpen: (id: number) => void }) {
     setProblem("")
     Meetings.Brief(days)
       .then((b) => alive && setBrief(b as Briefing))
-      .catch((e) => alive && setProblem(String(e)))
+      .catch((e) => alive && setProblem(why(e)))
     return () => {
       alive = false
     }

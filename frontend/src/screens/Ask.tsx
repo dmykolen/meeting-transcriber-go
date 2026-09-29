@@ -2,7 +2,7 @@ import { useState } from "react"
 import { ArrowUpRight, Sparkles } from "lucide-react"
 import Head from "../components/Head"
 import KnowledgeSource from "../components/KnowledgeSource"
-import { Meetings, type KnowledgeAnswer } from "../api"
+import { Meetings, why, type KnowledgeAnswer } from "../api"
 import NeedsKey from "../components/NeedsKey"
 const saved = { question: "", answer: null as KnowledgeAnswer | null }
 export default function Ask({
@@ -27,7 +27,7 @@ export default function Ask({
       setAnswer(result)
       saved.answer = result
     } catch (e) {
-      setProblem(String(e))
+      setProblem(why(e))
     } finally {
       setBusy(false)
     }

@@ -13,6 +13,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 	"sync/atomic"
@@ -90,6 +91,59 @@ var (
 		Bytes: 28_300_000,
 	}
 )
+
+// The AI assets are fetched only when the settings choose them, while the app
+// keeps working.
+var (
+	// Copilot is the GitHub Copilot CLI that the Copilot SDK drives, pinned to
+	// the version SDK v1.0.14 was released against.
+	Copilot = Model{
+		Name:  "GitHub Copilot",
+		Key:   "copilot",
+		URL:   "https://github.com/github/copilot-cli/releases/download/v1.0.85/copilot-darwin-arm64.tar.gz",
+		Bytes: 87_519_489,
+		Check: "54b1cdb4d88cfe0806f13e1f70adc4e8ed7d3edcac38fe070475e29f553949aa",
+		Run:   true,
+	}
+
+	// Chat is the small default local model for summaries and answers:
+	// Gemma 4 E2B, Apache-2.0, 140+ languages. Chosen for size, not measured
+	// against OpenAI; a bigger model is one link away in the settings.
+	Chat = Model{
+		Name:  "Gemma 4 E2B",
+		Key:   "chat.gguf",
+		URL:   "https://huggingface.co/ggml-org/gemma-4-E2B-it-GGUF/resolve/b4243c156154b6dca9324415f8c7ccc098b4aed1/gemma-4-E2B-it-Q4_0.gguf",
+		Bytes: 2_841_481_184,
+		Check: "8e30dff3ac4c8434c49a7036fa15564bdbb6044e42bf04550bf1a096ad7e6a52",
+	}
+
+	// Vectors is the local embedding model behind search by meaning.
+	Vectors = Model{
+		Name:  "Qwen3 Embedding 0.6B",
+		Key:   "vectors.gguf",
+		URL:   "https://huggingface.co/Qwen/Qwen3-Embedding-0.6B-GGUF/resolve/370f27d7550e0def9b39c1f16d3fbaa13aa67728/Qwen3-Embedding-0.6B-Q8_0.gguf",
+		Bytes: 639_150_592,
+		Check: "06507c7b42688469c4e7298b0a1e16deff06caf291cf0a5b278c308249c3e439",
+	}
+)
+
+// Custom is a local model somebody chose by its Hugging Face link, a
+// .../resolve/... or .../blob/... URL, or owner/repo/file.gguf.
+func Custom(link string) (Model, error) {
+	link = strings.TrimSpace(link)
+	if !strings.HasSuffix(link, ".gguf") {
+		return Model{}, fmt.Errorf("%q is not a link to a .gguf file", link)
+	}
+	if !strings.HasPrefix(link, "https://") {
+		parts := strings.SplitN(link, "/", 3)
+		if len(parts) < 3 {
+			return Model{}, fmt.Errorf("%q is neither a link nor owner/repo/file.gguf", link)
+		}
+		link = fmt.Sprintf("https://huggingface.co/%s/%s/resolve/main/%s", parts[0], parts[1], parts[2])
+	}
+	link = strings.Replace(link, "/blob/", "/resolve/", 1)
+	return Model{Name: path.Base(link), Key: path.Base(link), URL: link}, nil
+}
 
 // Optional returns extra assets required by a chosen transcriber.
 func Optional(transcriber string) Set {
@@ -234,6 +288,32 @@ func fetch(ctx context.Context, dir string, m Model, report chan<- Progress) err
 // model's own folder.
 func unpack(r io.Reader, dir string, m Model) error {
 	switch {
+	case m.Run && strings.HasSuffix(m.URL, ".tar.gz"):
+		// A release archive: the executable is the entry named like the model.
+		gz, err := gzip.NewReader(r)
+		if err != nil {
+			return err
+		}
+		archive := tar.NewReader(gz)
+		for {
+			header, err := archive.Next()
+			if errors.Is(err, io.EOF) {
+				return fmt.Errorf("the archive has no %s in it", m.Key)
+			}
+			if err != nil {
+				return err
+			}
+			if header.Typeflag == tar.TypeReg && path.Base(header.Name) == m.Key {
+				if err := writeFile(Path(dir, m), archive); err != nil {
+					return err
+				}
+				// Drain the rest so the checksum covers the whole download.
+				if _, err := io.Copy(io.Discard, r); err != nil {
+					return err
+				}
+				return os.Chmod(Path(dir, m), 0o755)
+			}
+		}
 	case m.Run:
 		gz, err := gzip.NewReader(r)
 		if err != nil {

@@ -63,13 +63,39 @@ export type Listening = {
     | "listening"
     | "recording"
     | "wrapping up"
+    | "held"
     | "paused"
     | "broken"
   kind: "meeting" | "note"
   elapsed: number
   quiet: number
   system: boolean
+  /** Started by hand rather than by the detector. */
+  asked: boolean
   problem: string
+}
+
+/** A recording is in progress, paused by hand or not. */
+export const recording = (s: Listening | null) =>
+  s?.phase === "recording" || s?.phase === "wrapping up" || s?.phase === "held"
+
+/** What the settings screen shows about the AI in use. */
+export type AIState = {
+  ready: boolean
+  searchable: boolean
+  fetching: string
+  fraction: number
+  /** Which search vectors are being made, in words; empty when none are. */
+  indexing: string
+  indexed: number
+  signingIn: boolean
+  said: string[] | null
+  problem: string
+}
+
+export type CopilotAccount = {
+  login: string
+  models: { id: string; name: string }[]
 }
 
 export type Action = { task: string; owner: string; due: string; done: boolean }
@@ -109,7 +135,22 @@ export type Turn = {
   speaker?: string
   text: string
 }
-export type Meeting = Recording & { transcript: Turn[] }
+/** Why a queued recording is not being transcribed yet; see library.Waiting. */
+export type Wait =
+  | ""
+  | "models"
+  | "recording"
+  | "next"
+  | "time"
+  | "user"
+  | "busy"
+  | "turn"
+/** `until` says when a "time" wait ends. */
+export type Meeting = Recording & {
+  transcript: Turn[]
+  wait: Wait
+  until: string
+}
 export type Hit = {
   recording: number
   title: string
@@ -262,8 +303,21 @@ export type Settings = {
   quietEnds: number
   preroll: number
   keepAudioDays: number
+  aiProvider: "openai" | "copilot" | "local"
+  copilotModel: string
+  localModel: string
+  embeddings: "openai" | "local"
+  /** After each recording, at a time of day, or when the Mac is free. */
+  transcribe: "after" | "at" | "idle"
+  transcribeAt: string
   folder: string
 }
+
+/**
+ * What a failed call said. Wails names every Go error "RuntimeError", and
+ * String(e) would put that word in front of the message.
+ */
+export const why = (e: unknown) => (e instanceof Error ? e.message : String(e))
 
 /** Seconds as a person says them: 4:07, or 1:12:30 for the long ones. */
 export function clock(seconds: number): string {

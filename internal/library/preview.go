@@ -9,8 +9,8 @@ import (
 
 // PreviewSummary renders a summary preview without mutating stored state.
 func (l *Library) PreviewSummary(ctx context.Context, id int64) (*store.Summary, error) {
-	if !l.llm.Ready() {
-		return nil, errors.New("Додайте ключ AI в налаштуваннях")
+	if !l.AI().Ready() {
+		return nil, errors.New("Підсумки вимкнено: оберіть AI у параметрах")
 	}
 	rows, err := l.db.Turns(id)
 	if err != nil {
@@ -23,7 +23,7 @@ func (l *Library) PreviewSummary(ctx context.Context, id int64) (*store.Summary,
 	for i, r := range rows {
 		turns[i] = insights.Turn{Start: r.Start, Speaker: r.Speaker, Text: r.Text}
 	}
-	summary, err := l.llm.Summarise(ctx, turns)
+	summary, err := l.AI().Summarise(ctx, turns)
 	if err != nil {
 		return nil, err
 	}

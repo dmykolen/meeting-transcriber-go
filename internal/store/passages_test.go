@@ -101,3 +101,40 @@ func TestPassagesWithoutAKeyAreStillStored(t *testing.T) {
 		t.Fatalf("stale=%v err=%v, want the unindexed recording", stale, err)
 	}
 }
+
+func TestVectorsFromAnotherModelAreForgottenNotCompared(t *testing.T) {
+	db, err := Open(filepath.Join(t.TempDir(), "s.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	r, err := db.Add(Recording{Kind: Meeting, Title: "Доступ", Audio: "a.wav"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	vector := make([]float32, 512)
+	vector[0] = 1
+	if err := db.Index(r.ID, []Piece{{Recording: r.ID, Text: "VPN"}}, [][]float32{vector}); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.CacheKnowledge("note", vector); err != nil {
+		t.Fatal(err)
+	}
+
+	// Everything stored before the choice existed came from OpenAI.
+	if changed, err := db.Vectors(oldVectors); err != nil || changed {
+		t.Fatalf("changed=%v err=%v; OpenAI's own vectors were thrown away", changed, err)
+	}
+	if changed, err := db.Vectors("local/model/512"); err != nil || !changed {
+		t.Fatalf("changed=%v err=%v; a new model was not noticed", changed, err)
+	}
+	if with, without := db.Indexed(); with != 0 || without != 1 {
+		t.Fatalf("with=%d without=%d; old vectors survived beside the new model", with, without)
+	}
+	if cached, _ := db.KnowledgeVectors(); len(cached) != 0 {
+		t.Fatal("old knowledge vectors survived beside the new model")
+	}
+	if changed, _ := db.Vectors("local/model/512"); changed {
+		t.Fatal("the same model counted as a change")
+	}
+}

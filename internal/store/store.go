@@ -146,6 +146,7 @@ func (d *DB) Close() error { return d.sql.Close() }
 
 const schema = `
 CREATE TABLE IF NOT EXISTS knowledge_vectors(key TEXT PRIMARY KEY,vector BLOB NOT NULL);
+CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS notes (
  id INTEGER PRIMARY KEY AUTOINCREMENT,
  recording INTEGER REFERENCES recordings(id) ON DELETE CASCADE,

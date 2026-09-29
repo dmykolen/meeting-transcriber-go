@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react"
-import { Circle, EarOff, Loader, Square, TriangleAlert } from "lucide-react"
+import { Circle, EarOff, Loader, Pause, Square, TriangleAlert } from "lucide-react"
 import { Meetings, clock, type Listening } from "../api"
 
 /**
@@ -95,6 +95,17 @@ function describe(s: Listening) {
         pressable: true,
         label: clock(s.elapsed),
         title: `Тиша вже ${s.quiet} с — можливо, зустріч завершилась`,
+      }
+    case "held":
+      return {
+        Icon: Pause,
+        filled: true,
+        tint: "text-soft",
+        halo: "",
+        spin: false,
+        pressable: true,
+        label: clock(s.elapsed),
+        title: "Запис на паузі: сказане зараз не записується — ⌘R зупинити",
       }
     case "listening":
       return {

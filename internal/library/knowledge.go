@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/dmykolen/meeting-transcriber-go/internal/insights"
 	"github.com/dmykolen/meeting-transcriber-go/internal/store"
 	"sort"
 	"strings"
@@ -43,65 +44,20 @@ func (l *Library) SearchKnowledge(ctx context.Context, query string, semantic bo
 			}
 		}
 	} else {
-		if !l.llm.Ready() {
-			return nil, errors.New("Пошук за змістом потребує ключа AI в налаштуваннях")
+		ai := l.AI()
+		if !ai.Searchable() {
+			return nil, errSearchOff
 		}
-		cached, err := l.db.KnowledgeVectors()
+		cached, err := l.learn(ctx, ai, docs, func(int) {})
 		if err != nil {
 			return nil, err
 		}
-		current := map[string]bool{}
-		missing := []store.KnowledgeHit{}
-		for _, h := range docs {
-			key := store.KnowledgeKey(h)
-			current[key] = true
-			if len(cached[key]) == 0 {
-				missing = append(missing, h)
-			}
-		}
-		for key := range cached {
-			if !current[key] {
-				if err = l.db.DropKnowledgeVector(key); err != nil {
-					return nil, err
-				}
-			}
-		}
-		for i := 0; i < len(missing); i += 32 {
-			if err = ctx.Err(); err != nil {
-				return nil, err
-			}
-			batch := missing[i:min(i+32, len(missing))]
-			texts := make([]string, len(batch))
-			for j, h := range batch {
-				texts[j] = h.Title + "\n" + h.Text
-			}
-			vectors, err := l.llm.Embed(ctx, texts)
-			if err != nil {
-				return nil, err
-			}
-			if len(vectors) != len(batch) {
-				return nil, errors.New("Не вдалося індексувати всі фрагменти")
-			}
-			for j, h := range batch {
-				if len(vectors[j]) != 512 {
-					return nil, errors.New("Неповна відповідь під час індексації. Повторіть пошук")
-				}
-				key := store.KnowledgeKey(h)
-				cached[key] = vectors[j]
-				if err = l.db.CacheKnowledge(key, vectors[j]); err != nil {
-					return nil, err
-				}
-			}
-		}
-		vectors, err := l.llm.Embed(ctx, []string{query})
+		asked, err := ai.Query(ctx, query)
 		if err != nil {
 			return nil, err
 		}
-		if len(vectors) != 1 || len(vectors[0]) != 512 {
-			return nil, errors.New("Не вдалося обробити запит")
-		}
 		for _, h := range docs {
-			score := store.Cosine(vectors[0], cached[store.KnowledgeKey(h)])
+			score := store.Cosine(asked, cached[store.KnowledgeKey(h)])
 			if score >= .25 {
 				matches = append(matches, match{h, score})
 			}
@@ -113,6 +69,60 @@ func (l *Library) SearchKnowledge(ctx context.Context, query string, semantic bo
 		out = append(out, m.hit)
 	}
 	return out, nil
+}
+
+// learn gives every knowledge document a vector, forgets the vectors of
+// documents that are gone, and reports how many documents are done.
+func (l *Library) learn(ctx context.Context, ai *insights.Client, docs []store.KnowledgeHit, progress func(done int)) (map[string][]float32, error) {
+	cached, err := l.db.KnowledgeVectors()
+	if err != nil {
+		return nil, err
+	}
+	current := map[string]bool{}
+	missing := []store.KnowledgeHit{}
+	for _, h := range docs {
+		key := store.KnowledgeKey(h)
+		current[key] = true
+		if len(cached[key]) == 0 {
+			missing = append(missing, h)
+		}
+	}
+	for key := range cached {
+		if !current[key] {
+			if err = l.db.DropKnowledgeVector(key); err != nil {
+				return nil, err
+			}
+		}
+	}
+	for i := 0; i < len(missing); i += 32 {
+		if err = ctx.Err(); err != nil {
+			return nil, err
+		}
+		batch := missing[i:min(i+32, len(missing))]
+		texts := make([]string, len(batch))
+		for j, h := range batch {
+			texts[j] = h.Title + "\n" + h.Text
+		}
+		vectors, err := ai.Embed(ctx, texts)
+		if err != nil {
+			return nil, err
+		}
+		if len(vectors) != len(batch) {
+			return nil, errors.New("Не вдалося індексувати всі фрагменти")
+		}
+		for j, h := range batch {
+			if len(vectors[j]) != 512 {
+				return nil, errors.New("Неповна відповідь під час індексації. Повторіть пошук")
+			}
+			key := store.KnowledgeKey(h)
+			cached[key] = vectors[j]
+			if err = l.db.CacheKnowledge(key, vectors[j]); err != nil {
+				return nil, err
+			}
+		}
+		progress(len(docs) - len(missing) + i + len(batch))
+	}
+	return cached, nil
 }
 
 func (l *Library) AskKnowledge(ctx context.Context, question string) (string, []store.KnowledgeHit, error) {
@@ -132,6 +142,6 @@ func (l *Library) AskKnowledge(ctx context.Context, question string) (string, []
 		}
 		passages[i] = fmt.Sprintf("[%d] %s · %s%s\n%s", i+1, h.Kind, h.Title, stamp, h.Text)
 	}
-	answer, err := l.llm.Answer(ctx, question, passages)
+	answer, err := l.AI().Answer(ctx, question, passages)
 	return answer, hits, err
 }

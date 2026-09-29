@@ -30,8 +30,9 @@ The app is useful before, during, and after a meeting:
   read-only MCP server.
 
 Transcription, speaker detection, playback, analytics, and keyword search run
-locally. An OpenAI API key is optional and is used only for summaries, semantic
-search, Ask, and AI-maintained project state.
+locally. Summaries, Ask, AI-maintained project state, and search by meaning are
+optional, and each can come from OpenAI, from your GitHub Copilot, or from a
+model that runs on the Mac, so that nothing leaves it.
 
 > [!NOTE]
 > The current package is built for Apple Silicon Macs and requires macOS 14.2
@@ -48,7 +49,7 @@ queue, SQLite database, local models, and HTTP MCP server.
 flowchart LR
     Person["Person at the Mac"]
     Clients["Claude · Codex · GitHub Copilot"]
-    OpenAI["OpenAI API<br/>optional"]
+    OpenAI["OpenAI · GitHub Copilot<br/>optional, or a local model"]
 
     subgraph App["Meeting Transcriber.app"]
         direction TB
@@ -95,23 +96,26 @@ in the user's data folder.
 
 | Area | What the user gets |
 |---|---|
-| Recording | Manual recording, automatic listening, microphone and system audio on separate channels, and a live transcript |
+| Recording | Manual recording, automatic listening, microphone and system audio on separate channels, a live transcript, and a strip over every window that reminds you to tell the others and pauses or stops the recording |
 | Import | Existing audio or video files accepted through the native file picker and decoded with app-managed tools |
 | Transcript | Timestamped turns, speaker labels, click-to-play rows, waveform scrubbing, renaming, notes, and retranscription |
 | People | Learned speaker names and reusable voice samples; the laptop owner can be identified once with **This is me** |
 | Summary | Overview, topics, decisions, questions, owners, deadlines, and action items |
 | Today | A recent briefing: what happened, what was decided, overdue work, recurring questions, and participants |
-| Search | Local full-text search; semantic search when an OpenAI key is configured |
+| Search | Local full-text search; search by meaning with OpenAI or a local embedding model |
 | Projects | Meetings grouped into projects with a living status, work list, decisions, questions, people, and history |
 | Ask | Answers grounded in saved meetings, with links back to the source passages |
 | Retention | Audio expires after the configured period; transcripts, summaries, notes, and analytics remain |
 | MCP Server | Read-only access to meetings, transcripts, notes, projects, tasks, briefings, and recognised people |
+| AI | OpenAI with your key, the models of your GitHub Copilot plan, or local models through the bundled `llama-server`; chosen in Settings and applied at once |
 
 ### What happens to a recording
 
 Whether audio comes from a live call or an imported file, it enters the same
 queue. A live recording has priority, so an old import cannot make the current
-meeting lag.
+meeting lag. Settings decide when the queue runs: right after each recording, at
+a chosen time of day, or once nobody has used the Mac for five minutes and
+nothing else keeps it busy. **Розшифрувати зараз** in a meeting puts it first.
 
 ```mermaid
 flowchart LR
@@ -124,7 +128,7 @@ flowchart LR
     Names["Apply learned names"]
     Save["Save transcript + voice evidence"]
     Index["Build searchable passages"]
-    Summary{"OpenAI key and<br/>summary policy?"}
+    Summary{"AI chosen and<br/>summary policy?"}
     AI["Create summary and<br/>update project state"]
     Ready["Ready in Library,<br/>Today, Search, and MCP"]
 
@@ -234,19 +238,29 @@ assets and retries what is still missing. After setup, local transcription can
 work without an internet connection.
 
 macOS asks for **Microphone** and **System Audio Recording** permission when
-audio capture is first opened. These are the only required user actions. An
-OpenAI key may be added later in Settings, but the recording and transcription
-features do not depend on it.
+audio capture is first opened. These are the only required user actions. AI can
+be chosen later in Settings, but recording and transcription do not depend on
+it:
+
+- **OpenAI** — paste an API key.
+- **GitHub Copilot** — the app fetches the Copilot CLI (about 90 MB), you
+  approve access in the browser, and pick one of your plan's models. Requests
+  spend the plan's AI Credits; Business and Enterprise need the Copilot CLI
+  policy enabled.
+- **Local** — the app fetches Gemma 4 E2B (2.8 GB) and runs it with the bundled
+  `llama-server`; paste a Hugging Face `.gguf` link to use a bigger model.
+  Search by meaning can run locally too, with Qwen3 Embedding (0.6 GB).
 
 The app keeps its files here:
 
 ```text
 ~/MeetingTranscriber/
-├── config.toml       settings and optional OpenAI key
+├── config.toml       settings, the AI choice, and an optional OpenAI key
 ├── meetings.db       transcripts, summaries, projects, notes, and search data
 ├── recordings/       captured and imported media
-├── models/           downloaded model files
-├── bin/              app-managed media tools
+├── models/           downloaded model files, local AI models included
+├── bin/              app-managed tools: FFmpeg, and the Copilot CLI when chosen
+├── copilot/          the Copilot CLI's own state
 ├── cache/            generated playback files
 └── logs/mt.log       application log
 ```
@@ -280,6 +294,9 @@ make dmg
 
 # Open the bundle correctly so macOS attributes permissions to the app
 make run
+
+# Replace /Applications/Meeting Transcriber.app with this build
+make install
 ```
 
 The build stages are:
@@ -287,7 +304,7 @@ The build stages are:
 ```mermaid
 flowchart LR
     Source["Go + React source"]
-    Native["Pinned whisper.cpp<br/>and audiotee"]
+    Native["Pinned whisper.cpp,<br/>audiotee, and llama.cpp"]
     Frontend["npm build"]
     Binary["build/mt"]
     Bundle["build/Meeting Transcriber.app"]
@@ -307,8 +324,9 @@ flowchart LR
 ```
 
 `build/mt` contains the Go backend, embedded frontend, and both MCP transports.
-The distributable `.app` wraps that executable together with `audiotee`, the
-speaker-processing dynamic libraries, the icon, and macOS metadata. The model
+The distributable `.app` wraps that executable together with `audiotee`,
+`llama-server`, the speaker-processing dynamic libraries, the icon, and macOS
+metadata. The model
 files remain outside the bundle and are downloaded per user.
 
 In other words: there is one main executable and no separate MCP binary, but
@@ -326,8 +344,8 @@ build/MeetingTranscriber.dmg
 
 They open the disk image, drag **Meeting Transcriber** to **Applications**, and
 launch it from there. The DMG contains the UI, Go backend, MCP server, system
-audio helper, and native libraries. They do not need the repository or a
-development environment.
+audio helper, local AI helper, and native libraries. They do not need the
+repository or a development environment.
 
 There are two different signing cases:
 

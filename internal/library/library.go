@@ -9,8 +9,10 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/dmykolen/meeting-transcriber-go/internal/engine"
@@ -30,7 +32,7 @@ const Me = "You"
 
 type Library struct {
 	db   *store.DB
-	llm  *insights.Client
+	llm  atomic.Pointer[insights.Client] // replaced whole when the AI settings change
 	dir  string
 	wake chan struct{}
 
@@ -40,6 +42,13 @@ type Library struct {
 	busy   func() bool
 	policy store.When
 	owner  string
+
+	// The schedule for recordings nobody asked for by hand; see Schedule.
+	when, at string
+	rush     []int64       // asked for by hand: processed first, whatever the schedule
+	occupied func() string // why the Mac is not free for heavy work; see occupied
+	seen     string        // what the last look at the Mac found
+	finished time.Time     // when the last recording was processed
 }
 
 // Owner sets the laptop owner's display name.
@@ -76,8 +85,128 @@ func (l *Library) waiting() bool {
 }
 
 func New(db *store.DB, e Engine, llm *insights.Client, recordings string) *Library {
-	return &Library{db: db, engine: e, llm: llm, dir: recordings, wake: make(chan struct{}, 1)}
+	l := &Library{db: db, engine: e, dir: recordings, wake: make(chan struct{}, 1),
+		when: "after", occupied: occupied}
+	l.llm.Store(llm)
+	return l
 }
+
+// Schedule sets when recordings nobody asked for by hand are processed: "after"
+// each one, "at" a time of day ("19:00"), or when the Mac is "idle".
+func (l *Library) Schedule(when, at string) {
+	l.mu.Lock()
+	l.when, l.at = when, at
+	l.mu.Unlock()
+	l.Wake()
+}
+
+// Rush puts one unfinished recording first in the queue, whatever the schedule
+// says. A recording already being processed still finishes first.
+func (l *Library) Rush(id int64) error {
+	r, err := l.db.Get(id)
+	if err != nil {
+		return err
+	}
+	if r.Status == store.Done || r.Status == store.Failed {
+		return errors.New("цей запис уже не чекає в черзі")
+	}
+	l.mu.Lock()
+	if !slices.Contains(l.rush, id) {
+		l.rush = append(l.rush, id)
+	}
+	l.mu.Unlock()
+	l.Wake()
+	return nil
+}
+
+// Waiting says why a queued recording is not being processed, in a word the
+// interface explains: "models", "recording", "next", "time" (until says when),
+// "user", "busy" or "turn". Empty once processing has begun.
+func (l *Library) Waiting(r store.Recording, now time.Time) (why string, until time.Time) {
+	if r.Status != store.Queued {
+		return "", time.Time{}
+	}
+	l.mu.Lock()
+	rushed, at, seen := slices.Contains(l.rush, r.ID), l.at, l.seen
+	l.mu.Unlock()
+	switch {
+	case l.ready() == nil:
+		return "models", time.Time{}
+	case l.waiting():
+		return "recording", time.Time{}
+	case rushed:
+		return "next", time.Time{}
+	}
+	switch why := l.hold(r.Started, now, seen); why {
+	case "":
+		return "turn", time.Time{}
+	case "time":
+		return why, due(r.Started, at)
+	default:
+		return why, time.Time{}
+	}
+}
+
+// hold says what a recording made at started still waits for at now, given
+// what the Mac was last found doing: "time" before the hour the schedule names,
+// "user" or "busy" while the Mac is not free, or nothing.
+func (l *Library) hold(started, now time.Time, mac string) string {
+	l.mu.Lock()
+	when, at := l.when, l.at
+	l.mu.Unlock()
+	switch {
+	case when == "at" && now.Before(due(started, at)):
+		return "time"
+	case when == "idle":
+		return mac
+	}
+	return ""
+}
+
+// look checks whether the Mac is free, when the schedule depends on it, and
+// keeps what it found for Waiting.
+func (l *Library) look() string {
+	l.mu.Lock()
+	idle, probe, since := l.when == "idle", l.occupied, time.Since(l.finished)
+	l.mu.Unlock()
+	if !idle {
+		return ""
+	}
+	why := probe()
+	// Right after a recording the load is this app's own: a batch goes on while
+	// nobody is at the Mac.
+	if why == "busy" && since < 2*time.Minute {
+		why = ""
+	}
+	l.mu.Lock()
+	changed := why != l.seen
+	l.seen = why
+	l.mu.Unlock()
+	if changed {
+		slog.Info("the queue looked at the Mac", "free", why == "", "occupied", why)
+	}
+	return why
+}
+
+// due is when a recording made at started may first be processed on an "at"
+// schedule: the next time the clock shows at ("19:00").
+func due(started time.Time, at string) time.Time {
+	clock, err := time.Parse("15:04", at)
+	if err != nil {
+		return started // the settings never let a bad clock through
+	}
+	t := time.Date(started.Year(), started.Month(), started.Day(), clock.Hour(), clock.Minute(), 0, 0, started.Location())
+	if t.Before(started) {
+		t = t.AddDate(0, 0, 1)
+	}
+	return t
+}
+
+// AI is the model client in use now.
+func (l *Library) AI() *insights.Client { return l.llm.Load() }
+
+// Brain switches to another model client and returns the one it replaced.
+func (l *Library) Brain(c *insights.Client) *insights.Client { return l.llm.Swap(c) }
 
 // Use installs the engine once models have loaded and wakes the queue.
 func (l *Library) Use(e Engine) {
@@ -122,7 +251,7 @@ func (l *Library) Wake() {
 func (l *Library) Run(ctx context.Context) {
 	for {
 		for l.ready() != nil && !l.waiting() {
-			id, ok := l.next()
+			id, ok := l.next(time.Now())
 			if !ok {
 				break
 			}
@@ -130,6 +259,10 @@ func (l *Library) Run(ctx context.Context) {
 				slog.Error("recording failed", "id", id, "err", err)
 				_ = l.db.Fail(id, err)
 			}
+			l.mu.Lock()
+			l.rush = slices.DeleteFunc(l.rush, func(r int64) bool { return r == id })
+			l.finished = time.Now()
+			l.mu.Unlock()
 			if ctx.Err() != nil {
 				return
 			}
@@ -143,22 +276,32 @@ func (l *Library) Run(ctx context.Context) {
 	}
 }
 
-// next returns the oldest unfinished recording.
-func (l *Library) next() (int64, bool) {
+// next returns the recording to process at now: one asked for by hand first,
+// then the oldest unfinished one once the schedule lets it through. Due times
+// only grow with the start time, so the oldest is the first due.
+func (l *Library) next(now time.Time) (int64, bool) {
 	recent, err := l.db.Recent(200)
 	if err != nil {
 		slog.Error("cannot read the queue", "err", err)
 		return 0, false
 	}
+	l.mu.Lock()
+	rush := slices.Clone(l.rush)
+	l.mu.Unlock()
+	var oldest *store.Recording
 	for i := len(recent) - 1; i >= 0; i-- {
-		switch recent[i].Status {
-		case store.Done, store.Failed:
-			continue
-		default:
-			return recent[i].ID, true
+		switch r := &recent[i]; {
+		case r.Status == store.Done || r.Status == store.Failed:
+		case slices.Contains(rush, r.ID):
+			return r.ID, true
+		case oldest == nil:
+			oldest = r
 		}
 	}
-	return 0, false
+	if oldest == nil || l.hold(oldest.Started, now, l.look()) != "" {
+		return 0, false
+	}
+	return oldest.ID, true
 }
 
 // process runs the full pipeline for one recording.
@@ -291,13 +434,13 @@ func (l *Library) index(ctx context.Context, id int64, turns []store.Turn) {
 		return
 	}
 	var vectors [][]float32
-	if l.llm.Ready() {
+	if ai := l.AI(); ai.Searchable() {
 		texts := make([]string, len(pieces))
 		for i, p := range pieces {
 			texts[i] = p.Text
 		}
 		var err error
-		if vectors, err = l.llm.Embed(ctx, texts); err != nil {
+		if vectors, err = ai.Embed(ctx, texts); err != nil {
 			slog.Warn("indexed for keywords only", "id", id, "err", err)
 		}
 	}
@@ -306,24 +449,42 @@ func (l *Library) index(ctx context.Context, id int64, turns []store.Turn) {
 	}
 }
 
-// Reindex embeds recordings that are still missing vectors.
-func (l *Library) Reindex(ctx context.Context) (int, error) {
-	if !l.llm.Ready() {
-		return 0, errors.New("indexing needs an OpenAI key, which is in Settings")
+// Reindex embeds transcript passages that still lack vectors, reporting
+// recordings done.
+func (l *Library) Reindex(ctx context.Context, progress func(done, total int)) (int, error) {
+	if !l.AI().Searchable() {
+		return 0, errSearchOff
 	}
 	ids, err := l.db.Stale(500)
 	if err != nil {
 		return 0, err
 	}
-	for _, id := range ids {
+	for i, id := range ids {
 		turns, err := l.db.Turns(id)
 		if err != nil {
 			return 0, err
 		}
 		l.index(ctx, id, turns)
+		progress(i+1, len(ids))
 	}
 	return len(ids), nil
 }
+
+// Learn makes the vectors Search and Ask read, reporting documents done.
+func (l *Library) Learn(ctx context.Context, progress func(done, total int)) error {
+	ai := l.AI()
+	if !ai.Searchable() {
+		return errSearchOff
+	}
+	docs, err := l.db.Knowledge()
+	if err != nil {
+		return err
+	}
+	_, err = l.learn(ctx, ai, docs, func(done int) { progress(done, len(docs)) })
+	return err
+}
+
+var errSearchOff = errors.New("Пошук за змістом вимкнено: оберіть модель пошуку в параметрах AI")
 
 // Evidence is the minimum speech duration required before assigning a learned
 // name.
@@ -459,14 +620,14 @@ func (l *Library) Again(id int64) error {
 	if err := l.db.Progress(id, store.Queued, 0); err != nil {
 		return err
 	}
-	l.Wake()
-	return nil
+	// Asked for by hand, so the schedule does not apply.
+	return l.Rush(id)
 }
 
 // Summarise reruns summary generation without retranscribing audio.
 func (l *Library) Summarise(ctx context.Context, id int64) error {
-	if !l.llm.Ready() {
-		return errors.New("summaries need an OpenAI key, which is in Settings")
+	if !l.AI().Ready() {
+		return errors.New("Підсумки вимкнено: оберіть AI у параметрах")
 	}
 	rows, err := l.db.Turns(id)
 	if err != nil {
@@ -494,7 +655,7 @@ func values(m map[string]string) []string {
 // summarise adds summary artifacts without failing an otherwise usable
 // recording.
 func (l *Library) summarise(ctx context.Context, id int64, turns []engine.Turn) error {
-	if !l.llm.Ready() || len(turns) == 0 || !l.worth(id, turns) {
+	if !l.AI().Ready() || len(turns) == 0 || !l.worth(id, turns) {
 		return l.db.Progress(id, store.Done, 1)
 	}
 	if err := l.db.Progress(id, store.Summarising, 0.9); err != nil {
@@ -505,7 +666,7 @@ func (l *Library) summarise(ctx context.Context, id int64, turns []engine.Turn) 
 	for i, t := range turns {
 		said[i] = insights.Turn{Start: t.Start, Speaker: t.Speaker, Text: t.Text}
 	}
-	summary, err := l.llm.Summarise(ctx, said)
+	summary, err := l.AI().Summarise(ctx, said)
 	if err != nil {
 		slog.Warn("no summary", "id", id, "err", err)
 		return l.db.Progress(id, store.Done, 1)
@@ -531,7 +692,7 @@ func (l *Library) Ask(ctx context.Context, question string) (string, []store.Hit
 	if len(hits) == 0 {
 		return "", nil, errors.New("nothing in the transcripts covers that")
 	}
-	answer, err := l.llm.Answer(ctx, question, store.Passages(hits))
+	answer, err := l.AI().Answer(ctx, question, store.Passages(hits))
 	return answer, hits, err
 }
 
@@ -541,15 +702,15 @@ func (l *Library) Find(ctx context.Context, query string, limit int) ([]store.Hi
 	if err != nil {
 		return nil, err
 	}
-	if !l.llm.Ready() {
+	if !l.AI().Searchable() {
 		return words, nil
 	}
-	vectors, err := l.llm.Embed(ctx, []string{query})
-	if err != nil || len(vectors) == 0 {
+	vector, err := l.AI().Query(ctx, query)
+	if err != nil {
 		slog.Debug("keyword search only", "err", err)
 		return words, nil
 	}
-	near, err := l.db.Closest(vectors[0], limit)
+	near, err := l.db.Closest(vector, limit)
 	if err != nil {
 		return words, nil
 	}

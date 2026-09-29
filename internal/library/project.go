@@ -13,7 +13,7 @@ import (
 // Advance applies one summarised meeting to its project's living document.
 func (l *Library) Advance(ctx context.Context, id int64) error {
 	r, err := l.db.Get(id)
-	if err != nil || r.Group == 0 || r.Summary == nil || !l.llm.Ready() {
+	if err != nil || r.Group == 0 || r.Summary == nil || !l.AI().Ready() {
 		return err
 	}
 	kept, err := l.db.Held(r.Group)
@@ -40,7 +40,7 @@ func (l *Library) Advance(ctx context.Context, id int64) error {
 		}
 	}
 
-	status, changes, err := l.llm.Advance(ctx, name, insights.Held(kept.Status, lines(kept)), meeting(r))
+	status, changes, err := l.AI().Advance(ctx, name, insights.Held(kept.Status, lines(kept)), meeting(r))
 	if err != nil {
 		slog.Warn("the project document did not move", "id", id, "group", r.Group, "err", err)
 		return nil

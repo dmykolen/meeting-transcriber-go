@@ -1,7 +1,9 @@
 package store
 
 import (
+	"database/sql"
 	"encoding/binary"
+	"errors"
 	"math"
 	"sort"
 	"strings"
@@ -118,6 +120,39 @@ func (d *DB) Indexed() (with, without int) {
 	_ = d.sql.QueryRow(`SELECT
 		COUNT(vector), COUNT(*) - COUNT(vector) FROM passages`).Scan(&with, &without)
 	return with, without
+}
+
+// oldVectors made every vector stored before the embedder could be chosen
+// (insights.OpenAIVectors).
+const oldVectors = "openai/text-embedding-3-small/512"
+
+// Vectors records which model makes vectors from now on. When that is not the
+// model that made the vectors already stored, they are forgotten: vectors from
+// two models do not compare, and keyword search finds every passage until they
+// are made again.
+func (d *DB) Vectors(model string) (changed bool, err error) {
+	was := oldVectors
+	if err := d.sql.QueryRow(`SELECT value FROM meta WHERE key = 'vectors'`).Scan(&was); err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return false, err
+	}
+	if was == model {
+		return false, nil
+	}
+	tx, err := d.sql.Begin()
+	if err != nil {
+		return false, err
+	}
+	defer tx.Rollback()
+	if _, err := tx.Exec(`UPDATE passages SET vector = NULL`); err != nil {
+		return false, err
+	}
+	if _, err := tx.Exec(`DELETE FROM knowledge_vectors`); err != nil {
+		return false, err
+	}
+	if _, err := tx.Exec(`INSERT OR REPLACE INTO meta (key, value) VALUES ('vectors', ?)`, model); err != nil {
+		return false, err
+	}
+	return true, tx.Commit()
 }
 
 // Stale lists recordings whose passages still lack vectors.

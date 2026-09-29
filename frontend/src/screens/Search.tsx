@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react"
 import { Search as SearchIcon, Sparkles, X } from "lucide-react"
 import Head from "../components/Head"
 import KnowledgeSource from "../components/KnowledgeSource"
-import { Meetings, type KnowledgeHit } from "../api"
+import { Meetings, why, type KnowledgeHit } from "../api"
 const saved = {
   query: "",
   semantic: false,
@@ -35,7 +35,7 @@ export default function Search({
       }
     } catch (e) {
       if (token === version.current) {
-        setError(String(e))
+        setError(why(e))
         setHits(null)
       }
     } finally {

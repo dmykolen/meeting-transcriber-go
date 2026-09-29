@@ -78,6 +78,11 @@ export enum Phase {
      * it has gone quiet, and this may be the end
      */
     WrappingUp = "wrapping up",
+
+    /**
+     * a recording paused by hand; the file stays open
+     */
+    Held = "held",
     Paused = "paused",
     Broken = "broken",
 };
@@ -123,6 +128,11 @@ export class Status {
      * is the other side being captured at all
      */
     "system": boolean;
+
+    /**
+     * started by hand rather than by the detector
+     */
+    "asked": boolean;
     "problem": string;
 
     /** Creates a new Status instance. */
@@ -141,6 +151,9 @@ export class Status {
         }
         if (!("system" in $$source)) {
             this["system"] = false;
+        }
+        if (!("asked" in $$source)) {
+            this["asked"] = false;
         }
         if (!("problem" in $$source)) {
             this["problem"] = "";

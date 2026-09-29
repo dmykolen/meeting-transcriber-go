@@ -243,7 +243,7 @@ func testMeetings(t *testing.T) (*Meetings, int64, int64) {
 	}
 
 	cfg := home.Defaults()
-	lib := library.New(db, nil, insights.New("", cfg.OpenAIModel, cfg.Language), home.Recordings(dir))
+	lib := library.New(db, nil, insights.New(insights.Setup{Language: cfg.Language}), home.Recordings(dir))
 	return New(db, lib, dir, cfg), recording.ID, project.ID
 }
 

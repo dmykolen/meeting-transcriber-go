@@ -104,7 +104,21 @@ const recordings: Recording[] = [
     turns: 0,
     problem: "could not read the audio: no data chunk",
   },
+  {
+    id: 5,
+    kind: "meeting",
+    audio: "sample-5.wav",
+    group: 0,
+    title: "meeting 2026-09-28 17:31.wav",
+    started: new Date(Date.now() - 4e6).toISOString(),
+    duration: 3677,
+    language: "",
+    status: "queued",
+    progress: 0,
+    turns: 0,
+  },
 ]
+const rushed = new Set<number>()
 
 const transcript = [
   { start: 42, end: 44, speaker: "Marta", text: "Привіт, привіт." },
@@ -178,6 +192,7 @@ const notes: Sticky[] = [
 ]
 let nextNote = 6
 const deleted = new Set<number>()
+let held = false
 export const sample = {
   SearchKnowledge: async (q: string, semantic: boolean) =>
     [
@@ -275,10 +290,21 @@ export const sample = {
     if (r) r.summary = structuredClone(after)
   },
   Recent: async () => recordings.filter((r) => !deleted.has(r.id)),
-  Open: async (id: number): Promise<Meeting> => ({
-    ...(recordings.find((r) => r.id === id) ?? recordings[0]),
-    transcript,
-  }),
+  Open: async (id: number): Promise<Meeting> => {
+    const r = recordings.find((r) => r.id === id) ?? recordings[0]
+    const until = new Date()
+    until.setHours(19, 0, 0, 0)
+    const queued = r.status === "queued"
+    return {
+      ...r,
+      transcript: queued ? [] : transcript,
+      wait: !queued ? "" : rushed.has(r.id) ? "next" : "time",
+      until: until.toISOString(),
+    }
+  },
+  Rush: async (id: number) => {
+    rushed.add(id)
+  },
   Search: async (q: string) =>
     [
       {
@@ -494,8 +520,36 @@ export const sample = {
     quietEnds: 180,
     preroll: 300,
     keepAudioDays: 30,
+    aiProvider: "copilot" as const,
+    copilotModel: "",
+    localModel: "",
+    transcribe: "at" as const,
+    transcribeAt: "19:00",
+    embeddings: "local" as const,
     folder: "/Users/you/MeetingTranscriber",
   }),
+  AIStatus: async () => ({
+    ready: true,
+    searchable: false,
+    fetching: "Qwen3 Embedding 0.6B",
+    fraction: 0.42,
+    indexing: "",
+    indexed: 0,
+    signingIn: false,
+    said: [],
+    problem: "",
+  }),
+  Copilot: async () => ({
+    login: "octocat",
+    models: [
+      { id: "gpt-5-mini", name: "GPT-5 mini" },
+      { id: "gpt-5.4-mini", name: "GPT-5.4 mini" },
+    ],
+  }),
+  ConnectCopilot: async () => {},
+  Hold: async (on: boolean) => {
+    held = on
+  },
   Actions: async (done: boolean) =>
     recordings
       .filter((r) => !deleted.has(r.id))
@@ -525,8 +579,10 @@ export const sample = {
     total: 0,
   }),
 
+  // The strip is only there while something records.
   Listening: () => ({
-    phase: "listening",
+    phase: location.hash === "#strip" ? (held ? "held" : "recording") : "listening",
+    asked: false,
     kind: "meeting",
     elapsed: 0,
     quiet: 0,

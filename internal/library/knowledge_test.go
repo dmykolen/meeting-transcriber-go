@@ -74,7 +74,7 @@ func TestKnowledgeEmbeddingsCacheEditsAndAnswerUseOwnedSources(t *testing.T) {
 	defer server.Close()
 	t.Setenv("OPENAI_BASE_URL", server.URL+"/v1")
 	lib, db, _ := setup(t, &fakeEngine{})
-	lib.llm = insights.New("test-key-not-real", "test-model", "uk")
+	lib.Brain(insights.New(insights.Setup{Language: "uk", Provider: "openai", Embeddings: "openai", OpenAIKey: "test-key-not-real", OpenAIModel: "test-model"}))
 	r, err := db.Add(store.Recording{Kind: store.Meeting, Title: "Безпека", Audio: "a.wav"})
 	if err != nil {
 		t.Fatal(err)

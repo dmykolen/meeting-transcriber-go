@@ -73,7 +73,9 @@ The current experiment set covers:
 - speaker models, channels, and clustering thresholds;
 - microphone-owner detection;
 - row reconstruction and timestamp accuracy;
-- glossary prompting.
+- glossary prompting;
+- local LLM structured summaries and grounded Q&A;
+- recurring unnamed voices across meetings (`exp/20_voices`).
 
 The durable conclusions are in `.spec/decisions.md`; detailed outputs remain in
 `exp/out/`.

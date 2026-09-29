@@ -16,16 +16,25 @@ import * as store$0 from "../store/models.js";
 // @ts-ignore: Unused imports
 import * as $models from "./models.js";
 
+/**
+ * AIStatus is polled by the settings screen.
+ */
+export function AIStatus(): $CancellablePromise<$models.AIState> {
+    return $Call.ByID(1321556140).then(($result: any) => {
+        return $$createType0($result);
+    });
+}
+
 export function AcceptSummary(id: number, before: store$0.Summary | null, after: store$0.Summary | null): $CancellablePromise<void> {
-    return $Call.ByID(3947130702, id, before, after);
+    return $Call.ByID(3376420516, id, before, after);
 }
 
 /**
  * Actions lists outstanding action items across meetings.
  */
 export function Actions(includeDone: boolean): $CancellablePromise<store$0.Outstanding[]> {
-    return $Call.ByID(4286214473, includeDone).then(($result: any) => {
-        return $$createType1($result);
+    return $Call.ByID(930980495, includeDone).then(($result: any) => {
+        return $$createType2($result);
     });
 }
 
@@ -33,15 +42,15 @@ export function Actions(includeDone: boolean): $CancellablePromise<store$0.Outst
  * Again retranscribes a recording from scratch.
  */
 export function Again(id: number): $CancellablePromise<void> {
-    return $Call.ByID(2388190674, id);
+    return $Call.ByID(3133342296, id);
 }
 
 /**
  * Analytics returns transcript-derived meeting metrics.
  */
 export function Analytics(id: number): $CancellablePromise<store$0.Analytics | null> {
-    return $Call.ByID(2094126650, id).then(($result: any) => {
-        return $$createType3($result);
+    return $Call.ByID(1461344700, id).then(($result: any) => {
+        return $$createType4($result);
     });
 }
 
@@ -49,23 +58,32 @@ export function Analytics(id: number): $CancellablePromise<store$0.Analytics | n
  * Appearances lists the groups a person appears in, busiest first.
  */
 export function Appearances(name: string): $CancellablePromise<store$0.Group[]> {
-    return $Call.ByID(1939080865, name).then(($result: any) => {
-        return $$createType5($result);
+    return $Call.ByID(3509876839, name).then(($result: any) => {
+        return $$createType6($result);
     });
+}
+
+/**
+ * ApplyAI builds the model client the settings describe and puts it to work.
+ * Whatever it still needs is fetched in the background, after which it is
+ * applied again.
+ */
+export function ApplyAI(): $CancellablePromise<void> {
+    return $Call.ByID(2336324454);
 }
 
 /**
  * Ask answers a question from the transcripts.
  */
 export function Ask(question: string): $CancellablePromise<$models.Answer | null> {
-    return $Call.ByID(1500112095, question).then(($result: any) => {
-        return $$createType7($result);
+    return $Call.ByID(3095791229, question).then(($result: any) => {
+        return $$createType8($result);
     });
 }
 
 export function AskKnowledge(question: string): $CancellablePromise<$models.KnowledgeAnswer | null> {
-    return $Call.ByID(1254955373, question).then(($result: any) => {
-        return $$createType9($result);
+    return $Call.ByID(3873997683, question).then(($result: any) => {
+        return $$createType10($result);
     });
 }
 
@@ -73,8 +91,8 @@ export function AskKnowledge(question: string): $CancellablePromise<$models.Know
  * Bin lists recordings currently in the bin.
  */
 export function Bin(): $CancellablePromise<store$0.Recording[]> {
-    return $Call.ByID(820010799).then(($result: any) => {
-        return $$createType11($result);
+    return $Call.ByID(571756861).then(($result: any) => {
+        return $$createType12($result);
     });
 }
 
@@ -82,8 +100,26 @@ export function Bin(): $CancellablePromise<store$0.Recording[]> {
  * Brief returns the cross-meeting briefing view.
  */
 export function Brief(days: number): $CancellablePromise<store$0.Briefing | null> {
-    return $Call.ByID(690406538, days).then(($result: any) => {
-        return $$createType13($result);
+    return $Call.ByID(4262578916, days).then(($result: any) => {
+        return $$createType14($result);
+    });
+}
+
+/**
+ * ConnectCopilot signs in to GitHub Copilot in the browser. It returns at once;
+ * AIStatus follows the sign-in.
+ */
+export function ConnectCopilot(): $CancellablePromise<void> {
+    return $Call.ByID(1734679706);
+}
+
+/**
+ * Copilot reports the signed-in GitHub account and its models. It starts the
+ * Copilot CLI for a moment, so the settings screen asks once when it opens.
+ */
+export function Copilot(): $CancellablePromise<$models.CopilotAccount> {
+    return $Call.ByID(2332418300).then(($result: any) => {
+        return $$createType15($result);
     });
 }
 
@@ -91,25 +127,25 @@ export function Brief(days: number): $CancellablePromise<store$0.Briefing | null
  * Delete buries a meeting.
  */
 export function Delete(id: number): $CancellablePromise<void> {
-    return $Call.ByID(2789016269, id);
+    return $Call.ByID(2031587407, id);
 }
 
 /**
  * DropGroup removes a group and leaves its recordings unfiled.
  */
 export function DropGroup(id: number): $CancellablePromise<void> {
-    return $Call.ByID(974174766, id);
+    return $Call.ByID(2122627240, id);
 }
 
 export function EditAction(id: number, index: number, action: store$0.Action): $CancellablePromise<void> {
-    return $Call.ByID(1423411092, id, index, action);
+    return $Call.ByID(2433312858, id, index, action);
 }
 
 /**
  * EmptyBin permanently deletes everything currently in the bin.
  */
 export function EmptyBin(): $CancellablePromise<string> {
-    return $Call.ByID(1597412084);
+    return $Call.ByID(1358074942);
 }
 
 /**
@@ -117,31 +153,38 @@ export function EmptyBin(): $CancellablePromise<string> {
  * zero.
  */
 export function File(recording: number, group: number): $CancellablePromise<void> {
-    return $Call.ByID(4262653172, recording, group);
+    return $Call.ByID(1529290802, recording, group);
 }
 
 /**
  * Forget drops a learned person.
  */
 export function Forget(name: string): $CancellablePromise<void> {
-    return $Call.ByID(3211396467, name);
+    return $Call.ByID(802904725, name);
 }
 
 /**
  * Groups lists library groups.
  */
 export function Groups(): $CancellablePromise<store$0.Group[]> {
-    return $Call.ByID(3017561026).then(($result: any) => {
-        return $$createType5($result);
+    return $Call.ByID(69688140).then(($result: any) => {
+        return $$createType6($result);
     });
+}
+
+/**
+ * Hold pauses the recording in progress without ending it, or resumes it.
+ */
+export function Hold(on: boolean): $CancellablePromise<void> {
+    return $Call.ByID(1425432153, on);
 }
 
 /**
  * Import copies a file into the recordings folder and queues it.
  */
 export function Import(path: string): $CancellablePromise<store$0.Recording | null> {
-    return $Call.ByID(2393183823, path).then(($result: any) => {
-        return $$createType14($result);
+    return $Call.ByID(323991049, path).then(($result: any) => {
+        return $$createType16($result);
     });
 }
 
@@ -149,8 +192,8 @@ export function Import(path: string): $CancellablePromise<store$0.Recording | nu
  * InGroup lists one group's recordings.
  */
 export function InGroup(group: number): $CancellablePromise<store$0.Recording[]> {
-    return $Call.ByID(2924641732, group).then(($result: any) => {
-        return $$createType11($result);
+    return $Call.ByID(4247314098, group).then(($result: any) => {
+        return $$createType12($result);
     });
 }
 
@@ -158,15 +201,15 @@ export function InGroup(group: number): $CancellablePromise<store$0.Recording[]>
  * Listener installs the always-on recorder once it is ready.
  */
 export function Listener(r: listen$0.Recorder | null): $CancellablePromise<void> {
-    return $Call.ByID(1729818974, r);
+    return $Call.ByID(1016634708, r);
 }
 
 /**
  * Listening reports the recorder state for polling UI.
  */
 export function Listening(): $CancellablePromise<listen$0.Status> {
-    return $Call.ByID(2744938035).then(($result: any) => {
-        return $$createType15($result);
+    return $Call.ByID(3260884793).then(($result: any) => {
+        return $$createType17($result);
     });
 }
 
@@ -174,8 +217,8 @@ export function Listening(): $CancellablePromise<listen$0.Status> {
  * Live returns the current live transcript.
  */
 export function Live(): $CancellablePromise<listen$0.Line[]> {
-    return $Call.ByID(2531093944).then(($result: any) => {
-        return $$createType17($result);
+    return $Call.ByID(857624286).then(($result: any) => {
+        return $$createType19($result);
     });
 }
 
@@ -183,15 +226,15 @@ export function Live(): $CancellablePromise<listen$0.Line[]> {
  * Loose reports how many recordings belong to no group.
  */
 export function Loose(): $CancellablePromise<number> {
-    return $Call.ByID(3074855652);
+    return $Call.ByID(296371398);
 }
 
 /**
  * MCPStatus reports whether external AI clients can reach the app.
  */
 export function MCPStatus(): $CancellablePromise<$models.MCPState> {
-    return $Call.ByID(4054666384).then(($result: any) => {
-        return $$createType18($result);
+    return $Call.ByID(2364504538).then(($result: any) => {
+        return $$createType20($result);
     });
 }
 
@@ -199,28 +242,28 @@ export function MCPStatus(): $CancellablePromise<$models.MCPState> {
  * Markdown renders a whole meeting for export.
  */
 export function Markdown(id: number): $CancellablePromise<string> {
-    return $Call.ByID(1704503591, id);
+    return $Call.ByID(3816970797, id);
 }
 
 /**
  * Moment returns where a line occurred within a recording.
  */
 export function Moment(recording: number, text: string): $CancellablePromise<number> {
-    return $Call.ByID(1538936198, recording, text);
+    return $Call.ByID(2116253744, recording, text);
 }
 
 /**
  * NewGroup creates a group or returns the existing one with that name.
  */
 export function NewGroup(name: string): $CancellablePromise<store$0.Group> {
-    return $Call.ByID(2951344047, name).then(($result: any) => {
-        return $$createType4($result);
+    return $Call.ByID(4199650165, name).then(($result: any) => {
+        return $$createType5($result);
     });
 }
 
 export function Notes(recording: number, project: number): $CancellablePromise<store$0.Sticky[]> {
-    return $Call.ByID(3870704023, recording, project).then(($result: any) => {
-        return $$createType20($result);
+    return $Call.ByID(4102202713, recording, project).then(($result: any) => {
+        return $$createType22($result);
     });
 }
 
@@ -228,8 +271,8 @@ export function Notes(recording: number, project: number): $CancellablePromise<s
  * Open loads one recording and its transcript.
  */
 export function Open(id: number): $CancellablePromise<$models.Meeting | null> {
-    return $Call.ByID(3169510906, id).then(($result: any) => {
-        return $$createType22($result);
+    return $Call.ByID(252157860, id).then(($result: any) => {
+        return $$createType24($result);
     });
 }
 
@@ -237,22 +280,22 @@ export function Open(id: number): $CancellablePromise<$models.Meeting | null> {
  * Paint sets or clears a group's explicit colour.
  */
 export function Paint(id: number, colour: string): $CancellablePromise<void> {
-    return $Call.ByID(2169964894, id, colour);
+    return $Call.ByID(3404773384, id, colour);
 }
 
 /**
  * PaintPerson sets or clears a person's explicit colour.
  */
 export function PaintPerson(name: string, colour: string): $CancellablePromise<void> {
-    return $Call.ByID(1523618083, name, colour);
+    return $Call.ByID(1043564333, name, colour);
 }
 
 /**
  * People lists everybody the app can recognise by voice.
  */
 export function People(): $CancellablePromise<store$0.Person[]> {
-    return $Call.ByID(3465037041).then(($result: any) => {
-        return $$createType24($result);
+    return $Call.ByID(2015584423).then(($result: any) => {
+        return $$createType26($result);
     });
 }
 
@@ -261,25 +304,25 @@ export function People(): $CancellablePromise<store$0.Person[]> {
  * model may close it but never reword it.
  */
 export function PinItem(group: number, id: number, text: string, owner: string, due: string): $CancellablePromise<void> {
-    return $Call.ByID(1162602530, group, id, text, owner, due);
+    return $Call.ByID(3864148116, group, id, text, owner, due);
 }
 
 /**
  * Playing tells the listener when app-owned playback is running.
  */
 export function Playing(on: boolean): $CancellablePromise<void> {
-    return $Call.ByID(1269014556, on);
+    return $Call.ByID(1598357826, on);
 }
 
 export function PreviewSummary(id: number): $CancellablePromise<store$0.Summary | null> {
-    return $Call.ByID(1815224778, id).then(($result: any) => {
-        return $$createType26($result);
+    return $Call.ByID(3893433528, id).then(($result: any) => {
+        return $$createType28($result);
     });
 }
 
 export function PutNote(note: store$0.Sticky): $CancellablePromise<store$0.Sticky> {
-    return $Call.ByID(4192976983, note).then(($result: any) => {
-        return $$createType19($result);
+    return $Call.ByID(2127520261, note).then(($result: any) => {
+        return $$createType21($result);
     });
 }
 
@@ -288,15 +331,15 @@ export function PutNote(note: store$0.Sticky): $CancellablePromise<store$0.Stick
  * "this has gone wrong".
  */
 export function RebuildProject(group: number): $CancellablePromise<void> {
-    return $Call.ByID(3236221742, group);
+    return $Call.ByID(1955865216, group);
 }
 
 /**
  * Recent lists recordings newest first.
  */
 export function Recent(limit: number): $CancellablePromise<store$0.Recording[]> {
-    return $Call.ByID(1420283577, limit).then(($result: any) => {
-        return $$createType11($result);
+    return $Call.ByID(2151622735, limit).then(($result: any) => {
+        return $$createType12($result);
     });
 }
 
@@ -304,25 +347,25 @@ export function Recent(limit: number): $CancellablePromise<store$0.Recording[]> 
  * Record toggles manual recording.
  */
 export function Record(): $CancellablePromise<void> {
-    return $Call.ByID(2466039479);
+    return $Call.ByID(297470353);
 }
 
 /**
  * Redate corrects when a meeting really happened.
  */
 export function Redate(recording: number, when: string): $CancellablePromise<void> {
-    return $Call.ByID(2426394395, recording, when);
+    return $Call.ByID(131040217, recording, when);
 }
 
 /**
- * Reindex fills in any missing passage embeddings.
+ * Reindex fills in any missing search vectors.
  */
 export function Reindex(): $CancellablePromise<string> {
-    return $Call.ByID(2651234501);
+    return $Call.ByID(1676040235);
 }
 
 export function RemoveNote(id: number): $CancellablePromise<void> {
-    return $Call.ByID(2502196882, id);
+    return $Call.ByID(4288311552, id);
 }
 
 /**
@@ -330,43 +373,50 @@ export function RemoveNote(id: number): $CancellablePromise<void> {
  * matching voice when possible.
  */
 export function Rename(id: number, $from: string, to: string): $CancellablePromise<void> {
-    return $Call.ByID(3355732220, id, $from, to);
+    return $Call.ByID(3231081830, id, $from, to);
 }
 
 /**
  * RenameGroup renames a group.
  */
 export function RenameGroup(id: number, name: string): $CancellablePromise<void> {
-    return $Call.ByID(3567885487, id, name);
+    return $Call.ByID(1043173145, id, name);
 }
 
 /**
  * Restore takes a recording back out of the bin.
  */
 export function Restore(id: number): $CancellablePromise<void> {
-    return $Call.ByID(2469582744, id);
+    return $Call.ByID(583232174, id);
 }
 
 /**
  * Retitle overrides the model-generated title.
  */
 export function Retitle(id: number, title: string): $CancellablePromise<void> {
-    return $Call.ByID(1977650231, id, title);
+    return $Call.ByID(4081148809, id, title);
 }
 
 /**
  * RevealFolder opens the app folder in the platform file manager.
  */
 export function RevealFolder(): $CancellablePromise<void> {
-    return $Call.ByID(4141902131);
+    return $Call.ByID(951261417);
+}
+
+/**
+ * Rush transcribes one queued recording next, whatever the schedule says.
+ */
+export function Rush(id: number): $CancellablePromise<void> {
+    return $Call.ByID(600156654, id);
 }
 
 /**
  * Samples lists the evidence behind a learned person.
  */
 export function Samples(name: string): $CancellablePromise<store$0.Source[]> {
-    return $Call.ByID(1556926209, name).then(($result: any) => {
-        return $$createType28($result);
+    return $Call.ByID(3779078695, name).then(($result: any) => {
+        return $$createType30($result);
     });
 }
 
@@ -374,34 +424,34 @@ export function Samples(name: string): $CancellablePromise<store$0.Source[]> {
  * SaveNote stores a note against a meeting.
  */
 export function SaveNote(id: number, note: string): $CancellablePromise<void> {
-    return $Call.ByID(2773378063, id, note);
+    return $Call.ByID(3867637305, id, note);
 }
 
 /**
- * SaveSettings writes settings back to disk.
+ * SaveSettings writes settings back to disk. AI changes apply at once.
  */
 export function SaveSettings(s: $models.Settings): $CancellablePromise<void> {
-    return $Call.ByID(1260496690, s);
+    return $Call.ByID(4293299692, s);
 }
 
 /**
  * Search finds passages across every transcript.
  */
 export function Search(query: string): $CancellablePromise<store$0.Hit[]> {
-    return $Call.ByID(1634764442, query).then(($result: any) => {
-        return $$createType30($result);
-    });
-}
-
-export function SearchKnowledge(query: string, semantic: boolean): $CancellablePromise<store$0.KnowledgeHit[]> {
-    return $Call.ByID(3922664222, query, semantic).then(($result: any) => {
+    return $Call.ByID(3261299832, query).then(($result: any) => {
         return $$createType32($result);
     });
 }
 
+export function SearchKnowledge(query: string, semantic: boolean): $CancellablePromise<store$0.KnowledgeHit[]> {
+    return $Call.ByID(4128673916, query, semantic).then(($result: any) => {
+        return $$createType34($result);
+    });
+}
+
 export function Settings(): $CancellablePromise<$models.Settings> {
-    return $Call.ByID(4203116247).then(($result: any) => {
-        return $$createType33($result);
+    return $Call.ByID(912023337).then(($result: any) => {
+        return $$createType35($result);
     });
 }
 
@@ -409,8 +459,8 @@ export function Settings(): $CancellablePromise<$models.Settings> {
  * Span returns recent recordings for the timeline.
  */
 export function Span(days: number): $CancellablePromise<store$0.Mark[]> {
-    return $Call.ByID(3717387314, days).then(($result: any) => {
-        return $$createType35($result);
+    return $Call.ByID(613994076, days).then(($result: any) => {
+        return $$createType37($result);
     });
 }
 
@@ -418,99 +468,101 @@ export function Span(days: number): $CancellablePromise<store$0.Mark[]> {
  * Standing returns one group's current standing.
  */
 export function Standing(group: number): $CancellablePromise<store$0.Standing | null> {
-    return $Call.ByID(1016657098, group).then(($result: any) => {
-        return $$createType37($result);
+    return $Call.ByID(1867745684, group).then(($result: any) => {
+        return $$createType39($result);
     });
 }
 
 /**
- * Summaries reports whether LLM-backed features are configured.
+ * Summaries reports whether summaries and answers can be made right now.
  */
 export function Summaries(): $CancellablePromise<boolean> {
-    return $Call.ByID(2534345830);
+    return $Call.ByID(2160594968);
 }
 
 /**
  * Summarise reruns summary generation for a recording.
  */
 export function Summarise(id: number): $CancellablePromise<void> {
-    return $Call.ByID(2369526854, id);
+    return $Call.ByID(2461017992, id);
 }
 
 /**
  * ThisIsMe names the laptop owner and backfills any usable self voiceprints.
  */
 export function ThisIsMe(name: string): $CancellablePromise<string> {
-    return $Call.ByID(821810460, name);
+    return $Call.ByID(50897806, name);
 }
 
 /**
  * Tick marks one action item done or undone.
  */
 export function Tick(id: number, index: number, done: boolean): $CancellablePromise<void> {
-    return $Call.ByID(2083712087, id, index, done);
+    return $Call.ByID(2363834169, id, index, done);
 }
 
 /**
  * TickItem ticks a line of the project document off, or puts it back.
  */
 export function TickItem(group: number, id: number, done: boolean): $CancellablePromise<void> {
-    return $Call.ByID(929529136, group, id, done);
+    return $Call.ByID(3333829746, group, id, done);
 }
 
 /**
  * Tidy runs the audio-retention sweep now.
  */
 export function Tidy(): $CancellablePromise<string> {
-    return $Call.ByID(2386150514);
+    return $Call.ByID(2734074620);
 }
 
 /**
  * Waveform returns the loudness envelope of the folded playback audio.
  */
 export function Waveform(id: number): $CancellablePromise<number[]> {
-    return $Call.ByID(1962206177, id).then(($result: any) => {
-        return $$createType38($result);
+    return $Call.ByID(1827314399, id).then(($result: any) => {
+        return $$createType40($result);
     });
 }
 
 // Private type creation functions
-const $$createType0 = store$0.Outstanding.createFrom;
-const $$createType1 = $Create.Array($$createType0);
-const $$createType2 = store$0.Analytics.createFrom;
-const $$createType3 = $Create.Nullable($$createType2);
-const $$createType4 = store$0.Group.createFrom;
-const $$createType5 = $Create.Array($$createType4);
-const $$createType6 = $models.Answer.createFrom;
-const $$createType7 = $Create.Nullable($$createType6);
-const $$createType8 = $models.KnowledgeAnswer.createFrom;
-const $$createType9 = $Create.Nullable($$createType8);
-const $$createType10 = store$0.Recording.createFrom;
-const $$createType11 = $Create.Array($$createType10);
-const $$createType12 = store$0.Briefing.createFrom;
-const $$createType13 = $Create.Nullable($$createType12);
-const $$createType14 = $Create.Nullable($$createType10);
-const $$createType15 = listen$0.Status.createFrom;
-const $$createType16 = listen$0.Line.createFrom;
-const $$createType17 = $Create.Array($$createType16);
-const $$createType18 = $models.MCPState.createFrom;
-const $$createType19 = store$0.Sticky.createFrom;
-const $$createType20 = $Create.Array($$createType19);
-const $$createType21 = $models.Meeting.createFrom;
-const $$createType22 = $Create.Nullable($$createType21);
-const $$createType23 = store$0.Person.createFrom;
-const $$createType24 = $Create.Array($$createType23);
-const $$createType25 = store$0.Summary.createFrom;
-const $$createType26 = $Create.Nullable($$createType25);
-const $$createType27 = store$0.Source.createFrom;
-const $$createType28 = $Create.Array($$createType27);
-const $$createType29 = store$0.Hit.createFrom;
+const $$createType0 = $models.AIState.createFrom;
+const $$createType1 = store$0.Outstanding.createFrom;
+const $$createType2 = $Create.Array($$createType1);
+const $$createType3 = store$0.Analytics.createFrom;
+const $$createType4 = $Create.Nullable($$createType3);
+const $$createType5 = store$0.Group.createFrom;
+const $$createType6 = $Create.Array($$createType5);
+const $$createType7 = $models.Answer.createFrom;
+const $$createType8 = $Create.Nullable($$createType7);
+const $$createType9 = $models.KnowledgeAnswer.createFrom;
+const $$createType10 = $Create.Nullable($$createType9);
+const $$createType11 = store$0.Recording.createFrom;
+const $$createType12 = $Create.Array($$createType11);
+const $$createType13 = store$0.Briefing.createFrom;
+const $$createType14 = $Create.Nullable($$createType13);
+const $$createType15 = $models.CopilotAccount.createFrom;
+const $$createType16 = $Create.Nullable($$createType11);
+const $$createType17 = listen$0.Status.createFrom;
+const $$createType18 = listen$0.Line.createFrom;
+const $$createType19 = $Create.Array($$createType18);
+const $$createType20 = $models.MCPState.createFrom;
+const $$createType21 = store$0.Sticky.createFrom;
+const $$createType22 = $Create.Array($$createType21);
+const $$createType23 = $models.Meeting.createFrom;
+const $$createType24 = $Create.Nullable($$createType23);
+const $$createType25 = store$0.Person.createFrom;
+const $$createType26 = $Create.Array($$createType25);
+const $$createType27 = store$0.Summary.createFrom;
+const $$createType28 = $Create.Nullable($$createType27);
+const $$createType29 = store$0.Source.createFrom;
 const $$createType30 = $Create.Array($$createType29);
-const $$createType31 = store$0.KnowledgeHit.createFrom;
+const $$createType31 = store$0.Hit.createFrom;
 const $$createType32 = $Create.Array($$createType31);
-const $$createType33 = $models.Settings.createFrom;
-const $$createType34 = store$0.Mark.createFrom;
-const $$createType35 = $Create.Array($$createType34);
-const $$createType36 = store$0.Standing.createFrom;
-const $$createType37 = $Create.Nullable($$createType36);
-const $$createType38 = $Create.Array($Create.Any);
+const $$createType33 = store$0.KnowledgeHit.createFrom;
+const $$createType34 = $Create.Array($$createType33);
+const $$createType35 = $models.Settings.createFrom;
+const $$createType36 = store$0.Mark.createFrom;
+const $$createType37 = $Create.Array($$createType36);
+const $$createType38 = store$0.Standing.createFrom;
+const $$createType39 = $Create.Nullable($$createType38);
+const $$createType40 = $Create.Array($Create.Any);

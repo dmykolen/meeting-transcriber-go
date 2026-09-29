@@ -13,6 +13,7 @@ import {
   length,
   many,
   when,
+  why,
   type Group,
   type Thread,
   type Standing,
@@ -52,10 +53,10 @@ export default function Project({
     setState(null)
     Api.Standing(id)
       .then((s) => setState(s as Standing))
-      .catch((e) => setProblem(String(e)))
+      .catch((e) => setProblem(why(e)))
     Api.InGroup(id)
       .then((r) => setRows((r as typeof rows) ?? []))
-      .catch((e) => setProblem(String(e)))
+      .catch((e) => setProblem(why(e)))
     setName(group?.name ?? "")
     setPicking(false)
     // The name follows the project, not the render: retyping it on every poll
@@ -73,7 +74,7 @@ export default function Project({
     try {
       await Api.RebuildProject(id)
     } catch (e) {
-      setProblem(String(e))
+      setProblem(why(e))
     } finally {
       clearInterval(watch)
       await read()

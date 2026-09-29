@@ -3,7 +3,7 @@ import { AnimatePresence, motion } from "motion/react"
 import { Check, MoreHorizontal, RotateCcw } from "lucide-react"
 import Head from "../components/Head"
 import ActionEditor from "../components/ActionEditor"
-import { Meetings, when, type Outstanding } from "../api"
+import { Meetings, when, why, type Outstanding } from "../api"
 export default function Todo({ onOpen }: { onOpen: (id: number) => void }) {
   const [items, setItems] = useState<Outstanding[]>([]),
     [done, setDone] = useState(false),
@@ -14,7 +14,7 @@ export default function Todo({ onOpen }: { onOpen: (id: number) => void }) {
     try {
       setItems((await Meetings.Actions(done)) as Outstanding[])
     } catch (e) {
-      setError(String(e))
+      setError(why(e))
     }
   }, [done])
   useEffect(() => {
@@ -73,7 +73,7 @@ export default function Todo({ onOpen }: { onOpen: (id: number) => void }) {
                     setUndo(a)
                     await load()
                   } catch (e) {
-                    setError(String(e))
+                    setError(why(e))
                   }
                 }}
               >
@@ -123,7 +123,7 @@ export default function Todo({ onOpen }: { onOpen: (id: number) => void }) {
                 setUndo(null)
                 await load()
               } catch (e) {
-                setError(String(e))
+                setError(why(e))
               }
             }}
           >

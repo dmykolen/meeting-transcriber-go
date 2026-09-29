@@ -24,6 +24,7 @@ const (
 	Listening  Phase = "listening"
 	Recording  Phase = "recording"
 	WrappingUp Phase = "wrapping up" // it has gone quiet, and this may be the end
+	Held       Phase = "held"        // a recording paused by hand; the file stays open
 	Paused     Phase = "paused"
 	Broken     Phase = "broken"
 )
@@ -35,6 +36,7 @@ type Status struct {
 	Elapsed int    `json:"elapsed"` // seconds of the current recording
 	Quiet   int    `json:"quiet"`   // seconds since anybody last spoke
 	System  bool   `json:"system"`  // is the other side being captured at all
+	Asked   bool   `json:"asked"`   // started by hand rather than by the detector
 	Problem string `json:"problem"`
 }
 
@@ -77,6 +79,7 @@ type Recorder struct {
 	// The preroll must never reach back past the previous finished recording.
 	ended  time.Time
 	asked  bool // somebody pressed Record, rather than the app deciding
+	held   bool // the recording in progress is paused by hand
 	paused bool
 	// Muffle suppresses the app's own playback on the system channel.
 	muffled bool
@@ -223,6 +226,12 @@ func (r *Recorder) step(frame, left, right []int16, system bool) error {
 		r.detector.Force(*want)
 	} else {
 		r.mu.Unlock()
+	}
+	// Held, nothing heard is written, transcribed or kept for a preroll, and
+	// the detector stands still so the pause cannot end the meeting.
+	if r.Held() {
+		r.observe(system)
+		return nil
 	}
 
 	speaking, mine, err := r.mic.Speaking(left)
@@ -383,7 +392,7 @@ func free(path string) string {
 func (r *Recorder) finish(why string) error {
 	r.mu.Lock()
 	writer, kind, begun, asked := r.writer, r.kind, r.begun, r.asked
-	r.writer = nil
+	r.writer, r.held = nil, false
 	r.mu.Unlock()
 	if writer == nil {
 		return nil
@@ -461,6 +470,10 @@ func (r *Recorder) observe(system bool) {
 		}
 	}
 	r.mu.Lock()
+	status.Asked = on && r.asked
+	if on && r.held {
+		status.Phase = Held
+	}
 	if r.paused {
 		status = Status{Phase: Paused, System: system}
 	}
@@ -488,14 +501,30 @@ func (r *Recorder) Toggle() {
 	on := !r.Recording()
 	r.mu.Lock()
 	r.want = &on
+	r.held = false // a Stop pressed while held still has to reach the detector
 	r.mu.Unlock()
 }
 
-// Recording reports whether audio is being kept right now.
+// Hold pauses the recording in progress without ending it, or resumes it.
+func (r *Recorder) Hold(on bool) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.held = on && r.writer != nil
+	slog.Info("recording", "held", r.held)
+}
+
+// Held reports whether the recording in progress is paused by hand.
+func (r *Recorder) Held() bool {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.held
+}
+
+// Recording reports whether a recording is in progress, held or not.
 func (r *Recorder) Recording() bool {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	return r.snap.Phase == Recording || r.snap.Phase == WrappingUp
+	return r.snap.Phase == Recording || r.snap.Phase == WrappingUp || r.snap.Phase == Held
 }
 
 // Pause stops capture without stopping the app. Anything being recorded is

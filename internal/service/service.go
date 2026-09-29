@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -18,6 +19,7 @@ import (
 	"github.com/dmykolen/meeting-transcriber-go/internal/library"
 	"github.com/dmykolen/meeting-transcriber-go/internal/listen"
 	"github.com/dmykolen/meeting-transcriber-go/internal/media"
+	"github.com/dmykolen/meeting-transcriber-go/internal/models"
 	"github.com/dmykolen/meeting-transcriber-go/internal/store"
 )
 
@@ -25,10 +27,16 @@ type Meetings struct {
 	db      *store.DB
 	lib     *library.Library
 	dir     string
+	mu      sync.Mutex // guards config, which Wails calls and downloads share
 	config  home.Config
 	started time.Time
 	mcpMu   sync.RWMutex
 	mcp     MCPState
+
+	aiMu     sync.Mutex
+	ai       AIState // downloads, sign-in and their problems
+	fetching bool
+	noServer bool
 
 	// The listener may arrive later on a first run while models download.
 	ears *listen.Recorder
@@ -53,19 +61,29 @@ func (m *Meetings) Listening() listen.Status {
 	if m.ears == nil {
 		return listen.Status{Phase: listen.Opening}
 	}
-	if !m.config.Listen.Enabled {
+	m.mu.Lock()
+	enabled := m.config.Listen.Enabled
+	m.mu.Unlock()
+	if !enabled {
 		return listen.Status{Phase: listen.Off}
 	}
 	return m.ears.Status()
 }
 
-// Summaries reports whether LLM-backed features are configured.
-func (m *Meetings) Summaries() bool { return m.config.OpenAIKey != "" }
+// Summaries reports whether summaries and answers can be made right now.
+func (m *Meetings) Summaries() bool { return m.lib.AI().Ready() }
 
 // Record toggles manual recording.
 func (m *Meetings) Record() {
 	if m.ears != nil {
 		m.ears.Toggle()
+	}
+}
+
+// Hold pauses the recording in progress without ending it, or resumes it.
+func (m *Meetings) Hold(on bool) {
+	if m.ears != nil {
+		m.ears.Hold(on)
 	}
 }
 
@@ -90,6 +108,10 @@ func (m *Meetings) Recent(limit int) ([]store.Recording, error) {
 type Meeting struct {
 	store.Recording
 	Turns []store.Turn `json:"transcript"`
+	// Wait is why a queued recording is not being processed yet (see
+	// library.Waiting), and Until when it will be, for "time".
+	Wait  string    `json:"wait"`
+	Until time.Time `json:"until"`
 }
 
 // Open loads one recording and its transcript.
@@ -105,8 +127,12 @@ func (m *Meetings) Open(id int64) (*Meeting, error) {
 	if turns == nil {
 		turns = []store.Turn{}
 	}
-	return &Meeting{Recording: *r, Turns: turns}, nil
+	wait, until := m.lib.Waiting(*r, time.Now())
+	return &Meeting{Recording: *r, Turns: turns, Wait: wait, Until: until}, nil
 }
+
+// Rush transcribes one queued recording next, whatever the schedule says.
+func (m *Meetings) Rush(id int64) error { return m.lib.Rush(id) }
 
 // Search finds passages across every transcript.
 func (m *Meetings) Search(query string) ([]store.Hit, error) {
@@ -187,9 +213,12 @@ func (m *Meetings) ThisIsMe(name string) (string, error) {
 	}
 	// The setting is authoritative for microphone turns; saved voiceprints still
 	// help recognise the same person on the far side of a call.
-	m.config.Me = name
 	m.lib.Owner(name)
-	if err := home.Save(m.dir, m.config); err != nil {
+	m.mu.Lock()
+	m.config.Me = name
+	err = home.Save(m.dir, m.config)
+	m.mu.Unlock()
+	if err != nil {
 		return "", err
 	}
 	if taught == 0 {
@@ -271,15 +300,14 @@ func (m *Meetings) Analytics(id int64) (*store.Analytics, error) {
 	return &a, nil
 }
 
-// Reindex fills in any missing passage embeddings.
+// Reindex fills in any missing search vectors.
 func (m *Meetings) Reindex() (string, error) {
-	n, err := m.lib.Reindex(context.Background())
-	if err != nil {
+	if err := m.reindex(context.Background(), true); err != nil {
 		return "", err
 	}
 	with, without := m.db.Indexed()
-	return fmt.Sprintf("Indexed %d %s. %d passages searchable by meaning, %d by keyword only.",
-		n, plural(n, "recording"), with, without), nil
+	return fmt.Sprintf("Пошук за змістом оновлено: %d уривків шукаються за змістом, %d — лише за словами.",
+		with, without), nil
 }
 
 // Tidy runs the audio-retention sweep now.
@@ -510,11 +538,27 @@ type Settings struct {
 
 	KeepAudioDays int `json:"keepAudioDays"` // 0 keeps recordings for ever
 
+	AIProvider   string `json:"aiProvider"`   // "openai", "copilot" or "local"
+	CopilotModel string `json:"copilotModel"` // empty lets Copilot choose
+	LocalModel   string `json:"localModel"`   // a .gguf link; empty is the built-in model
+	Embeddings   string `json:"embeddings"`   // "openai" or "local"
+
+	Transcribe   string `json:"transcribe"`   // "after", "at" or "idle"
+	TranscribeAt string `json:"transcribeAt"` // "19:00", for "at"
+
 	Folder string `json:"folder"`
 }
 
 func (m *Meetings) Settings() Settings {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	return Settings{
+		AIProvider:    m.config.AI.Provider,
+		CopilotModel:  m.config.AI.CopilotModel,
+		LocalModel:    m.config.AI.LocalModel,
+		Embeddings:    m.config.AI.Embeddings,
+		Transcribe:    m.config.Queue.When,
+		TranscribeAt:  m.config.Queue.At,
 		Language:      m.config.Language,
 		OpenAIKey:     m.config.OpenAIKey,
 		OpenAIModel:   m.config.OpenAIModel,
@@ -531,8 +575,29 @@ func (m *Meetings) Settings() Settings {
 	}
 }
 
-// SaveSettings writes settings back to disk.
+// SaveSettings writes settings back to disk. AI changes apply at once.
 func (m *Meetings) SaveSettings(s Settings) error {
+	if !slices.Contains(home.Providers, s.AIProvider) || !slices.Contains(home.Embedders, s.Embeddings) {
+		return fmt.Errorf("невідомий вибір AI: %q, %q", s.AIProvider, s.Embeddings)
+	}
+	if s.LocalModel = strings.TrimSpace(s.LocalModel); s.LocalModel != "" {
+		if _, err := models.Custom(s.LocalModel); err != nil {
+			return fmt.Errorf("посилання на модель має вести на файл .gguf на Hugging Face: %w", err)
+		}
+	}
+	if !slices.Contains(home.Whens, s.Transcribe) {
+		return fmt.Errorf("невідомий вибір, коли розшифровувати: %q", s.Transcribe)
+	}
+	if _, err := time.Parse("15:04", s.TranscribeAt); err != nil {
+		return fmt.Errorf("час розшифровки має виглядати як 19:00, а не %q", s.TranscribeAt)
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	before := m.aiInputs()
+	m.config.AI = home.AI{Provider: s.AIProvider, CopilotModel: s.CopilotModel,
+		LocalModel: s.LocalModel, Embeddings: s.Embeddings}
+	m.config.Queue = home.Queue{When: s.Transcribe, At: s.TranscribeAt}
+	m.lib.Schedule(s.Transcribe, s.TranscribeAt)
 	m.config.Language = s.Language
 	m.config.OpenAIKey = s.OpenAIKey
 	m.config.OpenAIModel = s.OpenAIModel
@@ -560,7 +625,18 @@ func (m *Meetings) SaveSettings(s Settings) error {
 	if m.config.Listen.Preroll.Duration > m.config.Listen.Ring.Duration {
 		m.config.Listen.Ring = m.config.Listen.Preroll
 	}
-	return home.Save(m.dir, m.config)
+	if err := home.Save(m.dir, m.config); err != nil {
+		return err
+	}
+	if m.aiInputs() != before {
+		go m.ApplyAI() // after the lock is released
+	}
+	return nil
+}
+
+// aiInputs is every setting the AI client is built from. Callers hold m.mu.
+func (m *Meetings) aiInputs() [4]any {
+	return [4]any{m.config.AI, m.config.OpenAIKey, m.config.OpenAIModel, m.config.Language}
 }
 
 // seconds applies defaults and clamps UI-provided durations.

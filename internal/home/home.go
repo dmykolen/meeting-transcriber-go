@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
@@ -30,6 +31,7 @@ func Recordings(dir string) string { return sub(dir, "recordings") }
 func Models(dir string) string     { return sub(dir, "models") }
 func Logs(dir string) string       { return sub(dir, "logs") }
 func Cache(dir string) string    { return sub(dir, "cache") }
+func Copilot(dir string) string  { return sub(dir, "copilot") }
 func Database(dir string) string { return filepath.Join(dir, "meetings.db") }
 
 func sub(dir, name string) string {
@@ -49,7 +51,33 @@ type Config struct {
 	Me string `toml:"me"`
 	Listen Listen `toml:"listen"`
 	Keep   Keep   `toml:"keep"`
+	AI     AI     `toml:"ai"`
+	Queue  Queue  `toml:"queue"`
 }
+
+// Queue says when recordings are transcribed: "after" each one, "at" a time of
+// day, or when the Mac is "idle".
+type Queue struct {
+	When string `toml:"when"`
+	At   string `toml:"at"` // "19:00"
+}
+
+// Whens are the values Queue.When accepts.
+var Whens = []string{"after", "at", "idle"}
+
+// AI says where summaries, answers and search vectors are made.
+type AI struct {
+	Provider     string `toml:"provider"`      // "openai", "copilot" or "local"
+	CopilotModel string `toml:"copilot_model"` // empty lets Copilot choose
+	LocalModel   string `toml:"local_model"`   // a .gguf link; empty is the built-in small model
+	Embeddings   string `toml:"embeddings"`    // "openai" or "local"
+}
+
+// Providers and Embedders are the values the AI settings accept.
+var (
+	Providers = []string{"openai", "copilot", "local"}
+	Embedders = []string{"openai", "local"}
+)
 
 // Listen configures always-on capture.
 type Listen struct {
@@ -129,7 +157,9 @@ func Defaults() Config {
 			Preroll:     Duration{5 * time.Minute},
 			Ring:        Duration{10 * time.Minute},
 		},
-		Keep: Keep{AudioDays: 30},
+		Keep:  Keep{AudioDays: 30},
+		AI:    AI{Provider: "openai", Embeddings: "openai"},
+		Queue: Queue{When: "after", At: "19:00"},
 	}
 }
 
@@ -162,6 +192,19 @@ func Load(dir string) (Config, error) {
 	}
 	if cfg.Summarise == "" {
 		cfg.Summarise = Defaults().Summarise
+	}
+	// A value this build does not know must not switch AI off or stop startup.
+	if !slices.Contains(Providers, cfg.AI.Provider) {
+		cfg.AI.Provider = Defaults().AI.Provider
+	}
+	if !slices.Contains(Embedders, cfg.AI.Embeddings) {
+		cfg.AI.Embeddings = Defaults().AI.Embeddings
+	}
+	if !slices.Contains(Whens, cfg.Queue.When) {
+		cfg.Queue.When = Defaults().Queue.When
+	}
+	if _, err := time.Parse("15:04", cfg.Queue.At); err != nil {
+		cfg.Queue.At = Defaults().Queue.At
 	}
 	return cfg, nil
 }
@@ -198,6 +241,12 @@ func write(path string, cfg Config) error {
 #               room it found half the words Whisper did.
 # [listen]      when a recording starts and stops on its own.
 # [keep]        audio_days = 0 keeps recordings for ever.
+# [ai]          provider "openai", "copilot" (your GitHub Copilot) or "local"
+#               (a model on this Mac); embeddings "openai" or "local" make the
+#               vectors behind search by meaning.
+# [queue]       when recordings are transcribed: "after" each one, "at" a time
+#               of day (at = "19:00"), or "idle" — once nobody has used the Mac
+#               for five minutes and nothing else keeps it busy.
 
 `
 	if _, err := file.WriteString(header); err != nil {

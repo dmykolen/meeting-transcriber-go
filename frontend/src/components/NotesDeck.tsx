@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import { AnimatePresence, motion } from "motion/react"
 import { Check, NotebookPen, Plus, Trash2, X } from "lucide-react"
-import { Meetings, type Sticky } from "../api"
+import { Meetings, why, type Sticky } from "../api"
 const colors = ["lime", "blue", "pink", "orange"]
 export default function NotesDeck({
   recording = 0,
@@ -53,7 +53,7 @@ export default function NotesDeck({
             ...(n as Sticky[]),
           ])
       })
-      .catch((e) => setStatus(String(e)))
+      .catch((e) => setStatus(why(e)))
     return () => {
       alive = false
     }
@@ -77,7 +77,7 @@ export default function NotesDeck({
         else await Meetings.PutNote(n as never)
         setStatus("Збережено")
       })
-      .catch((e) => setStatus("Не збережено: " + String(e)))
+      .catch((e) => setStatus("Не збережено: " + why(e)))
   }
   const change = (id: number, text: string, colour?: string) => {
     const updated = latest.current.map((n) =>
@@ -108,7 +108,7 @@ export default function NotesDeck({
       setEditing(n.id)
       setStatus("Збережено")
     } catch (e) {
-      setStatus(String(e))
+      setStatus(why(e))
     }
   }
   useEffect(() => {
@@ -271,7 +271,7 @@ export default function NotesDeck({
                           setStatus("Нотатку видалено")
                           setEditing(null)
                         } catch (e) {
-                          setStatus(String(e))
+                          setStatus(why(e))
                         }
                       }}
                     >
@@ -356,7 +356,7 @@ export default function NotesDeck({
                         setRemoved(null)
                         setStatus("Відновлено")
                       } catch (e) {
-                        setStatus(String(e))
+                        setStatus(why(e))
                       }
                     }}
                   >

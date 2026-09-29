@@ -7,7 +7,97 @@ import { Create as $Create } from "@wailsio/runtime";
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
+import * as insights$0 from "../insights/models.js";
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
 import * as store$0 from "../store/models.js";
+
+/**
+ * AIState is what the settings screen shows about the AI in use.
+ */
+export class AIState {
+    /**
+     * summaries and answers work
+     */
+    "ready": boolean;
+
+    /**
+     * search by meaning works
+     */
+    "searchable": boolean;
+
+    /**
+     * what is downloading, in words
+     */
+    "fetching": string;
+    "fraction": number;
+
+    /**
+     * which search vectors are being made, in words
+     */
+    "indexing": string;
+
+    /**
+     * how far, 0..1
+     */
+    "indexed": number;
+
+    /**
+     * the GitHub sign-in is waiting in the browser
+     */
+    "signingIn": boolean;
+
+    /**
+     * its last lines, which may hold a link or a code
+     */
+    "said": string[];
+    "problem": string;
+
+    /** Creates a new AIState instance. */
+    constructor($$source: Partial<AIState> = {}) {
+        if (!("ready" in $$source)) {
+            this["ready"] = false;
+        }
+        if (!("searchable" in $$source)) {
+            this["searchable"] = false;
+        }
+        if (!("fetching" in $$source)) {
+            this["fetching"] = "";
+        }
+        if (!("fraction" in $$source)) {
+            this["fraction"] = 0;
+        }
+        if (!("indexing" in $$source)) {
+            this["indexing"] = "";
+        }
+        if (!("indexed" in $$source)) {
+            this["indexed"] = 0;
+        }
+        if (!("signingIn" in $$source)) {
+            this["signingIn"] = false;
+        }
+        if (!("said" in $$source)) {
+            this["said"] = [];
+        }
+        if (!("problem" in $$source)) {
+            this["problem"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new AIState instance from a string or object.
+     */
+    static createFrom($$source: any = {}): AIState {
+        const $$createField7_0 = $$createType0;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("said" in $$parsedSource) {
+            $$parsedSource["said"] = $$createField7_0($$parsedSource["said"]);
+        }
+        return new AIState($$parsedSource as Partial<AIState>);
+    }
+}
 
 /**
  * Answer is an LLM reply plus the passages it cites.
@@ -32,12 +122,44 @@ export class Answer {
      * Creates a new Answer instance from a string or object.
      */
     static createFrom($$source: any = {}): Answer {
-        const $$createField1_0 = $$createType1;
+        const $$createField1_0 = $$createType2;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("sources" in $$parsedSource) {
             $$parsedSource["sources"] = $$createField1_0($$parsedSource["sources"]);
         }
         return new Answer($$parsedSource as Partial<Answer>);
+    }
+}
+
+/**
+ * CopilotAccount is who is signed in to GitHub Copilot and what they may use.
+ */
+export class CopilotAccount {
+    "login": string;
+    "models": insights$0.Model[];
+
+    /** Creates a new CopilotAccount instance. */
+    constructor($$source: Partial<CopilotAccount> = {}) {
+        if (!("login" in $$source)) {
+            this["login"] = "";
+        }
+        if (!("models" in $$source)) {
+            this["models"] = [];
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new CopilotAccount instance from a string or object.
+     */
+    static createFrom($$source: any = {}): CopilotAccount {
+        const $$createField1_0 = $$createType4;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("models" in $$parsedSource) {
+            $$parsedSource["models"] = $$createField1_0($$parsedSource["models"]);
+        }
+        return new CopilotAccount($$parsedSource as Partial<CopilotAccount>);
     }
 }
 
@@ -61,7 +183,7 @@ export class KnowledgeAnswer {
      * Creates a new KnowledgeAnswer instance from a string or object.
      */
     static createFrom($$source: any = {}): KnowledgeAnswer {
-        const $$createField1_0 = $$createType3;
+        const $$createField1_0 = $$createType6;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("sources" in $$parsedSource) {
             $$parsedSource["sources"] = $$createField1_0($$parsedSource["sources"]);
@@ -136,6 +258,13 @@ export class Meeting {
     "note"?: string;
     "transcript": store$0.Turn[];
 
+    /**
+     * Wait is why a queued recording is not being processed yet (see
+     * library.Waiting), and Until when it will be, for "time".
+     */
+    "wait": string;
+    "until": string;
+
     /** Creates a new Meeting instance. */
     constructor($$source: Partial<Meeting> = {}) {
         if (!("id" in $$source)) {
@@ -174,6 +303,12 @@ export class Meeting {
         if (!("transcript" in $$source)) {
             this["transcript"] = [];
         }
+        if (!("wait" in $$source)) {
+            this["wait"] = "";
+        }
+        if (!("until" in $$source)) {
+            this["until"] = "0001-01-01T00:00:00.000Z";
+        }
 
         Object.assign(this, $$source);
     }
@@ -182,9 +317,9 @@ export class Meeting {
      * Creates a new Meeting instance from a string or object.
      */
     static createFrom($$source: any = {}): Meeting {
-        const $$createField11_0 = $$createType5;
-        const $$createField12_0 = $$createType6;
-        const $$createField15_0 = $$createType8;
+        const $$createField11_0 = $$createType8;
+        const $$createField12_0 = $$createType0;
+        const $$createField15_0 = $$createType10;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("summary" in $$parsedSource) {
             $$parsedSource["summary"] = $$createField11_0($$parsedSource["summary"]);
@@ -235,6 +370,36 @@ export class Settings {
      * 0 keeps recordings for ever
      */
     "keepAudioDays": number;
+
+    /**
+     * "openai", "copilot" or "local"
+     */
+    "aiProvider": string;
+
+    /**
+     * empty lets Copilot choose
+     */
+    "copilotModel": string;
+
+    /**
+     * a .gguf link; empty is the built-in model
+     */
+    "localModel": string;
+
+    /**
+     * "openai" or "local"
+     */
+    "embeddings": string;
+
+    /**
+     * "after", "at" or "idle"
+     */
+    "transcribe": string;
+
+    /**
+     * "19:00", for "at"
+     */
+    "transcribeAt": string;
     "folder": string;
 
     /** Creates a new Settings instance. */
@@ -274,6 +439,24 @@ export class Settings {
         }
         if (!("keepAudioDays" in $$source)) {
             this["keepAudioDays"] = 0;
+        }
+        if (!("aiProvider" in $$source)) {
+            this["aiProvider"] = "";
+        }
+        if (!("copilotModel" in $$source)) {
+            this["copilotModel"] = "";
+        }
+        if (!("localModel" in $$source)) {
+            this["localModel"] = "";
+        }
+        if (!("embeddings" in $$source)) {
+            this["embeddings"] = "";
+        }
+        if (!("transcribe" in $$source)) {
+            this["transcribe"] = "";
+        }
+        if (!("transcribeAt" in $$source)) {
+            this["transcribeAt"] = "";
         }
         if (!("folder" in $$source)) {
             this["folder"] = "";
@@ -363,12 +546,14 @@ export class State {
 }
 
 // Private type creation functions
-const $$createType0 = store$0.Hit.createFrom;
-const $$createType1 = $Create.Array($$createType0);
-const $$createType2 = store$0.KnowledgeHit.createFrom;
-const $$createType3 = $Create.Array($$createType2);
-const $$createType4 = store$0.Summary.createFrom;
-const $$createType5 = $Create.Nullable($$createType4);
-const $$createType6 = $Create.Array($Create.Any);
-const $$createType7 = store$0.Turn.createFrom;
-const $$createType8 = $Create.Array($$createType7);
+const $$createType0 = $Create.Array($Create.Any);
+const $$createType1 = store$0.Hit.createFrom;
+const $$createType2 = $Create.Array($$createType1);
+const $$createType3 = insights$0.Model.createFrom;
+const $$createType4 = $Create.Array($$createType3);
+const $$createType5 = store$0.KnowledgeHit.createFrom;
+const $$createType6 = $Create.Array($$createType5);
+const $$createType7 = store$0.Summary.createFrom;
+const $$createType8 = $Create.Nullable($$createType7);
+const $$createType9 = store$0.Turn.createFrom;
+const $$createType10 = $Create.Array($$createType9);

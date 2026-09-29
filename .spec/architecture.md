@@ -10,8 +10,11 @@ Meeting Transcriber is one macOS application:
 - Wails embeds the React frontend into the Go executable.
 - The same process owns capture, processing, SQLite, and the MCP server.
 - `audiotee` is bundled as a helper for macOS system-audio capture.
+- `llama-server` is bundled as the helper that runs local AI models.
 - sherpa-onnx dynamic libraries are included in the `.app`.
 - Models and FFmpeg are downloaded on first run into the app home directory.
+  Local AI models and the GitHub Copilot CLI are downloaded only when the AI
+  settings choose them.
 
 Default app data:
 
@@ -21,8 +24,9 @@ Default app data:
 ├── meetings.db
 ├── recordings/
 ├── models/
-├── bin/
+├── bin/          FFmpeg, and the Copilot CLI when chosen
 ├── cache/
+├── copilot/      the Copilot CLI's own state
 └── logs/mt.log
 ```
 
@@ -36,10 +40,13 @@ Default app data:
 2. loads config;
 3. opens SQLite;
 4. creates setup, library, and service objects;
-5. starts the loopback MCP server;
-6. opens the Wails window immediately;
-7. downloads and loads models in the background;
-8. starts the listener, retention, and processing queue when models are ready.
+5. builds the AI client the settings describe, fetching what it lacks behind
+   the window;
+6. starts the loopback MCP server;
+7. opens the Wails window immediately;
+8. downloads and loads models in the background;
+9. starts the listener, retention, and processing queue when models are ready;
+10. shows the recording strip while a meeting is recorded.
 
 The window must not wait for model imports, downloads, or initialization.
 
@@ -54,7 +61,7 @@ The window must not wait for model imports, downloads, or initialization.
 | `internal/media` | Decode, channel alignment, fold, playback cache, waveform |
 | `internal/engine` | ASR, diarization, embeddings |
 | `internal/store` | SQLite schema, queries, FTS, people, notes, projects, knowledge |
-| `internal/insights` | Optional OpenAI summaries, embeddings, Q&A, project updates |
+| `internal/insights` | Optional summaries, embeddings, Q&A, project updates via OpenAI, GitHub Copilot, or local `llama-server` |
 | `internal/library` | Processing queue and transcript-derived artifacts |
 | `internal/service` | Wails methods and MCP tools |
 | `frontend/src` | Product UI |
@@ -82,7 +89,10 @@ Channel ownership is used for note/meeting classification, local-speaker
 attribution, echo handling, and far-side diarization.
 
 The queue is single-worker. Active recording prevents the queue from starting a
-new historical job; a job already in flight is not preempted.
+new historical job; a job already in flight is not preempted. The settings
+decide when queued recordings run — after each one, at a time of day, or when
+the Mac is free (`internal/library/idle_darwin.go`) — and a recording asked for
+by hand goes next regardless.
 
 ## Storage
 
@@ -118,8 +128,10 @@ rewritten by the model.
   projects.
 - Source UI links back to the owning document or transcript moment.
 
-OpenAI is optional. Exact search and the stored archive remain usable without
-it.
+AI is optional. Exact search and the stored archive remain usable without it.
+Summaries and answers come from OpenAI, GitHub Copilot, or a local model;
+search vectors come from OpenAI or a local embedder, chosen separately. The
+stored vectors are tagged with their model and remade when it changes.
 
 ## MCP
 
@@ -152,11 +164,17 @@ VITE_DESIGN=1 npm run dev
 
 Production builds do not include the sample adapter branch.
 
+The same bundle serves the recording strip, a second window opened at
+`#strip`: a non-activating panel under the menu bar that never takes the
+keyboard, shows over full-screen apps, and exists only while a meeting is
+recorded. `strip_darwin.go` lets its buttons take the first click.
+
 ## Build and packaging
 
 ```bash
 make          # build/mt
 make bundle   # build/Meeting Transcriber.app
+make install  # replace /Applications/Meeting Transcriber.app with that bundle
 make dmg      # build/MeetingTranscriber.dmg
 make test     # whisper.cpp + go vet + go test
 ```

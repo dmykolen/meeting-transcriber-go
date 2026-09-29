@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react"
 import { AnimatePresence, motion } from "motion/react"
 import { ChevronDown, Radio } from "lucide-react"
-import { Meetings, clock, type Line, type Listening } from "../api"
+import { Meetings, clock, recording, type Line, type Listening } from "../api"
 
 /**
  * The meeting, as it happens.
@@ -21,7 +21,7 @@ export default function LiveNow({ state }: { state: Listening }) {
   const [open, setOpen] = useState(true)
   const foot = useRef<HTMLDivElement>(null)
 
-  const running = state.phase === "recording" || state.phase === "wrapping up"
+  const running = recording(state)
 
   useEffect(() => {
     if (!running) {
@@ -64,7 +64,11 @@ export default function LiveNow({ state }: { state: Listening }) {
         </span>
         <Radio size={13} className="text-warn" />
         <h2 className="text-[12.5px] font-medium text-warn">
-          {state.kind === "note" ? "Запис нотатки" : "Триває запис"}
+          {state.phase === "held"
+            ? "Запис на паузі"
+            : state.kind === "note"
+              ? "Запис нотатки"
+              : "Триває запис"}
         </h2>
         <span className="text-[11px] tabular-nums text-faint">
           {clock(state.elapsed)}

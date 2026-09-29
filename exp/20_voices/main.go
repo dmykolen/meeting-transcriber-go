@@ -1,0 +1,1069 @@
+// Command 20_voices asks whether the recurring unnamed voices that cluster
+// across meetings are single people.
+//
+// It calibrates voiceprint cosines on named voices, clusters every per-meeting
+// voice of the current speaker model with average linkage, scores the clusters
+// on the named ones, and writes a private page to listen to the largest unnamed
+// groups. Meetings voiced by the older speaker model are re-embedded from audio
+// only to check whether they could join.
+//
+//	sqlite3 ~/MeetingTranscriber/meetings.db ".backup '/private/dir/meetings.db'"
+//	go run ./exp/20_voices -db /private/dir/meetings.db -listen /private/dir/listen.html
+package main
+
+import (
+	"cmp"
+	"database/sql"
+	"encoding/base64"
+	"encoding/json"
+	"errors"
+	"flag"
+	"fmt"
+	"maps"
+	"math"
+	"os"
+	"path/filepath"
+	"regexp"
+	"slices"
+	"strconv"
+	"strings"
+	"time"
+
+	"github.com/dmykolen/meeting-transcriber-go/internal/media"
+	"github.com/dmykolen/meeting-transcriber-go/internal/store"
+	sherpa "github.com/k2-fsa/sherpa-onnx-go-macos"
+)
+
+var (
+	dbPath  = flag.String("db", "", "private copy of meetings.db, opened read-only")
+	audio   = flag.String("audio", home("recordings"), "recordings directory")
+	model   = flag.String("model", home("models/embedding.onnx"), "the app's current speaker model")
+	logPath = flag.String("log", home("logs/mt.log"), "app log, which tells recogniser names from the owner's")
+	listen  = flag.String("listen", "", "private listening page, outside the repository; empty skips it")
+	mdPath  = flag.String("md", "exp/out/20-voices.md", "markdown results")
+)
+
+const (
+	evidence = 30.0 // library.Evidence: the speech a label needs before the app names it
+	enough   = 4.0  // engine.Enough: the shortest clip the app embeds
+	silent   = 0.1  // the far side's energy share below which a label is not a far-side voice
+)
+
+var (
+	cuts  = []float64{0.45, 0.50, 0.55, 0.60, 0.65, 0.70, 0.75}
+	links = []float64{0.55, 0.60, 0.65, 0.70}
+)
+
+// voice is one label of one meeting.
+type voice struct {
+	rec    int64
+	label  string
+	who    int  // person, -1 when unnamed
+	auto   bool // the recogniser gave the name, not the owner
+	secs   float64
+	kept   []float32    // the stored print, unit length
+	fresh  []float32    // re-embedded from audio with the current model, unit length
+	halves [2][]float32 // re-embedded from alternate turns: one voice, two disjoint samples
+	far    float64      // the far side's share of energy in the re-embedded turns, -1 when unknown
+}
+
+type meeting struct {
+	audio   string
+	started int64
+}
+
+type group struct {
+	members             []int
+	unnamed, named      float64 // speaking seconds
+	meetings            int     // distinct meetings among the unnamed members
+	people              map[int]int
+	collisions, clashes int     // same-meeting member pairs, and those too unlike to be one voice
+	far                 float64 // median far-side energy share of the unnamed members
+	centre              []float32
+	like, next          int // the two people closest to the unnamed members' centre
+	likeCos, nextCos    float64
+}
+
+func main() {
+	flag.Parse()
+	if *dbPath == "" {
+		die(errors.New("-db is required: a private copy made with sqlite3 .backup"))
+	}
+	if *listen != "" {
+		cwd, _ := os.Getwd()
+		abs, _ := filepath.Abs(*listen)
+		if rel, err := filepath.Rel(cwd, abs); err == nil && !strings.HasPrefix(rel, "..") {
+			die(errors.New("-listen holds private voices: write it outside the repository"))
+		}
+	}
+	media.Tools = home("bin")
+	db, err := sql.Open("sqlite", "file:"+*dbPath+"?mode=ro&immutable=1")
+	if err != nil {
+		die(err)
+	}
+	defer db.Close()
+
+	var md strings.Builder
+	say := func(f string, a ...any) {
+		fmt.Printf(f, a...)
+		fmt.Fprintf(&md, f, a...)
+	}
+
+	all, people, meetings, unnamedAll := load(db)
+	auto := recognised(*logPath, people)
+	for i := range all {
+		all[i].auto = all[i].who >= 0 && slices.Contains(auto[all[i].rec], all[i].label)
+	}
+	latest := slices.MaxFunc(all, func(a, b voice) int { return cmp.Compare(meetings[a.rec].started, meetings[b.rec].started) })
+	width := len(latest.kept)
+	began := time.Now()
+	reembed(db, all, meetings, width)
+	fmt.Printf("re-embedded in %.0f s\n\n", time.Since(began).Seconds())
+
+	var vs, old []voice // the current model's voices, and the older model's
+	tally := make([]struct {
+		now, before, byRecogniser int
+		kept, fresh               [][]float32 // current-model prints, and older voices re-embedded
+	}, len(people))
+	named, byRecogniser := 0, 0
+	for _, v := range all {
+		current := len(v.kept) == width
+		if current {
+			vs = append(vs, v)
+		} else {
+			old = append(old, v)
+		}
+		if v.who < 0 {
+			continue
+		}
+		t := &tally[v.who]
+		switch {
+		case current:
+			t.now, t.kept, named = t.now+1, append(t.kept, v.kept), named+1
+			if v.auto {
+				t.byRecogniser, byRecogniser = t.byRecogniser+1, byRecogniser+1
+			}
+		case v.fresh != nil:
+			t.before, t.fresh = t.before+1, append(t.fresh, v.fresh)
+		default:
+			t.before++
+		}
+	}
+
+	say("# Recurring unnamed voices\n\n")
+	say("Generated by `go run ./exp/20_voices` on %s from a private archive snapshot. People are P1…P%d by how many meetings they were named in.\n\n",
+		time.Now().Format("2006-01-02"), len(people))
+	say("## Method\n\n")
+	say("1. A voice is the stored voiceprint of one label in one meeting; `SPEAKER_NN` is unnamed, a label equal to an enrolled person is named, the owner's `Me`/`You` is left out.\n")
+	say("2. Only prints of the current speaker model (%d-d) are compared; older meetings hold prints of a previous model, and re-embedding them from audio was checked below and rejected.\n", width)
+	say("3. Calibration takes cosines between named voices, of which %d of %d were named by the recogniser itself (app log) and so are not independent truth; a name-free check re-embeds each label's alternate turns as two halves.\n", byRecogniser, named)
+	say("4. Average-linkage agglomerative clustering over all voices (merge while the mean pairwise cosine ≥ t); B-cubed on named voices; merged same-meeting label pairs as a label-free impurity signal.\n")
+	say("5. An unnamed cluster holds more unnamed than named speech; clusters rank by unnamed hours; share and coverage are of all unnamed speech in the archive.\n\n")
+
+	// ─────────────────────────────────────────────────────────────── data
+	say("## Data\n\n")
+	say("| speaker model | meetings | unnamed voices | unnamed hours | named voices | named by the recogniser |\n|---|---:|---:|---:|---:|---:|\n")
+	for k, set := range [][]voice{vs, old} {
+		recs := map[int64]bool{}
+		var un, na, rec int
+		var h float64
+		for _, v := range set {
+			recs[v.rec] = true
+			switch {
+			case v.who < 0:
+				un++
+				h += v.secs
+			case v.auto:
+				na, rec = na+1, rec+1
+			default:
+				na++
+			}
+		}
+		say("| %s | %d | %d | %.1f | %d | %d |\n", []string{fmt.Sprintf("current (%d-d)", width), "older"}[k], len(recs), un, h/3600, na, rec)
+	}
+	say("\nAll unnamed speech in meeting transcripts: %.1f h, including labels too short to hold a print.\n\n", unnamedAll/3600)
+
+	stored := map[string][2]int{}
+	each(db, `SELECT p.name, json_array_length(j.value) FROM people p, json_each(p.voiceprints) j`, func(scan func(...any)) {
+		var name string
+		var w int
+		scan(&name, &w)
+		n := stored[name]
+		n[1]++
+		if w == width {
+			n[0]++
+		}
+		stored[name] = n
+	})
+	say("| person | named in current-model meetings | named in older meetings | enrolled prints the current model can compare |\n|---|---:|---:|---:|\n")
+	for p, name := range people {
+		say("| P%d | %d | %d | %d of %d |\n", p+1, tally[p].now, tally[p].before, stored[name][0], stored[name][1])
+	}
+
+	// ─────────────────────────────────────────────────────────────── older meetings
+	say("\n## Older meetings, re-embedded\n\n")
+	say("Their voices were re-embedded with the current model the way the engine does it (far-side channel, the label's longest stretches up to 12 s), with transcript turns standing in for the diarizer's spans.\n\n")
+	say("| speaker model | voices re-embedded | stored vs re-embedded, p5 / p50 / p95 | one-meeting label pairs ≥ %.2f | labels with a silent far side |\n|---|---:|---:|---:|---:|\n", store.Rejoin)
+	for k, set := range [][]voice{vs, old} {
+		var fid []float64
+		var done, quiet, pairs, alike int
+		for i, a := range set {
+			if a.fresh == nil {
+				continue
+			}
+			done++
+			if a.far >= 0 && a.far < silent {
+				quiet++
+			}
+			if len(a.kept) == width {
+				fid = append(fid, store.Cosine(a.kept, a.fresh))
+			}
+			for _, b := range set[:i] {
+				if b.rec == a.rec && b.fresh != nil {
+					pairs++
+					if store.Cosine(a.fresh, b.fresh) >= store.Rejoin {
+						alike++
+					}
+				}
+			}
+		}
+		spreadCell := "—"
+		if slices.Sort(fid); len(fid) > 0 {
+			spreadCell = fmt.Sprintf("%.2f / %.2f / %.2f", pct(fid, .05), pct(fid, .5), pct(fid, .95))
+		}
+		say("| %s | %d | %s | %.1f%% | %.1f%% |\n", []string{"current", "older"}[k], done, spreadCell,
+			100*float64(alike)/float64(pairs), 100*float64(quiet)/float64(done))
+	}
+	say("\nA silent far side means less than %.0f%% of the energy in the label's turns came from the system channel: the owner's own voice left under a `SPEAKER_NN` label.\n\n", 100*silent)
+
+	// A person heard in both eras tells whether re-embedded older voices land on
+	// the same person's current voices.
+	centres := make([][]float32, len(people)) // from current-model prints
+	back := make([][]float32, len(people))    // from re-embedded older named voices
+	for p, t := range tally {
+		if len(t.kept) > 0 {
+			centres[p] = sum(t.kept)
+		}
+		if len(t.fresh) > 0 {
+			back[p] = sum(t.fresh)
+		}
+	}
+	for p := range people {
+		if back[p] == nil || centres[p] == nil {
+			continue
+		}
+		own, other, otherCos := store.Cosine(back[p], centres[p]), -1, -1.0
+		for q, c := range centres {
+			if s := store.Cosine(back[p], c); q != p && c != nil && s > otherCos {
+				other, otherCos = q, s
+			}
+		}
+		say("P%d, the one person named in both eras: re-embedded older voices vs own current voices %.2f, vs the closest other person (P%d) %.2f.\n\n", p+1, own, other+1, otherCos)
+	}
+
+	// ─────────────────────────────────────────────────────────────── similarity
+	n := len(vs)
+	sim := make([][]float64, n)
+	for i := range n {
+		sim[i] = make([]float64, n)
+	}
+	for i := range n {
+		for j := range i {
+			sim[i][j] = store.Cosine(vs[i].kept, vs[j].kept)
+			sim[j][i] = sim[i][j]
+		}
+	}
+
+	// ─────────────────────────────────────────────────────────────── calibration
+	var same, diff, apart, self, other []float64
+	per := make([][]float64, len(people))
+	for i := range n {
+		a := vs[i]
+		if a.halves[0] != nil && a.halves[1] != nil {
+			self = append(self, store.Cosine(a.halves[0], a.halves[1]))
+		}
+		for j := range i {
+			b, c := vs[j], sim[i][j]
+			switch {
+			case a.rec == b.rec:
+				apart = append(apart, c)
+				if a.halves[0] != nil && b.halves[1] != nil {
+					other = append(other, store.Cosine(a.halves[0], b.halves[1]))
+				}
+			case a.who < 0 || b.who < 0:
+			case a.who == b.who:
+				same = append(same, c)
+				per[a.who] = append(per[a.who], c)
+			default:
+				diff = append(diff, c)
+			}
+		}
+	}
+	say("## Calibration (current model)\n\n")
+	say("The first three rows compare stored prints. The last two need no names: each label's speech was split into alternate turns and each half re-embedded, so a label against itself is one voice twice, and against another label of its meeting is, almost always, two voices.\n\n")
+	say("| pairs | n | p5 | p25 | p50 | p75 | p95 |\n|---|---:|---:|---:|---:|---:|---:|\n")
+	for _, r := range []struct {
+		name string
+		c    []float64
+	}{
+		{"same person, across meetings", same},
+		{"different people, across meetings", diff},
+		{"two labels of one meeting (named or not)", apart},
+		{"one label, its two halves", self},
+		{"two labels of one meeting, halves", other},
+	} {
+		slices.Sort(r.c)
+		say("| %s | %d | %.2f | %.2f | %.2f | %.2f | %.2f |\n", r.name, len(r.c),
+			pct(r.c, .05), pct(r.c, .25), pct(r.c, .5), pct(r.c, .75), pct(r.c, .95))
+	}
+	say("\n| t | same-person recall | different people merged | one-meeting pairs merged | one label's halves joined | two labels' halves merged |\n|---:|---:|---:|---:|---:|---:|\n")
+	for _, t := range cuts {
+		say("| %.2f | %.0f%% | %.1f%% | %.1f%% | %.0f%% | %.1f%% |\n", t,
+			100*above(same, t), 100*above(diff, t), 100*above(apart, t), 100*above(self, t), 100*above(other, t))
+	}
+	say("\n| person | voices | named by the recogniser | same-person pairs | p50 | ≥ %.2f |\n|---|---:|---:|---:|---:|---:|\n", store.Match)
+	for p, t := range tally {
+		if t.now == 0 {
+			continue
+		}
+		slices.Sort(per[p])
+		mid, share := "—", "—"
+		if len(per[p]) > 0 {
+			mid, share = fmt.Sprintf("%.2f", pct(per[p], .5)), fmt.Sprintf("%.0f%%", 100*above(per[p], store.Match))
+		}
+		say("| P%d | %d | %d | %d | %s | %s |\n", p+1, t.now, t.byRecogniser, len(per[p]), mid, share)
+	}
+
+	// People known only from older meetings are compared through their
+	// re-embedded voices, marked †.
+	olderOnly := make([]bool, len(people))
+	for p := range people {
+		if centres[p] == nil && back[p] != nil {
+			centres[p], olderOnly[p] = back[p], true
+		}
+	}
+
+	// ─────────────────────────────────────────────────────────────── clustering
+	type result struct {
+		t       float64
+		groups  []group
+		top     []group
+		p, r, f float64
+		merged  float64
+		cover   [2]float64
+	}
+	var results []result
+	for _, t := range links {
+		parts := link(sim, t)
+		res := result{t: t}
+		for _, part := range parts {
+			g := describe(part, vs, sim, centres)
+			res.groups = append(res.groups, g)
+			if g.unnamed > g.named {
+				res.top = append(res.top, g)
+			}
+		}
+		slices.SortFunc(res.top, func(a, b group) int { return cmp.Compare(b.unnamed, a.unnamed) })
+		res.p, res.r = bcubed(parts, vs)
+		res.f = 2 * res.p * res.r / (res.p + res.r)
+		of := make([]int, n)
+		for g, part := range parts {
+			for _, i := range part {
+				of[i] = g
+			}
+		}
+		var pairs, merged int
+		for i := range n {
+			for j := range i {
+				if vs[i].rec == vs[j].rec {
+					pairs++
+					if of[i] == of[j] {
+						merged++
+					}
+				}
+			}
+		}
+		res.merged = float64(merged) / float64(pairs)
+		for k, top := range []int{5, 10} {
+			for _, g := range res.top[:min(top, len(res.top))] {
+				res.cover[k] += g.unnamed / unnamedAll
+			}
+		}
+		results = append(results, res)
+	}
+	best := slices.MaxFunc(results, func(a, b result) int { return cmp.Or(cmp.Compare(a.f, b.f), cmp.Compare(a.t, b.t)) })
+
+	say("\n## Clustering (current model)\n\n")
+	say("| t | clusters | unnamed clusters in ≥ 3 meetings | B³ precision | B³ recall | B³ F1 | one-meeting pairs merged | top 5 cover | top 10 cover |\n|---:|---:|---:|---:|---:|---:|---:|---:|---:|\n")
+	for _, res := range results {
+		recurring := 0
+		for _, g := range res.top {
+			if g.meetings >= 3 {
+				recurring++
+			}
+		}
+		say("| %.2f | %d | %d | %.3f | %.3f | %.3f | %.1f%% | %.0f%% | %.0f%% |\n", res.t, len(res.groups), recurring,
+			res.p, res.r, res.f, 100*res.merged, 100*res.cover[0], 100*res.cover[1])
+	}
+	tag := func(p int) string {
+		if olderOnly[p] {
+			return fmt.Sprintf("P%d†", p+1)
+		}
+		return fmt.Sprintf("P%d", p+1)
+	}
+	for _, res := range results {
+		say("\n### t = %.2f, top unnamed clusters\n\n", res.t)
+		say("| # | hours | meetings | share | named voices | people | collisions | of them < %.2f | far side | closest people | reading |\n|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|---|\n", store.Match)
+		for k, g := range res.top[:min(10, len(res.top))] {
+			inside := 0
+			for _, c := range g.people {
+				inside += c
+			}
+			say("| %d | %.1f | %d | %.0f%% | %d | %d | %d | %d | %.2f | %s %.2f, %s %.2f | %s |\n", k+1, g.unnamed/3600, g.meetings,
+				100*g.unnamed/unnamedAll, inside, len(g.people), g.collisions, g.clashes, g.far,
+				tag(g.like), g.likeCos, tag(g.next), g.nextCos, reading(g))
+		}
+	}
+	say("\nCollisions are member pairs from one meeting. Below %.2f they are almost surely two voices: one label's own halves fall that low %.0f%% of the time.\n", store.Match, 100-100*above(self, store.Match))
+	var fars []float64
+	for _, v := range vs {
+		if v.who < 0 && v.far >= 0 {
+			fars = append(fars, v.far)
+		}
+	}
+	slices.Sort(fars)
+	say("Far side is the median share of the unnamed members' turn energy on the system channel; across all unnamed voices it is %.2f, and 0 would be the owner's microphone alone.\n", pct(fars, .5))
+	say("† known only from older meetings, compared through their re-embedded voices; the P3 check above shows how little that separates two people.\n")
+	say("Best B³ F1 at t = %.2f.\n", best.t)
+
+	// ─────────────────────────────────────────────────────────────── verdict
+	scatter := 0
+	for _, g := range best.groups {
+		if g.people[0] > 0 {
+			scatter++
+		}
+	}
+	var alike []float64
+	for p := range people {
+		for q := range p {
+			if tally[p].now >= 5 && tally[q].now >= 5 {
+				alike = append(alike, store.Cosine(centres[p], centres[q]))
+			}
+		}
+	}
+	slices.Sort(alike)
+	mixed, blind := 0, 0
+	for _, g := range best.top[:min(5, len(best.top))] {
+		switch len(g.people) {
+		case 0:
+			blind++
+		case 1:
+		default:
+			mixed++
+		}
+	}
+	var lost []string
+	for p, name := range people {
+		if tally[p].now == 0 && stored[name][0] == 0 {
+			lost = append(lost, fmt.Sprintf("P%d", p+1))
+		}
+	}
+	if len(alike) == 0 {
+		alike = []float64{math.NaN()}
+	}
+	precise := func(a, b result) int { return cmp.Compare(a.p, b.p) }
+	loose, strict := results[0], results[len(results)-1]
+	say("\n## What this says\n\n")
+	say("Within one meeting the current model tells voices apart: a label's two halves meet at a median %.2f, two labels of one meeting at %.2f. ",
+		pct(self, .5), pct(other, .5))
+	say("Across meetings the named voices do not hold together: same-name pairs sit at a median %.2f against %.2f for different names, "+
+		"P1's %d voices scatter over %d clusters at t = %.2f, and the centres of the people named in five or more meetings are %.2f–%.2f alike. ",
+		pct(same, .5), pct(diff, .5), tally[0].now, scatter, best.t, alike[0], alike[len(alike)-1])
+	say("%d of the %d names came from the recogniser itself at %.2f, a bar that %.0f%% of different voices within one meeting clear, "+
+		"so they are not truth, and B³ precision of %.2f–%.2f is a best case. ",
+		byRecogniser, named, store.Match, 100*above(other, store.Match),
+		slices.MinFunc(results, precise).p, slices.MaxFunc(results, precise).p)
+	say("Of the five largest unnamed groups at t = %.2f, %d hold named voices of two or more people and %d hold no named voice at all, which leaves their purity to the ear. ",
+		best.t, mixed, blind)
+	if len(lost) > 0 {
+		say("%s, named only in older meetings, have no enrolled print the current model can compare, so every later appearance of theirs is unnamed by construction. ",
+			strings.Join(lost, " and "))
+	}
+	say("The older meetings cannot join either: re-embedding them collapses distinct labels together.\n\n")
+	say("Naming a recurring voice once is not safe as \"apply to every member\". It can work as \"confirm by ear on the least typical members, then apply above a strict bar\": "+
+		"at t = %.2f the clustering merges %.1f%% of one-meeting label pairs against %.1f%% at %.2f, and %.0f%% of one voice's halves still clear it.\n",
+		strict.t, 100*strict.merged, 100*loose.merged, loose.t, 100*above(self, strict.t))
+
+	// For this terminal only: how alike the people are, where each one's voices
+	// went, and every member of the best clustering's largest groups.
+	fmt.Println("\nperson centres, pairwise cosine:")
+	for p := range people {
+		for q := range p {
+			if centres[p] != nil && centres[q] != nil {
+				fmt.Printf("   %s ~ %s %.2f\n", tag(p), tag(q), store.Cosine(centres[p], centres[q]))
+			}
+		}
+	}
+	for _, res := range results {
+		fmt.Printf("\nt=%.2f, clusters holding named voices:\n", res.t)
+		for _, g := range res.groups {
+			if len(g.people) == 0 {
+				continue
+			}
+			var who []string
+			for _, p := range slices.Sorted(maps.Keys(g.people)) {
+				who = append(who, fmt.Sprintf("P%d×%d", p+1, g.people[p]))
+			}
+			fmt.Printf("   %3d voices, %4.1f h unnamed in %2d meetings; %s\n", len(g.members), g.unnamed/3600, g.meetings, strings.Join(who, " "))
+		}
+	}
+	for k, g := range best.top[:min(5, len(best.top))] {
+		fmt.Printf("\ngroup %d at t=%.2f: %.1f h unnamed, %d meetings\n", k+1, best.t, g.unnamed/3600, g.meetings)
+		for _, i := range g.members {
+			v, who := vs[i], vs[i].label
+			if v.who >= 0 {
+				who = fmt.Sprintf("P%d", v.who+1)
+			}
+			fmt.Printf("   meeting %4d  %-10s %5.0f s  far %.2f  to centre %.2f\n", v.rec, who, v.secs, v.far, store.Cosine(v.kept, g.centre))
+		}
+	}
+
+	if *listen != "" {
+		if err := page(*listen, db, vs, best.top[:min(5, len(best.top))], meetings); err != nil {
+			die(err)
+		}
+		info, _ := os.Stat(*listen)
+		fmt.Printf("\nlistening page: %s (%.1f MB)\n", *listen, float64(info.Size())/1e6)
+	}
+	if err := os.WriteFile(*mdPath, []byte(md.String()), 0o644); err != nil {
+		die(err)
+	}
+	fmt.Println("written to", *mdPath)
+}
+
+// load reads every meeting voice that has both a stored print and speech in the
+// transcript, and numbers people by how many meetings they were named in.
+func load(db *sql.DB) (vs []voice, people []string, meetings map[int64]meeting, unnamed float64) {
+	type key struct {
+		rec   int64
+		label string
+	}
+	secs := map[key]float64{}
+	each(db, `SELECT t.recording, t.speaker, SUM(t.finish - t.start) FROM turns t
+		JOIN recordings r ON r.id = t.recording
+		WHERE r.kind = 'meeting' AND r.deleted IS NULL GROUP BY 1, 2`, func(scan func(...any)) {
+		var k key
+		var s float64
+		scan(&k.rec, &k.label, &s)
+		secs[k] = s
+		if strings.HasPrefix(k.label, "SPEAKER_") {
+			unnamed += s
+		}
+	})
+	named := map[string]bool{}
+	each(db, `SELECT name FROM people WHERE name NOT IN ('You', 'Me')`, func(scan func(...any)) {
+		var name string
+		scan(&name)
+		named[name] = true
+	})
+	meetings = map[int64]meeting{}
+	each(db, `SELECT id, audio, started, COALESCE(voices, '{}') FROM recordings
+		WHERE kind = 'meeting' AND deleted IS NULL`, func(scan func(...any)) {
+		var id int64
+		var m meeting
+		var raw string
+		scan(&id, &m.audio, &m.started, &raw)
+		meetings[id] = m
+		var prints map[string][]float32
+		if err := json.Unmarshal([]byte(raw), &prints); err != nil {
+			die(fmt.Errorf("meeting %d voices: %w", id, err))
+		}
+		for label, p := range prints {
+			s, u := secs[key{id, label}], unit(p)
+			if s > 0 && u != nil && (strings.HasPrefix(label, "SPEAKER_") || named[label]) {
+				vs = append(vs, voice{rec: id, label: label, secs: s, kept: u, far: -1})
+			}
+		}
+	})
+	slices.SortFunc(vs, func(a, b voice) int { return cmp.Or(cmp.Compare(a.rec, b.rec), strings.Compare(a.label, b.label)) })
+
+	count := map[string]int{}
+	for _, v := range vs {
+		if named[v.label] {
+			count[v.label]++
+		}
+	}
+	people = slices.SortedFunc(maps.Keys(count), func(a, b string) int {
+		return cmp.Or(count[b]-count[a], strings.Compare(a, b))
+	})
+	for i := range vs {
+		vs[i].who = slices.Index(people, vs[i].label)
+	}
+	return vs, people, meetings, unnamed
+}
+
+// recognised lists, per recording, the names the recogniser gave it the last
+// time the recording was processed; any other name there was typed by the owner.
+func recognised(path string, people []string) map[int64][]string {
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		fmt.Println("no app log, so every name counts as the owner's:", err)
+		return nil
+	}
+	longest := slices.SortedFunc(slices.Values(people), func(a, b string) int { return len(b) - len(a) })
+	line := regexp.MustCompile(`msg=(transcribing|"voices recognised") id=(\d+)(?: who=(.*))?`)
+	out := map[int64][]string{}
+	for _, m := range line.FindAllStringSubmatch(string(raw), -1) {
+		id, _ := strconv.ParseInt(m[2], 10, 64)
+		if m[1] == "transcribing" {
+			delete(out, id)
+			continue
+		}
+		who := " " + strings.Trim(m[3], `"[]`) + " "
+		for _, p := range longest {
+			if strings.Contains(who, " "+p+" ") {
+				out[id] = append(out[id], p)
+				who = strings.Replace(who, " "+p+" ", "  ", 1)
+			}
+		}
+	}
+	return out
+}
+
+// reembed recomputes prints with the current speaker model the way the engine
+// does — the far side's longest stretches until twelve seconds — except that
+// transcript turns stand in for the diarizer's spans, which are not stored.
+func reembed(db *sql.DB, vs []voice, meetings map[int64]meeting, width int) {
+	ex := sherpa.NewSpeakerEmbeddingExtractor(&sherpa.SpeakerEmbeddingExtractorConfig{
+		Model: *model, NumThreads: 8, Provider: "cpu"})
+	if ex == nil {
+		die(fmt.Errorf("the speaker model %s would not load", *model))
+	}
+	defer sherpa.DeleteSpeakerEmbeddingExtractor(ex)
+	if ex.Dim() != width {
+		die(fmt.Errorf("the speaker model makes %d-d prints, the newest meetings hold %d-d", ex.Dim(), width))
+	}
+
+	embed := func(clip []float32) []float32 {
+		if len(clip) < enough*media.Rate {
+			return nil
+		}
+		s := ex.CreateStream()
+		defer sherpa.DeleteOnlineStream(s)
+		s.AcceptWaveform(media.Rate, clip)
+		s.InputFinished()
+		if !ex.IsReady(s) {
+			return nil
+		}
+		return unit(ex.Compute(s))
+	}
+	const full = 3 * enough * media.Rate
+
+	byRec := map[int64][]int{}
+	for i, v := range vs {
+		byRec[v.rec] = append(byRec[v.rec], i)
+	}
+	for _, rec := range slices.Sorted(maps.Keys(byRec)) {
+		if meetings[rec].audio == "" {
+			fmt.Printf("  meeting %d: its audio was deleted\n", rec)
+			continue
+		}
+		path := filepath.Join(*audio, meetings[rec].audio)
+		// Our stereo recordings are diarized on the far side; an import on its mix.
+		mic, far, stereo := media.Sides(path)
+		if !stereo {
+			var err error
+			if far, err = media.Decode(path); err != nil {
+				fmt.Printf("  meeting %d: %v\n", rec, err)
+				continue
+			}
+		}
+		for _, i := range byRec[rec] {
+			var clip []float32
+			var halves [2][]float32
+			var near, away float64
+			for k, t := range turns(db, rec, vs[i].label) {
+				a, b := int(t[0]*media.Rate), min(int(t[1]*media.Rate), len(far))
+				if a >= b {
+					continue
+				}
+				if len(clip) < full {
+					clip = append(clip, far[a:b]...)
+					for x := a; stereo && x < b; x++ {
+						near += float64(mic[x]) * float64(mic[x])
+						away += float64(far[x]) * float64(far[x])
+					}
+				}
+				if len(halves[k%2]) < full {
+					halves[k%2] = append(halves[k%2], far[a:b]...)
+				}
+				if len(clip) >= full && len(halves[0]) >= full && len(halves[1]) >= full {
+					break
+				}
+			}
+			vs[i].fresh, vs[i].halves = embed(clip), [2][]float32{embed(halves[0]), embed(halves[1])}
+			if near+away > 0 {
+				vs[i].far = away / (near + away)
+			}
+		}
+	}
+}
+
+// turns lists one label's turns, longest first.
+func turns(db *sql.DB, rec int64, label string) [][2]float64 {
+	var out [][2]float64
+	each(db, `SELECT start, finish FROM turns WHERE recording = ? AND speaker = ?
+		ORDER BY finish - start DESC`, func(scan func(...any)) {
+		var t [2]float64
+		scan(&t[0], &t[1])
+		out = append(out, t)
+	}, rec, label)
+	return out
+}
+
+// link is average-linkage agglomeration: keep merging the two clusters with the
+// highest mean pairwise cosine while that mean is at least t.
+func link(sim [][]float64, t float64) [][]int {
+	n := len(sim)
+	parts := make([][]int, n)
+	total := make([][]float64, n) // summed cosines between two clusters
+	for i := range n {
+		parts[i] = []int{i}
+		total[i] = slices.Clone(sim[i])
+	}
+	for {
+		a, b, top := -1, -1, math.Inf(-1)
+		for i := range n {
+			for j := i + 1; j < n && parts[i] != nil; j++ {
+				if parts[j] == nil {
+					continue
+				}
+				if m := total[i][j] / float64(len(parts[i])*len(parts[j])); m > top {
+					a, b, top = i, j, m
+				}
+			}
+		}
+		if a < 0 || top < t {
+			break
+		}
+		parts[a], parts[b] = append(parts[a], parts[b]...), nil
+		for k := range n {
+			total[a][k] += total[b][k]
+			total[k][a] = total[a][k]
+		}
+	}
+	return slices.DeleteFunc(parts, func(p []int) bool { return p == nil })
+}
+
+func describe(part []int, vs []voice, sim [][]float64, centres [][]float32) group {
+	g := group{members: part, people: map[int]int{}, like: -1, next: -1, likeCos: -1, nextCos: -1}
+	seen := map[int64]bool{}
+	var mine [][]float32
+	var far []float64
+	for x, i := range part {
+		v := vs[i]
+		if v.who >= 0 {
+			g.named += v.secs
+			g.people[v.who]++
+		} else {
+			g.unnamed += v.secs
+			seen[v.rec] = true
+			mine = append(mine, v.kept)
+			if v.far >= 0 {
+				far = append(far, v.far)
+			}
+		}
+		for _, j := range part[:x] {
+			if vs[j].rec == v.rec {
+				g.collisions++
+				if sim[i][j] < store.Match {
+					g.clashes++
+				}
+			}
+		}
+	}
+	g.meetings = len(seen)
+	slices.Sort(far)
+	g.far = pct(far, .5)
+	if len(mine) > 0 {
+		g.centre = sum(mine)
+		for p, c := range centres {
+			switch s := store.Cosine(g.centre, c); {
+			case c == nil:
+			case s > g.likeCos:
+				g.next, g.nextCos, g.like, g.likeCos = g.like, g.likeCos, p, s
+			case s > g.nextCos:
+				g.next, g.nextCos = p, s
+			}
+		}
+	}
+	return g
+}
+
+// bcubed scores a clustering on the named voices only.
+func bcubed(parts [][]int, vs []voice) (precision, recall float64) {
+	total := map[int]int{}
+	for _, v := range vs {
+		if v.who >= 0 {
+			total[v.who]++
+		}
+	}
+	n := 0
+	for _, part := range parts {
+		count, named := map[int]int{}, 0
+		for _, i := range part {
+			if w := vs[i].who; w >= 0 {
+				count[w]++
+				named++
+			}
+		}
+		for w, k := range count {
+			precision += float64(k*k) / float64(named)
+			recall += float64(k*k) / float64(total[w])
+			n += k
+		}
+	}
+	return precision / float64(n), recall / float64(n)
+}
+
+// reading says what the named voices inside an unnamed cluster suggest.
+func reading(g group) string {
+	switch len(g.people) {
+	case 0:
+		return "—"
+	case 1:
+		for p := range g.people {
+			if p == g.like && g.likeCos >= store.Match {
+				return fmt.Sprintf("P%d, missed by the recogniser", p+1)
+			}
+			return fmt.Sprintf("mixed: P%d inside, unlike the rest", p+1)
+		}
+	}
+	return fmt.Sprintf("mixed: %d people inside", len(g.people))
+}
+
+// page writes the private listening page: three far-apart members of each group.
+func page(path string, db *sql.DB, vs []voice, top []group, meetings map[int64]meeting) error {
+	var b strings.Builder
+	b.WriteString(head)
+	tmp := filepath.Join(filepath.Dir(path), ".clip.wav")
+	defer os.Remove(tmp)
+	for k, g := range top {
+		fmt.Fprintf(&b, "<section>\n<h2>Група %d — %s год, %d %s</h2>\n", k+1, comma(g.unnamed/3600, 1), g.meetings, meetingsWord(g.meetings))
+		if g.likeCos >= store.Match {
+			fmt.Fprintf(&b, "<p class=like>Схоже на: P%d (%s)</p>\n", g.like+1, comma(g.likeCos, 2))
+		}
+		shown := 0
+		for _, i := range picks(g, vs, meetings) {
+			if shown == 3 {
+				break
+			}
+			clip, err := snippet(db, vs[i], meetings[vs[i].rec])
+			if err != nil {
+				fmt.Printf("  group %d, meeting %d: %v\n", k+1, vs[i].rec, err)
+				continue
+			}
+			shown++
+			if err := media.Mono(tmp, clip); err != nil {
+				return err
+			}
+			raw, err := os.ReadFile(tmp)
+			if err != nil {
+				return err
+			}
+			fmt.Fprintf(&b, "<figure><audio controls preload=none src=\"data:audio/wav;base64,%s\"></audio><figcaption>%s</figcaption></figure>\n",
+				base64.StdEncoding.EncodeToString(raw), day(meetings[vs[i].rec].started))
+		}
+		b.WriteString("</section>\n")
+	}
+	b.WriteString("</main>\n</body>\n</html>\n")
+	return os.WriteFile(path, []byte(b.String()), 0o600)
+}
+
+// picks orders a group's unnamed members, one per meeting and preferring voices
+// long enough to be named: the most typical, the middle, and the least typical
+// first, the rest after them in case one of those has nothing audible.
+func picks(g group, vs []voice, meetings map[int64]meeting) []int {
+	var cands []int
+	for _, strict := range []bool{true, false} {
+		best := map[int64]int{}
+		for _, i := range g.members {
+			v, file := vs[i], meetings[vs[i].rec].audio
+			if _, err := os.Stat(filepath.Join(*audio, file)); v.who >= 0 || strict && v.secs < evidence ||
+				err != nil || !strings.EqualFold(filepath.Ext(file), ".wav") {
+				continue
+			}
+			if j, ok := best[v.rec]; !ok || store.Cosine(v.kept, g.centre) > store.Cosine(vs[j].kept, g.centre) {
+				best[v.rec] = i
+			}
+		}
+		if cands = slices.Collect(maps.Values(best)); len(cands) >= 3 {
+			break
+		}
+	}
+	slices.SortFunc(cands, func(a, b int) int {
+		return cmp.Compare(store.Cosine(vs[b].kept, g.centre), store.Cosine(vs[a].kept, g.centre))
+	})
+	if len(cands) <= 3 {
+		return cands
+	}
+	first := []int{cands[0], cands[len(cands)/2], cands[len(cands)-1]}
+	return append(first, slices.DeleteFunc(cands, func(i int) bool { return slices.Contains(first, i) })...)
+}
+
+// snippet is five seconds of the label's longest turns — the middle of the
+// longest one, topped up from the next when it is short — with both channels
+// mixed to mono and brought to a common loudness.
+func snippet(db *sql.DB, v voice, m meeting) ([]float32, error) {
+	mic, system, ok := media.Sides(filepath.Join(*audio, m.audio))
+	if !ok {
+		return nil, errors.New("not one of the app's stereo recordings")
+	}
+	var clip []float32
+	for _, t := range turns(db, v.rec, v.label) {
+		need := 5*media.Rate - len(clip)
+		if need <= 0 {
+			break
+		}
+		a, z := int(t[0]*media.Rate), min(int(t[1]*media.Rate), len(mic), len(system))
+		if z-a > need {
+			a += (z - a - need) / 2
+			z = a + need
+		}
+		seg := make([]float32, 0, max(z-a, 0))
+		for k := a; k < z; k++ {
+			seg = append(seg, (mic[k]+system[k])/2)
+		}
+		if media.Loud(seg) >= media.Floor { // a transcript turn can sit over silence
+			clip = append(clip, seg...)
+		}
+	}
+	if len(clip) == 0 {
+		return nil, errors.New("none of the label's turns is audible")
+	}
+	var peak float32
+	for _, s := range clip {
+		peak = max(peak, s, -s)
+	}
+	gain := min(0.9/max(peak, 1e-4), 8)
+	for k := range clip {
+		clip[k] *= gain
+	}
+	return clip, nil
+}
+
+const head = `<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Повторювані голоси</title>
+<style>
+:root { color-scheme: dark; --bg: #111216; --text: #e9e9ef; --muted: #9c9cab; --violet: #a78bfa; --line: #25262d; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 Geologica, -apple-system, BlinkMacSystemFont, system-ui, sans-serif; }
+main { max-width: 640px; margin: 0 auto; padding: 32px 16px 64px; }
+h1 { font-size: 20px; font-weight: 600; margin: 0 0 8px; }
+.lead { color: var(--muted); margin: 0 0 24px; }
+section { border-top: 1px solid var(--line); padding: 20px 0 8px; }
+h2 { font-size: 16px; font-weight: 600; color: var(--violet); margin: 0 0 4px; font-variant-numeric: tabular-nums; }
+.like { color: var(--muted); font-size: 13px; margin: 0 0 8px; }
+figure { margin: 12px 0; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; }
+audio { flex: 1 1 280px; min-width: 0; height: 36px; }
+figcaption { color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; }
+</style>
+</head>
+<body>
+<main>
+<h1>Повторювані голоси</h1>
+<p class=lead>П’ять найбільших груп голосів без імені. У кожній — три уривки з різних зустрічей: найтиповіший для групи, середній і найменш схожий. Якщо звучать різні люди, групу не можна назвати одним іменем.</p>
+`
+
+// each runs a query and hands every row to scan; any database error is fatal.
+func each(db *sql.DB, query string, row func(scan func(...any)), args ...any) {
+	rows, err := db.Query(query, args...)
+	if err != nil {
+		die(err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		row(func(dest ...any) {
+			if err := rows.Scan(dest...); err != nil {
+				die(err)
+			}
+		})
+	}
+	if err := rows.Err(); err != nil {
+		die(err)
+	}
+}
+
+func unit(p []float32) []float32 {
+	var s float64
+	for _, x := range p {
+		s += float64(x) * float64(x)
+	}
+	if s == 0 {
+		return nil
+	}
+	out := make([]float32, len(p))
+	for i, x := range p {
+		out[i] = float32(float64(x) / math.Sqrt(s))
+	}
+	return out
+}
+
+// sum is the direction of several unit prints; cosine ignores its length.
+func sum(prints [][]float32) []float32 {
+	out := make([]float32, len(prints[0]))
+	for _, p := range prints {
+		for k, x := range p {
+			out[k] += x
+		}
+	}
+	return out
+}
+
+func pct(sorted []float64, p float64) float64 {
+	if len(sorted) == 0 {
+		return math.NaN()
+	}
+	return sorted[int(math.Round(p*float64(len(sorted)-1)))]
+}
+
+// above is the share of a sorted slice at or over t.
+func above(sorted []float64, t float64) float64 {
+	if len(sorted) == 0 {
+		return math.NaN()
+	}
+	i, _ := slices.BinarySearch(sorted, t)
+	return float64(len(sorted)-i) / float64(len(sorted))
+}
+
+var months = [...]string{"січня", "лютого", "березня", "квітня", "травня", "червня",
+	"липня", "серпня", "вересня", "жовтня", "листопада", "грудня"}
+
+func day(unix int64) string {
+	t := time.Unix(unix, 0)
+	return fmt.Sprintf("%d %s %d", t.Day(), months[t.Month()-1], t.Year())
+}
+
+func comma(x float64, digits int) string {
+	return strings.Replace(strconv.FormatFloat(x, 'f', digits, 64), ".", ",", 1)
+}
+
+func meetingsWord(n int) string {
+	switch {
+	case n%10 == 1 && n%100 != 11:
+		return "зустріч"
+	case n%10 >= 2 && n%10 <= 4 && (n%100 < 12 || n%100 > 14):
+		return "зустрічі"
+	}
+	return "зустрічей"
+}
+
+func home(p string) string { return filepath.Join(os.Getenv("HOME"), "MeetingTranscriber", p) }
+
+func die(err error) {
+	fmt.Println("error:", err)
+	os.Exit(1)
+}

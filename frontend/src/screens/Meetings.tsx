@@ -14,6 +14,7 @@ import {
   Meetings as Api,
   length,
   when,
+  why,
   type Group,
   type Listening,
   type Mark,
@@ -106,7 +107,7 @@ export default function Workspace({
     try {
       setRows((await (binned ? Api.Bin() : Api.Recent(10000))) as Recording[])
     } catch (e) {
-      setProblem(String(e))
+      setProblem(why(e))
     }
     Api.Groups().then((g) => setGroups((g as Group[]) ?? []))
     Api.Span(365).then((m) => setMarks((m as Mark[]) ?? []))
@@ -418,7 +419,7 @@ export default function Workspace({
                     setConfirmBin(false)
                     load()
                   } catch (e) {
-                    setProblem(String(e))
+                    setProblem(why(e))
                   }
                 }}
               >

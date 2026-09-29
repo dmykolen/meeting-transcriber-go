@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import { X } from "lucide-react"
-import { Meetings, type Action } from "../api"
+import { Meetings, why, type Action } from "../api"
 export default function ActionEditor({
   recording,
   index,
@@ -40,7 +40,7 @@ export default function ActionEditor({
             onSaved()
             onClose()
           } catch (e) {
-            setError(String(e))
+            setError(why(e))
           } finally {
             setSaving(false)
           }

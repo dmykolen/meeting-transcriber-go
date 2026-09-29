@@ -20,7 +20,6 @@ import (
 
 	"github.com/dmykolen/meeting-transcriber-go/internal/engine"
 	"github.com/dmykolen/meeting-transcriber-go/internal/home"
-	"github.com/dmykolen/meeting-transcriber-go/internal/insights"
 	"github.com/dmykolen/meeting-transcriber-go/internal/library"
 	"github.com/dmykolen/meeting-transcriber-go/internal/listen"
 	"github.com/dmykolen/meeting-transcriber-go/internal/media"
@@ -97,7 +96,8 @@ func runMCPStdio() error {
 		return err
 	}
 	defer db.Close()
-	lib := library.New(db, nil, insights.New(cfg.OpenAIKey, cfg.OpenAIModel, cfg.Language), home.Recordings(dir))
+	// MCP tools read the archive; none of them calls a model.
+	lib := library.New(db, nil, nil, home.Recordings(dir))
 	return service.ServeMCPStdio(service.New(db, lib, dir, cfg))
 }
 
@@ -117,10 +117,6 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	if cfg.OpenAIKey == "" {
-		slog.Warn("no OpenAI key: summaries, the to-do list and Ask are off. " +
-			"Add one in Settings — transcription and speakers run here either way")
-	}
 	db, err := store.Open(home.Database(dir))
 	if err != nil {
 		return err
@@ -136,10 +132,14 @@ func run() error {
 	setup := service.NewSetup(home.Models(dir))
 	// Only fetch Parakeet when the setting asks for it.
 	setup.Want(models.Optional(cfg.Transcriber))
-	lib := library.New(db, nil, insights.New(cfg.OpenAIKey, cfg.OpenAIModel, cfg.Language), home.Recordings(dir))
+	lib := library.New(db, nil, nil, home.Recordings(dir))
 	lib.Policy(store.When(cfg.Summarise))
 	lib.Owner(cfg.Me)
+	lib.Schedule(cfg.Queue.When, cfg.Queue.At)
 	meetings := service.New(db, lib, dir, cfg)
+	// OpenAI, Copilot or a local model, whichever the settings chose; local
+	// models and the Copilot CLI download behind the window if missing.
+	meetings.ApplyAI()
 	go func() {
 		if err := service.RunMCP(ctx, meetings, os.Getenv("MT_MCP_ADDR")); err != nil {
 			slog.Error("MCP server stopped", "err", err)
@@ -223,6 +223,9 @@ func run() error {
 			Middleware: sound(home.Recordings(dir), home.Cache(dir)),
 		},
 		Mac: application.MacOptions{ApplicationShouldTerminateAfterLastWindowClosed: true},
+		// Quitting ends the process without returning here, so the local model
+		// helpers are stopped on the way out rather than left running.
+		OnShutdown: func() { lib.AI().Close() },
 	})
 
 	app.Window.NewWithOptions(application.WebviewWindowOptions{
@@ -240,9 +243,74 @@ func run() error {
 		},
 	})
 
+	go strip(ctx, app, meetings)
+
 	go func() {
 		<-ctx.Done()
 		app.Quit()
 	}()
 	return app.Run()
+}
+
+// strip floats just below the menu bar while a meeting is recorded: a
+// reminder to tell the others, and Pause and Stop within reach of the call.
+// It is a panel that never takes focus from the meeting app, even when the
+// pointer passes over it, shows over every Space and full-screen app, and
+// stays out of screen shares. It is made when the recording starts and closed
+// when it ends, so the main window stays the last one to close.
+func strip(ctx context.Context, app *application.App, meetings *service.Meetings) {
+	const width, height = 560, 44
+	var window *application.WebviewWindow
+	tick := time.NewTicker(500 * time.Millisecond)
+	defer tick.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-tick.C:
+		}
+		s := meetings.Listening()
+		on := (s.Phase == listen.Recording || s.Phase == listen.WrappingUp || s.Phase == listen.Held) &&
+			(s.Kind == store.Meeting || s.Asked)
+		screen := app.Screen.GetPrimary()
+		switch {
+		case on && window == nil && screen != nil:
+			// Centred under the menu bar, in points from the primary screen's
+			// top-left. Not via Options.Screen: beta.16 divides those
+			// coordinates by the Retina scale a second time.
+			x, y := screen.WorkArea.X+(screen.WorkArea.Width-width)/2, screen.WorkArea.Y+8
+			slog.Info("recording strip shown", "x", x, "y", y)
+			window = app.Window.NewWithOptions(application.WebviewWindowOptions{
+				Name:                     "strip",
+				URL:                      "/#strip",
+				Width:                    width,
+				Height:                   height,
+				Frameless:                true,
+				DisableResize:            true,
+				InitialPosition:          application.WindowXY,
+				X:                        x,
+				Y:                        y,
+				BackgroundType:           application.BackgroundTypeTransparent,
+				BackgroundColour:         application.NewRGBA(0, 0, 0, 0),
+				ContentProtectionEnabled: true,
+				Mac: application.MacWindow{
+					Backdrop:    application.MacBackdropTransparent,
+					WindowClass: application.MacWindowClassPanel,
+					PanelPreferences: application.MacPanelPreferences{
+						NonActivating:          true,
+						BecomesKeyOnlyIfNeeded: true,
+					},
+					WindowLevel: application.MacWindowLevelStatus,
+					CollectionBehavior: application.MacWindowCollectionBehaviorCanJoinAllSpaces |
+						application.MacWindowCollectionBehaviorFullScreenAuxiliary |
+						application.MacWindowCollectionBehaviorStationary |
+						application.MacWindowCollectionBehaviorIgnoresCycle,
+				},
+			})
+			untouchable(window)
+		case !on && window != nil:
+			window.Close()
+			window = nil
+		}
+	}
 }

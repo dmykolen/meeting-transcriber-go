@@ -2032,3 +2032,68 @@ main .px-5 {
     animation: none;
   }
 }
+
+/* The recording strip is its own window, a capsule under the menu bar that
+   covers no menu bar icons. The window is transparent; the capsule is the
+   only thing drawn, and macOS shadows it along its shape. */
+html.strip-window body {
+  background: transparent;
+}
+.strip {
+  display: flex;
+  height: 100vh;
+  align-items: center;
+  gap: 12px;
+  border: 1px solid #ffffff17;
+  border-radius: 999px;
+  padding: 0 7px 0 16px;
+  background: #0c0e13f2;
+  font-size: 12px;
+  -webkit-user-select: none;
+  user-select: none;
+}
+.strip-say {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin: 0;
+  white-space: nowrap;
+}
+.strip-button {
+  display: grid;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+  border-radius: 7px;
+  color: var(--color-soft);
+  transition:
+    background-color 0.15s,
+    color 0.15s;
+}
+.strip-button:hover {
+  background: #ffffff1a;
+  color: var(--color-text);
+}
+.strip-told {
+  flex: none;
+  border-radius: 999px;
+  padding: 3px 10px;
+  background: var(--color-accent-soft);
+  font-size: 11.5px;
+  font-weight: 500;
+  transition:
+    background-color 0.15s,
+    color 0.15s;
+}
+.strip-told:hover {
+  background: var(--color-accent);
+  color: var(--color-ink);
+}
+.strip-button:focus-visible,
+.strip-told:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}

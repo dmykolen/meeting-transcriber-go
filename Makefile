@@ -14,6 +14,7 @@ BUILD   := build
 VENDOR  := $(BUILD)/whisper.cpp
 WHISPER := $(abspath $(VENDOR))
 APP     := $(BUILD)/Meeting Transcriber.app
+INSTALL := /Applications/Meeting Transcriber.app
 DMG     := $(BUILD)/MeetingTranscriber.dmg
 MNT     := $(BUILD)/mnt
 
@@ -26,6 +27,13 @@ MNT     := $(BUILD)/mnt
 AUDIOTEE_REPO := https://github.com/makeusabrew/audiotee.git
 AUDIOTEE_REF  := 56ac954369a09318e46b88a6eec33c2d2b0d32a3
 AUDIOTEE      := $(BUILD)/audiotee
+
+# llama-server runs the local AI models when the settings choose them. It is a
+# helper process for the same reasons as audiotee, and one more: linked in, its
+# ggml would be a second copy beside whisper.cpp's. Pinned to release v0.5.0.
+LLAMA_REPO := https://github.com/ggml-org/llama.cpp.git
+LLAMA_REF  := 7fe450e19305b828c199d602c23a8337aaa1f03b
+LLAMA      := $(BUILD)/llama-server
 
 # The speaker models come with two dylibs that the linker resolves through an
 # rpath into the Go module cache. That is fine on this machine and useless on
@@ -44,7 +52,7 @@ SIGN     := $(if $(IDENTITY),$(IDENTITY),-)
 export CPATH        := $(WHISPER)/include:$(WHISPER)/ggml/include
 export LIBRARY_PATH := $(WHISPER)/build/src:$(WHISPER)/build/ggml/src:$(WHISPER)/build/ggml/src/ggml-metal:$(WHISPER)/build/ggml/src/ggml-blas
 
-.PHONY: all whisper frontend bundle dmg run cert test clean
+.PHONY: all whisper frontend bundle dmg run install cert test clean
 
 all: $(BUILD)/mt
 
@@ -76,15 +84,25 @@ $(AUDIOTEE):
 	cd $(BUILD)/audiotee.src && swift build -c release
 	cp $(BUILD)/audiotee.src/.build/release/audiotee $@
 
+$(LLAMA):
+	@mkdir -p $(BUILD)/llama.cpp
+	cd $(BUILD)/llama.cpp && git init --quiet && git fetch --quiet --depth 1 $(LLAMA_REPO) $(LLAMA_REF) && git checkout --quiet FETCH_HEAD
+	cd $(BUILD)/llama.cpp && cmake -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF \
+		-DGGML_METAL=ON -DGGML_METAL_EMBED_LIBRARY=ON -DLLAMA_OPENSSL=OFF -DLLAMA_USE_PREBUILT_UI=OFF \
+		-DLLAMA_BUILD_TESTS=OFF -DLLAMA_BUILD_EXAMPLES=OFF >/dev/null
+	cd $(BUILD)/llama.cpp && cmake --build build --target llama-server -j $(shell sysctl -n hw.ncpu 2>/dev/null || nproc) >/dev/null
+	cp $(BUILD)/llama.cpp/build/bin/llama-server $@
+
 ## bundle — the .app. macOS attaches the microphone and system-audio grants to
 ## this, so the app is always run from inside it, never as a bare binary.
-bundle: $(BUILD)/mt $(AUDIOTEE)
+bundle: $(BUILD)/mt $(AUDIOTEE) $(LLAMA)
 	rm -rf "$(APP)"
 	mkdir -p "$(APP)/Contents/MacOS" "$(APP)/Contents/Resources" "$(APP)/Contents/Frameworks"
 	cp packaging/darwin/Info.plist "$(APP)/Contents/Info.plist"
 	cp packaging/darwin/AppIcon.icns "$(APP)/Contents/Resources/AppIcon.icns"
 	cp $(BUILD)/mt "$(APP)/Contents/MacOS/MeetingTranscriber"
 	cp $(AUDIOTEE) "$(APP)/Contents/Resources/audiotee"
+	cp $(LLAMA) "$(APP)/Contents/Resources/llama-server"
 	cp $(SHERPA)/libsherpa-onnx-c-api.dylib $(SHERPA)/libonnxruntime.dylib "$(APP)/Contents/Frameworks/"
 	chmod u+w "$(APP)/Contents/Frameworks/"*.dylib
 	install_name_tool -add_rpath @executable_path/../Frameworks "$(APP)/Contents/MacOS/MeetingTranscriber"
@@ -92,6 +110,7 @@ bundle: $(BUILD)/mt $(AUDIOTEE)
 	codesign --force --sign $(SIGN) "$(APP)/Contents/Frameworks/libonnxruntime.dylib"
 	codesign --force --sign $(SIGN) "$(APP)/Contents/Frameworks/libsherpa-onnx-c-api.dylib"
 	codesign --force --sign $(SIGN) "$(APP)/Contents/Resources/audiotee"
+	codesign --force --sign $(SIGN) "$(APP)/Contents/Resources/llama-server"
 	codesign --force --sign $(SIGN) "$(APP)/Contents/MacOS/MeetingTranscriber"
 	codesign --force --sign $(SIGN) "$(APP)"
 	@codesign --verify --deep "$(APP)" && echo "bundle verified"
@@ -144,6 +163,15 @@ dmg: bundle
 ## is attributed to the terminal and the app records silence.
 run: bundle
 	open "$(APP)"
+
+## install — the one copy the Dock and Spotlight should open. Every build is
+## signed the same way, so the microphone and system-audio grants carry over. A
+## running copy keeps working on the files it already has; quit and reopen it to
+## run this build.
+install: bundle
+	rm -rf "$(INSTALL)"
+	ditto "$(APP)" "$(INSTALL)"
+	@codesign --verify --deep "$(INSTALL)" && echo "installed $(INSTALL) — quit and reopen the app to run it"
 
 ## cert — a local signing identity, so the permission is asked for once
 cert:

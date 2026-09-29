@@ -15,6 +15,7 @@ import {
   Copy,
   Ear,
   FolderOpen,
+  LogIn,
   Mic,
   Rows2,
   Sparkles,
@@ -22,8 +23,12 @@ import {
   UserRound,
   X,
 } from "lucide-react"
+import { Browser } from "@wailsio/runtime"
 import {
   Meetings,
+  why,
+  type AIState,
+  type CopilotAccount,
   type Group,
   type MCPState,
   type Person,
@@ -46,7 +51,43 @@ export default function Settings() {
   const [said, setSaid] = useState("")
   const [me, setMe] = useState("")
   const [mcp, setMcp] = useState<MCPState | null>(null)
+  const [ai, setAI] = useState<AIState | null>(null)
+  const [account, setAccount] = useState<CopilotAccount | null>(null)
+  const [checking, setChecking] = useState(false)
   const saving = useRef(Promise.resolve())
+
+  // Downloads and the GitHub sign-in move on their own; the screen follows.
+  useEffect(() => {
+    let alive = true
+    const read = () =>
+      Meetings.AIStatus()
+        .then((s) => alive && setAI(s as AIState))
+        .catch(() => {})
+    read()
+    const timer = window.setInterval(read, 1500)
+    return () => {
+      alive = false
+      window.clearInterval(timer)
+    }
+  }, [])
+
+  // Asked once Copilot is chosen, and again whenever a download moves on or
+  // the sign-in ends: the answer starts the Copilot CLI for a moment.
+  const copilot = values?.aiProvider === "copilot"
+  const signingIn = !!ai?.signingIn
+  const fetching = ai?.fetching ?? null
+  useEffect(() => {
+    if (!copilot || signingIn || fetching === null) return
+    let alive = true
+    setChecking(true)
+    Meetings.Copilot()
+      .then((a) => alive && setAccount(a as CopilotAccount))
+      .catch((e) => alive && setSaid(why(e)))
+      .finally(() => alive && setChecking(false))
+    return () => {
+      alive = false
+    }
+  }, [copilot, signingIn, fetching])
 
   const teach = () =>
     run("me", async () => {
@@ -64,7 +105,7 @@ export default function Settings() {
     try {
       setSaid(String(await job()))
     } catch (e) {
-      setSaid(String(e).replace(/^Error:\s*/, ""))
+      setSaid(why(e))
     } finally {
       setBusy("")
     }
@@ -86,13 +127,13 @@ export default function Settings() {
               status: "failed",
               url: "",
               command: "",
-              problem: String(e).replace(/^Error:\s*/, ""),
+              problem: why(e),
             })
         })
 
     Meetings.Settings()
       .then((v) => setValues(v as Values))
-      .catch((e) => setSaid(String(e)))
+      .catch((e) => setSaid(why(e)))
     voices().catch(() => {})
     folders().catch(() => {})
     refreshMCP()
@@ -115,7 +156,7 @@ export default function Settings() {
     try {
       await saving.current
     } catch (e) {
-      setSaid("Не збережено: " + String(e))
+      setSaid("Не збережено: " + why(e))
       return
     }
     setSaved(true)
@@ -250,6 +291,45 @@ export default function Settings() {
                 }
               />
             </Row>
+            <Row
+              label="Коли розшифровувати"
+              hint={
+                {
+                  after:
+                    "Одразу після кожного запису. Поки йде розшифровка, Mac працює на повну.",
+                  at: "Записи чекають до вказаної години. Якщо Mac тоді спить, розшифровка почнеться, щойно він прокинеться.",
+                  idle: "Коли ви 5 хвилин не користуєтесь Mac і його не завантажує інша робота.",
+                }[values.transcribe]
+              }
+            >
+              <Choice
+                options={[
+                  { id: "after", label: "Одразу" },
+                  { id: "at", label: "О годині" },
+                  { id: "idle", label: "Авто" },
+                ]}
+                value={values.transcribe}
+                onChange={(id) =>
+                  save({ ...values, transcribe: id as Values["transcribe"] })
+                }
+              />
+            </Row>
+            {values.transcribe === "at" && (
+              <Row
+                label="О котрій"
+                hint="Щодня. Записане пізніше чекає до наступного дня; потрібну зустріч можна розшифрувати одразу кнопкою в ній."
+              >
+                {/* Not type="time": WebKit draws that in the app's English
+                    locale, as 07:00 PM, whatever lang says. */}
+                <Text
+                  value={values.transcribeAt}
+                  placeholder="19:00"
+                  width="w-20"
+                  onChange={(v) => setValues({ ...values, transcribeAt: v })}
+                  onDone={() => save(values)}
+                />
+              </Row>
+            )}
           </Group>
 
           <Group title="Учасники" Icon={UserRound}>
@@ -301,6 +381,136 @@ export default function Settings() {
 
           <Group title="AI та архів" Icon={Sparkles}>
             <Row
+              label="AI для підсумків і відповідей"
+              hint={
+                {
+                  openai: "OpenAI за вашим ключем.",
+                  copilot:
+                    "Моделі вашого GitHub Copilot. Запити витрачають AI Credits плану.",
+                  local:
+                    "Модель на цьому Mac: текст зустрічей нікуди не надсилається.",
+                }[values.aiProvider]
+              }
+            >
+              <Choice
+                options={[
+                  { id: "openai", label: "OpenAI" },
+                  { id: "copilot", label: "GitHub Copilot" },
+                  { id: "local", label: "Локально" },
+                ]}
+                value={values.aiProvider}
+                onChange={(id) =>
+                  save({ ...values, aiProvider: id as Values["aiProvider"] })
+                }
+              />
+            </Row>
+            {values.aiProvider === "copilot" && (
+              <Row
+                label="GitHub Copilot"
+                hint={
+                  ai?.signingIn
+                    ? "Підтвердіть доступ у браузері, який відкрився."
+                    : checking
+                      ? "Перевіряю акаунт…"
+                      : account?.login
+                        ? `Підключено: ${account.login}.`
+                        : "Не підключено. Відкриється браузер, де треба підтвердити доступ."
+                }
+              >
+                <button
+                  onClick={() =>
+                    Meetings.ConnectCopilot().catch((e) =>
+                      setSaid(why(e)),
+                    )
+                  }
+                  disabled={signingIn || checking}
+                  className="flex items-center gap-1.5 rounded-lg border border-line/60 bg-surface/60 px-2.5 py-1.5 text-[11.5px] text-soft transition-colors hover:border-accent/40 hover:text-text disabled:opacity-40"
+                >
+                  <LogIn size={13} />
+                  {account?.login ? "Інший акаунт" : "Підключити"}
+                </button>
+              </Row>
+            )}
+            {values.aiProvider === "copilot" && !!account?.login && (
+              <Row label="Модель Copilot" hint="«Автоматично» — Copilot обирає сам.">
+                <select
+                  aria-label="Модель Copilot"
+                  value={values.copilotModel}
+                  onChange={(e) =>
+                    save({ ...values, copilotModel: e.target.value })
+                  }
+                  className="w-44 rounded-lg border border-line/60 bg-surface/60 px-2 py-1.5 text-[12px] outline-none transition-colors focus:border-accent/50"
+                >
+                  <option value="">Автоматично</option>
+                  {account.models.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.name}
+                    </option>
+                  ))}
+                </select>
+              </Row>
+            )}
+            {values.aiProvider === "local" && (
+              <Row
+                label="Локальна модель"
+                hint="Вбудована — Gemma 4 E2B, 2,8 ГБ. Для більшої вставте посилання на .gguf з Hugging Face."
+              >
+                <Text
+                  value={values.localModel}
+                  placeholder="Gemma 4 E2B"
+                  width="w-56"
+                  onChange={(v) => setValues({ ...values, localModel: v })}
+                  onDone={() => save(values)}
+                />
+              </Row>
+            )}
+            <Row
+              label="Пошук за змістом"
+              hint={
+                values.embeddings === "local"
+                  ? "Qwen3 Embedding на цьому Mac, 0,6 ГБ. Після зміни індекс перебудовується."
+                  : "Вектори для пошуку й Ask робить OpenAI. Після зміни індекс перебудовується."
+              }
+            >
+              <Choice
+                options={[
+                  { id: "openai", label: "OpenAI" },
+                  { id: "local", label: "Локально" },
+                ]}
+                value={values.embeddings}
+                onChange={(id) =>
+                  save({ ...values, embeddings: id as Values["embeddings"] })
+                }
+              />
+            </Row>
+            {(values.aiProvider === "openai" ||
+              values.embeddings === "openai") && (
+              <Row
+                label="Ключ OpenAI"
+                hint="Лише для того, що вище обрано через OpenAI. Розпізнавання мовлення працює локально."
+              >
+                <Text
+                  value={values.openaiKey}
+                  placeholder="sk-…"
+                  secret
+                  width="w-56"
+                  onChange={(v) => setValues({ ...values, openaiKey: v })}
+                  onDone={() => save(values)}
+                />
+              </Row>
+            )}
+            {values.aiProvider === "openai" && (
+              <Row label="Модель OpenAI" hint="Назва моделі, доступної вашому ключу.">
+                <Text
+                  value={values.openaiModel}
+                  placeholder="gpt-5.4-mini"
+                  width="w-40"
+                  onChange={(v) => setValues({ ...values, openaiModel: v })}
+                  onDone={() => save(values)}
+                />
+              </Row>
+            )}
+            <Row
               label="Автоматичні підсумки"
               hint="Для зустрічей, усіх записів або лише вручну. Ручне оновлення доступне в документі."
             >
@@ -317,40 +527,73 @@ export default function Settings() {
               />
             </Row>
             <Row
-              label="Ключ OpenAI"
-              hint="Використовується для підсумків, embeddings і відповідей. Розпізнавання мовлення працює локально."
-            >
-              <Text
-                value={values.openaiKey}
-                placeholder="sk-…"
-                secret
-                width="w-56"
-                onChange={(v) => setValues({ ...values, openaiKey: v })}
-                onDone={() => save(values)}
-              />
-            </Row>
-            <Row
               label="Індекс розшифровок"
               hint="Оновити старі розшифровки. Решта архіву індексується під час пошуку за змістом."
             >
               <button
                 onClick={() => run("index", () => Meetings.Reindex())}
-                disabled={busy !== ""}
+                disabled={busy !== "" || !!ai?.indexing}
                 className="flex items-center gap-1.5 rounded-lg border border-line/60 bg-surface/60 px-2.5 py-1.5 text-[11.5px] text-soft transition-colors hover:border-accent/40 hover:text-text disabled:opacity-40"
               >
                 <Brain size={13} />{" "}
                 {busy === "index" ? "Індексую…" : "Оновити індекс"}
               </button>
             </Row>
-            <Row label="Модель AI" hint="Назва моделі, доступної вашому ключу.">
-              <Text
-                value={values.openaiModel}
-                placeholder="gpt-5.4-mini"
-                width="w-40"
-                onChange={(v) => setValues({ ...values, openaiModel: v })}
-                onDone={() => save(values)}
-              />
-            </Row>
+            {ai && (ai.fetching || ai.indexing || ai.signingIn || ai.problem) && (
+              <div
+                role="status"
+                className="space-y-1.5 border-t border-line/50 px-4 py-3 text-[11.5px] leading-relaxed"
+              >
+                {ai.fetching && (
+                  <>
+                    <p className="text-soft">
+                      Завантажую {ai.fetching} ·{" "}
+                      <span className="tabular-nums">
+                        {Math.round(ai.fraction * 100)}%
+                      </span>
+                    </p>
+                    <div className="h-1 overflow-hidden rounded-full bg-raised">
+                      <div
+                        className="h-full rounded-full bg-accent transition-[width] duration-500"
+                        style={{ width: `${ai.fraction * 100}%` }}
+                      />
+                    </div>
+                  </>
+                )}
+                {ai.indexing && (
+                  <>
+                    <p className="text-soft">
+                      Оновлюю пошук за змістом: {ai.indexing} ·{" "}
+                      <span className="tabular-nums">
+                        {Math.round(ai.indexed * 100)}%
+                      </span>
+                    </p>
+                    <div className="h-1 overflow-hidden rounded-full bg-raised">
+                      <div
+                        className="h-full rounded-full bg-accent transition-[width] duration-500"
+                        style={{ width: `${ai.indexed * 100}%` }}
+                      />
+                    </div>
+                  </>
+                )}
+                {ai.signingIn &&
+                  (ai.said ?? []).map((line) => (
+                    <p key={line} className="break-all text-faint">
+                      {line.startsWith("https://") ? (
+                        <button
+                          onClick={() => Browser.OpenURL(line).catch(() => {})}
+                          className="text-left text-accent underline-offset-2 hover:underline"
+                        >
+                          {line}
+                        </button>
+                      ) : (
+                        line
+                      )}
+                    </p>
+                  ))}
+                {ai.problem && <p className="text-warn">{ai.problem}</p>}
+              </div>
+            )}
           </Group>
 
           <Group

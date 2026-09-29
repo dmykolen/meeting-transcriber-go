@@ -16,7 +16,8 @@ Stack:
 - React 19, TypeScript, Vite, Tailwind CSS, Motion, and Lucide
 - SQLite
 - whisper.cpp and sherpa-onnx
-- optional OpenAI calls behind `internal/insights`
+- optional OpenAI, GitHub Copilot, or local `llama-server` calls behind
+  `internal/insights`
 
 The owner communicates in Ukrainian. Reply in Ukrainian. Keep code, comments,
 documentation, logs, and technical identifiers in English. The product UI is
@@ -100,10 +101,10 @@ explicit requirement.
 - The app window appears before models are downloaded or loaded. Heavy model
   work stays in the background.
 - Transcription, diarization, playback, analytics, and keyword search work
-  locally. OpenAI remains optional.
-- Downloaded models and tools such as FFmpeg live in the app-managed home
-  directory. The macOS `audiotee` helper is deliberately bundled inside the
-  `.app`.
+  locally. AI remains optional, and a local model keeps it on the Mac.
+- Downloaded models and tools such as FFmpeg and the Copilot CLI live in the
+  app-managed home directory. The macOS `audiotee` and `llama-server` helpers
+  are deliberately bundled inside the `.app`.
 - The microphone is the left channel and system audio is the right channel.
   Do not collapse them before logic that depends on channel ownership.
 - Live capture has priority over queued historical processing.

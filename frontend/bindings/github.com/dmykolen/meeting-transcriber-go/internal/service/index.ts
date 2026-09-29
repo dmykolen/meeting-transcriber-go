@@ -9,7 +9,9 @@ export {
 };
 
 export {
+    AIState,
     Answer,
+    CopilotAccount,
     KnowledgeAnswer,
     MCPState,
     Meeting,

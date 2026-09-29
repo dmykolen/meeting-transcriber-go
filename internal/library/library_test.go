@@ -49,7 +49,7 @@ func setup(t *testing.T, e Engine) (*Library, *store.DB, string) {
 
 	recordings := filepath.Join(dir, "recordings")
 	os.MkdirAll(recordings, 0o755)
-	return New(db, e, insights.New("", "", "uk"), recordings), db, recordings
+	return New(db, e, insights.New(insights.Setup{Language: "uk"}), recordings), db, recordings
 }
 
 // silence writes a real, decodable WAV.
@@ -188,7 +188,7 @@ func TestAnInterruptedRecordingIsPickedUpAgain(t *testing.T) {
 	r, _ := lib.Add(store.Meeting, "a.wav", time.Now(), "")
 	db.Progress(r.ID, store.Transcribing, 0.4) // as a crash would leave it
 
-	id, ok := lib.next()
+	id, ok := lib.next(time.Now())
 	if !ok || id != r.ID {
 		t.Fatalf("next() returned %d, %v; the half-done recording was skipped", id, ok)
 	}
@@ -208,7 +208,7 @@ func TestTheQueueRunsOldestFirst(t *testing.T) {
 	older, _ := lib.Add(store.Meeting, "old.wav", time.Now().Add(-time.Hour), "")
 	lib.Add(store.Meeting, "new.wav", time.Now(), "")
 
-	if id, _ := lib.next(); id != older.ID {
+	if id, _ := lib.next(time.Now()); id != older.ID {
 		t.Fatalf("next() chose %d, want the older %d", id, older.ID)
 	}
 }

@@ -1,4 +1,6 @@
-// Package insights contains the app's LLM-backed features.
+// Package insights contains the app's LLM-backed features. It is the only
+// place that talks to a model, whether OpenAI, GitHub Copilot or one running on
+// this Mac.
 package insights
 
 import (
@@ -8,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync/atomic"
 
 	"github.com/openai/openai-go/v3"
 	"github.com/openai/openai-go/v3/option"
@@ -15,15 +18,42 @@ import (
 )
 
 // ErrNoKey is returned when LLM features are unavailable.
-var ErrNoKey = errors.New("no OpenAI key: summaries and questions are off, " +
+var ErrNoKey = errors.New("AI is not set up: summaries and questions are off, " +
 	"and transcription is unaffected")
 
-// Client talks to the model.
+// Setup is what the settings chose, resolved to files on disk. A file that is
+// not there yet is left empty, and the feature it serves stays off.
+type Setup struct {
+	Language   string
+	Provider   string // makes summaries and answers: "openai", "copilot" or "local"
+	Embeddings string // makes search vectors: "openai" or "local"
+
+	OpenAIKey, OpenAIModel string
+	CopilotModel           string
+	Copilot, CopilotHome   string // the copilot executable and its own state folder
+	Server                 string // the llama-server executable
+	Chat, Vectors          string // the local model files
+}
+
+// Client talks to whichever models the settings chose.
 type Client struct {
-	api      openai.Client
-	model    string
 	language string
-	ready    bool
+	ask      func(context.Context, prompt) (string, error)
+	embed    func(context.Context, []string) ([][]float32, error)
+	// query is what a question needs in front of it for the embedder to find
+	// the passages that answer it.
+	query string
+	// Vectors names what made the vectors, so that vectors from a different
+	// embedder are never compared with these. Empty without an embedder.
+	Vectors string
+	stop    []func()
+	failed  atomic.Pointer[string]
+}
+
+// prompt is one request; schema, when set, is the JSON shape the reply takes.
+type prompt struct {
+	instructions, input, name string
+	schema                    map[string]any
 }
 
 // Tongue maps language codes to prompt-friendly names.
@@ -33,28 +63,95 @@ var Tongue = map[string]string{
 	"nl": "Dutch", "pt": "Portuguese", "ro": "Romanian", "tr": "Turkish",
 }
 
-// New creates an insights client.
-func New(key, model, language string) *Client {
-	if key == "" {
-		return &Client{}
+// New creates the client the settings describe.
+func New(s Setup) *Client {
+	c := &Client{language: cmp.Or(Tongue[strings.ToLower(s.Language)], "the language the meeting was held in")}
+	switch {
+	case s.Provider == "openai" && s.OpenAIKey != "":
+		c.ask = openAI(s.OpenAIKey, cmp.Or(s.OpenAIModel, "gpt-5.4-mini"))
+	case s.Provider == "copilot" && s.Copilot != "":
+		p := &pilot{bin: s.Copilot, home: s.CopilotHome, model: s.CopilotModel}
+		c.ask, c.stop = p.ask, append(c.stop, p.close)
+	case s.Provider == "local" && s.Server != "" && s.Chat != "":
+		h := &helper{bin: s.Server, model: s.Chat, args: chatArgs}
+		c.ask, c.stop = h.ask, append(c.stop, h.close)
 	}
-	if model == "" {
-		model = "gpt-5.4-mini"
+	switch {
+	case s.Embeddings == "openai" && s.OpenAIKey != "":
+		c.embed, c.Vectors = openAIVectors(s.OpenAIKey), OpenAIVectors
+	case s.Embeddings == "local" && s.Server != "" && s.Vectors != "":
+		h := &helper{bin: s.Server, model: s.Vectors, args: vectorArgs}
+		c.embed, c.query, c.Vectors = h.vectors, localQuery, localVectors
+		c.stop = append(c.stop, h.close)
 	}
-	tongue := "the language the meeting was held in"
-	if named, known := Tongue[strings.ToLower(language)]; known {
-		tongue = named
+	return c
+}
+
+// Ready reports whether summaries and answers can be made.
+func (c *Client) Ready() bool { return c != nil && c.ask != nil }
+
+// Searchable reports whether search by meaning can be offered.
+func (c *Client) Searchable() bool { return c != nil && c.embed != nil }
+
+// Problem is what the model said the last time it refused, or empty.
+func (c *Client) Problem() string {
+	if c == nil || c.failed.Load() == nil {
+		return ""
 	}
-	return &Client{
-		api:      openai.NewClient(option.WithAPIKey(key)),
-		model:    model,
-		language: tongue,
-		ready:    true,
+	return *c.failed.Load()
+}
+
+// Close stops the helper processes this client started.
+func (c *Client) Close() {
+	if c == nil {
+		return
+	}
+	for _, stop := range c.stop {
+		stop()
 	}
 }
 
-// Ready reports whether LLM-backed features are available.
-func (c *Client) Ready() bool { return c != nil && c.ready }
+// generate is every model call, so that the last failure can be shown.
+func (c *Client) generate(ctx context.Context, p prompt) (string, error) {
+	if !c.Ready() {
+		return "", ErrNoKey
+	}
+	out, err := c.ask(ctx, p)
+	problem := ""
+	if err != nil {
+		problem = err.Error()
+	}
+	c.failed.Store(&problem)
+	return out, err
+}
+
+// openAI asks through the Responses API.
+func openAI(key, model string) func(context.Context, prompt) (string, error) {
+	api := openai.NewClient(option.WithAPIKey(key))
+	return func(ctx context.Context, p prompt) (string, error) {
+		params := responses.ResponseNewParams{
+			Model:        model,
+			Instructions: openai.String(p.instructions),
+			Input:        responses.ResponseNewParamsInputUnion{OfString: openai.String(p.input)},
+		}
+		if p.schema != nil {
+			params.Text = responses.ResponseTextConfigParam{
+				Format: responses.ResponseFormatTextConfigUnionParam{
+					OfJSONSchema: &responses.ResponseFormatTextJSONSchemaConfigParam{
+						Name:   p.name,
+						Schema: p.schema,
+						Strict: openai.Bool(true),
+					},
+				},
+			}
+		}
+		resp, err := api.Responses.New(ctx, params)
+		if err != nil {
+			return "", err
+		}
+		return resp.OutputText(), nil
+	}
+}
 
 // ActionItem is something somebody committed to.
 type ActionItem struct {
@@ -145,43 +242,16 @@ func (c *Client) Answer(ctx context.Context, question string, passages []string)
 
 // Ask sends one prompt and returns plain text.
 func (c *Client) Ask(ctx context.Context, instructions, input string) (string, error) {
-	if !c.Ready() {
-		return "", ErrNoKey
-	}
-	resp, err := c.api.Responses.New(ctx, responses.ResponseNewParams{
-		Model:        c.model,
-		Instructions: openai.String(instructions),
-		Input:        responses.ResponseNewParamsInputUnion{OfString: openai.String(input)},
-	})
-	if err != nil {
-		return "", err
-	}
-	return resp.OutputText(), nil
+	return c.generate(ctx, prompt{instructions: instructions, input: input})
 }
 
 // Structured is Ask with a schema the model must obey.
 func (c *Client) Structured(ctx context.Context, instructions, input, name string, jsonSchema map[string]any, out any) error {
-	if !c.Ready() {
-		return ErrNoKey
-	}
-	resp, err := c.api.Responses.New(ctx, responses.ResponseNewParams{
-		Model:        c.model,
-		Instructions: openai.String(instructions),
-		Input:        responses.ResponseNewParamsInputUnion{OfString: openai.String(input)},
-		Text: responses.ResponseTextConfigParam{
-			Format: responses.ResponseFormatTextConfigUnionParam{
-				OfJSONSchema: &responses.ResponseFormatTextJSONSchemaConfigParam{
-					Name:   name,
-					Schema: jsonSchema,
-					Strict: openai.Bool(true),
-				},
-			},
-		},
-	})
+	reply, err := c.generate(ctx, prompt{instructions: instructions, input: input, name: name, schema: jsonSchema})
 	if err != nil {
 		return err
 	}
-	return json.Unmarshal([]byte(resp.OutputText()), out)
+	return json.Unmarshal([]byte(reply), out)
 }
 
 // Transcript renders turns into the prompt format.

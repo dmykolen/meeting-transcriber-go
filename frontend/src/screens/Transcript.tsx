@@ -22,6 +22,7 @@ import {
   clock,
   length,
   when,
+  why,
   type Group,
   type Meeting,
   type Person,
@@ -92,7 +93,7 @@ export default function Transcript({
       setTitle(m.title)
       setPeople((await Meetings.People()) as Person[])
     } catch (e) {
-      setProblem(String(e))
+      setProblem(why(e))
     }
   }, [id])
   useEffect(() => {
@@ -187,7 +188,7 @@ export default function Transcript({
       })
       onChanged()
     } catch (e) {
-      setProblem(String(e))
+      setProblem(why(e))
     }
   }
   const preview = async () => {
@@ -197,7 +198,7 @@ export default function Transcript({
     try {
       setDraft((await Meetings.PreviewSummary(id)) as Summary)
     } catch (e) {
-      setProblem(String(e))
+      setProblem(why(e))
     } finally {
       setThinking(false)
     }
@@ -292,7 +293,7 @@ export default function Transcript({
                     onChanged()
                     onBack()
                   } catch (e) {
-                    setProblem(String(e))
+                    setProblem(why(e))
                   }
                 }}
               >
@@ -336,7 +337,7 @@ export default function Transcript({
                 await load()
                 onChanged()
               } catch (e) {
-                setProblem(String(e))
+                setProblem(why(e))
                 setTitle(meeting.title)
               }
             }
@@ -472,7 +473,7 @@ export default function Transcript({
                     await load()
                     onChanged()
                   } catch (e) {
-                    setProblem(String(e))
+                    setProblem(why(e))
                   }
                 }}
               >
@@ -481,6 +482,37 @@ export default function Transcript({
               {meeting.transcript.length > 0 && (
                 <button className="ui-chip" onClick={preview}>
                   Лише новий підсумок
+                </button>
+              )}
+            </>
+          ) : meeting.status === "queued" ? (
+            <>
+              <p>
+                {meeting.wait === "time"
+                  ? `Почнеться ${new Date(meeting.until).toDateString() === new Date().toDateString() ? "" : "завтра "}о ${new Date(meeting.until).toLocaleTimeString("uk-UA", { hour: "2-digit", minute: "2-digit" })}.`
+                  : {
+                      "": "",
+                      models: "Почнеться, щойно завантажаться моделі.",
+                      recording: "Почнеться, коли закінчиться поточний запис.",
+                      next: "Розшифрується наступною.",
+                      user: "Почнеться, коли ви 5 хвилин не користуватиметесь Mac.",
+                      busy: "Почнеться, коли Mac звільниться від іншої роботи.",
+                      turn: "Чекає своєї черги.",
+                    }[meeting.wait]}
+              </p>
+              {meeting.wait !== "next" && (
+                <button
+                  className="ui-chip"
+                  onClick={async () => {
+                    try {
+                      await Meetings.Rush(id)
+                      await load()
+                    } catch (e) {
+                      setProblem(why(e))
+                    }
+                  }}
+                >
+                  Розшифрувати зараз
                 </button>
               )}
             </>
@@ -631,7 +663,7 @@ export default function Transcript({
                                 await load()
                               })
                           } catch (e) {
-                            setProblem(String(e))
+                            setProblem(why(e))
                           }
                         }}
                       >
@@ -739,6 +771,12 @@ export default function Transcript({
                       </section>
                     )}
                   </>
+                ) : meeting.status !== "done" &&
+                  meeting.transcript.length === 0 ? (
+                  <div className="empty-reader">
+                    <Sparkles size={20} />
+                    <p>Підсумок з’явиться після розшифровки.</p>
+                  </div>
                 ) : (
                   <div className="empty-reader">
                     <Sparkles size={20} />
@@ -849,7 +887,7 @@ export default function Transcript({
                 setSelected("")
                 await load()
               } catch (e) {
-                setProblem(String(e))
+                setProblem(why(e))
               }
             }}
           >
@@ -881,7 +919,7 @@ export default function Transcript({
                 await undo()
                 setUndo(null)
               } catch (e) {
-                setProblem(String(e))
+                setProblem(why(e))
               }
             }}
           >
