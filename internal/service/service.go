@@ -107,7 +107,7 @@ func (m *Meetings) Recent(limit int) ([]store.Recording, error) {
 // Meeting is one recording with its transcript.
 type Meeting struct {
 	store.Recording
-	Turns []store.Turn `json:"transcript"`
+	Transcript []store.Turn `json:"transcript"`
 	// Wait is why a queued recording is not being processed yet (see
 	// library.Waiting), and Until when it will be, for "time".
 	Wait  string    `json:"wait"`
@@ -128,7 +128,7 @@ func (m *Meetings) Open(id int64) (*Meeting, error) {
 		turns = []store.Turn{}
 	}
 	wait, until := m.lib.Waiting(*r, time.Now())
-	return &Meeting{Recording: *r, Turns: turns, Wait: wait, Until: until}, nil
+	return &Meeting{Recording: *r, Transcript: turns, Wait: wait, Until: until}, nil
 }
 
 // Rush transcribes one queued recording next, whatever the schedule says.

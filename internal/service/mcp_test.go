@@ -9,6 +9,7 @@ import (
 
 	mcpclient "github.com/mark3labs/mcp-go/client"
 	"github.com/mark3labs/mcp-go/mcp"
+	"github.com/mark3labs/mcp-go/server"
 
 	"github.com/dmykolen/meeting-transcriber-go/internal/home"
 	"github.com/dmykolen/meeting-transcriber-go/internal/insights"
@@ -18,7 +19,11 @@ import (
 
 func TestToolsExposeStoredInformation(t *testing.T) {
 	meetings, recordingID, projectID := testMeetings(t)
-	client, err := mcpclient.NewInProcessClient(NewMCP(meetings))
+	s := NewMCP(meetings)
+	// Every call below fails if its structured content breaks the tool's
+	// declared output schema, as it does in clients that validate it.
+	server.WithOutputSchemaValidation()(s)
+	client, err := mcpclient.NewInProcessClient(s)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -60,8 +65,8 @@ func TestToolsExposeStoredInformation(t *testing.T) {
 
 	var recording recordingOutput
 	decodeResult(t, call(t, client, "get_recording", map[string]any{"id": recordingID}), &recording)
-	if len(recording.Recording.Turns) != 2 || len(recording.Notes) != 1 ||
-		recording.Analytics.Words == 0 {
+	if len(recording.Recording.Transcript) != 2 || recording.Recording.Turns != 2 ||
+		len(recording.Notes) != 1 || recording.Analytics.Words == 0 {
 		t.Fatalf("incomplete recording: %+v", recording)
 	}
 
