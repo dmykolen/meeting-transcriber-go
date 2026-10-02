@@ -23,6 +23,9 @@ export default function Shape({
   onJump: (seconds: number) => void
 }) {
   const [a, setA] = useState<Analytics | null>(null)
+  // A rename changes what Analytics returns, and only the names say so: the
+  // map itself is rebuilt on every load of the meeting.
+  const names = [...colours.keys()].join("\n")
 
   useEffect(() => {
     let alive = true
@@ -32,7 +35,7 @@ export default function Shape({
     return () => {
       alive = false
     }
-  }, [id])
+  }, [id, names])
 
   // One voice is a note, and a bar chart of one person holding 100% of the
   // floor tells nobody anything. The pace and the shape still do, so those stay
