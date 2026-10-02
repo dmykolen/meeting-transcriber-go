@@ -21,6 +21,7 @@ import {
   Meetings,
   clock,
   length,
+  many,
   when,
   why,
   type Group,
@@ -36,6 +37,7 @@ import Reveal from "../components/Reveal"
 import Drawer, { useNarrow } from "../components/Drawer"
 import NotesDeck from "../components/NotesDeck"
 import ActionEditor from "../components/ActionEditor"
+import { locale, t, tr } from "../i18n"
 
 export default function Transcript({
   id,
@@ -170,7 +172,9 @@ export default function Transcript({
   )
   if (!meeting)
     return (
-      <div className="reader-loading">{problem || "Відкриваю документ…"}</div>
+      <div className="reader-loading">
+        {problem ? tr(problem) : t("Відкриваю документ…")}
+      </div>
     )
   const s = meeting.summary,
     shown = meeting.transcript.filter((t) =>
@@ -207,7 +211,7 @@ export default function Transcript({
     <>
       <Shape id={id} colours={colours} onJump={(t) => jump(t, true)} />
       <div className="speaker-editor">
-        <span>Імена учасників</span>
+        <span>{t("Імена учасників")}</span>
         {meeting.speakers?.map((name) => (
           <SpeakerChip
             key={name}
@@ -233,24 +237,24 @@ export default function Transcript({
       <header className="reader-toolbar">
         <button className="ui-chip" onClick={onList ?? onBack}>
           <ChevronLeft size={14} />
-          {onList ? "Список зустрічей" : "Записи"}
+          {onList ? t("Список зустрічей") : t("Записи")}
         </button>
         {onReturn && (
           <button className="ui-chip accent" onClick={onReturn}>
-            ← {returnLabel || "До пошуку"}
+            ← {returnLabel || t("До пошуку")}
           </button>
         )}
         <span className="toolbar-spacer" />
         <button
           className="ui-icon"
-          aria-label="Знайти в документі"
+          aria-label={t("Знайти в документі")}
           onClick={() => setFinding((v) => !v)}
         >
           <Search size={15} />
         </button>
         <button
           className="ui-icon"
-          aria-label="Зосереджене читання"
+          aria-label={t("Зосереджене читання")}
           aria-pressed={focused}
           onClick={onFocus}
         >
@@ -259,7 +263,7 @@ export default function Transcript({
         {narrow && (
           <button
             className="ui-icon"
-            aria-label="Голоси й ритм"
+            aria-label={t("Голоси й ритм")}
             onClick={() => setRight(true)}
           >
             <PanelRight size={16} />
@@ -268,7 +272,7 @@ export default function Transcript({
         <div className="relative">
           <button
             className="ui-icon"
-            aria-label="Дії зустрічі"
+            aria-label={t("Дії зустрічі")}
             onClick={() => setMenu(!menu)}
           >
             <MoreHorizontal size={17} />
@@ -284,7 +288,7 @@ export default function Transcript({
                 }}
               >
                 <Copy size={14} />
-                Копіювати Markdown
+                {t("Копіювати Markdown")}
               </button>
               <button
                 onClick={async () => {
@@ -298,7 +302,7 @@ export default function Transcript({
                 }}
               >
                 <RotateCcw size={14} />
-                Розшифрувати заново
+                {t("Розшифрувати заново")}
               </button>
               <button
                 onClick={async () => {
@@ -307,7 +311,8 @@ export default function Transcript({
                   onBack()
                 }}
               >
-                <Trash2 size={14} />У кошик
+                <Trash2 size={14} />
+                {t("У кошик")}
               </button>
             </div>
           )}
@@ -315,7 +320,7 @@ export default function Transcript({
       </header>
       <div className="reader-heading">
         <input
-          aria-label="Назва зустрічі"
+          aria-label={t("Назва зустрічі")}
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           onKeyDown={(e) => {
@@ -347,7 +352,7 @@ export default function Transcript({
           <label className="date-edit">
             {when(meeting.started)}
             <input
-              aria-label="Дата зустрічі"
+              aria-label={t("Дата зустрічі")}
               type="datetime-local"
               value={local(meeting.started)}
               onChange={async (e) => {
@@ -379,7 +384,8 @@ export default function Transcript({
             label={
               <>
                 <Users size={13} />
-                {meeting.speakers?.length || 1} голосів
+                {meeting.speakers?.length || 1}{" "}
+                {many(meeting.speakers?.length || 1, "голос", "голоси", "голосів")}
               </>
             }
           >
@@ -399,7 +405,7 @@ export default function Transcript({
               label={
                 <>
                   <ListTree size={13} />
-                  Глави <small>{s.chapters.length}</small>
+                  {t("Глави")} <small>{s.chapters.length}</small>
                 </>
               }
             >
@@ -424,14 +430,14 @@ export default function Transcript({
           />
           <button className="ui-chip" disabled={thinking} onClick={preview}>
             <Sparkles size={13} className={thinking ? "animate-pulse" : ""} />
-            {thinking ? "Читаю…" : "Оновити підсумок"}
+            {thinking ? t("Читаю…") : t("Оновити підсумок")}
           </button>
         </div>
       </div>
       {meeting.status !== "done" && (
         <div className="processing-state" role="status">
           <div className="processing-steps">
-            {["Аудіо", "Розшифровка", "Підсумок"].map((label, i) => (
+            {(["Аудіо", "Розшифровка", "Підсумок"] as const).map((label, i) => (
               <span
                 key={label}
                 className={
@@ -447,24 +453,24 @@ export default function Transcript({
                 ) : (
                   <span className="step-dot" />
                 )}
-                {label}
+                {t(label)}
               </span>
             ))}
             <b>
               {
                 {
-                  queued: "У черзі",
-                  transcribing: "Розпізнаю мовлення й учасників",
-                  summarising: "Готую підсумок",
-                  failed: "Обробку зупинено",
-                  done: "Готово",
+                  queued: t("У черзі"),
+                  transcribing: t("Розпізнаю мовлення й учасників"),
+                  summarising: t("Готую підсумок"),
+                  failed: t("Обробку зупинено"),
+                  done: t("Готово"),
                 }[meeting.status]
               }
             </b>
           </div>
           {meeting.status === "failed" ? (
             <>
-              <p>{meeting.problem}</p>
+              <p>{tr(meeting.problem ?? "")}</p>
               <button
                 className="ui-chip"
                 onClick={async () => {
@@ -477,11 +483,11 @@ export default function Transcript({
                   }
                 }}
               >
-                Повторити обробку
+                {t("Повторити обробку")}
               </button>
               {meeting.transcript.length > 0 && (
                 <button className="ui-chip" onClick={preview}>
-                  Лише новий підсумок
+                  {t("Лише новий підсумок")}
                 </button>
               )}
             </>
@@ -489,15 +495,26 @@ export default function Transcript({
             <>
               <p>
                 {meeting.wait === "time"
-                  ? `Почнеться ${new Date(meeting.until).toDateString() === new Date().toDateString() ? "" : "завтра "}о ${new Date(meeting.until).toLocaleTimeString("uk-UA", { hour: "2-digit", minute: "2-digit" })}.`
+                  ? t(
+                      new Date(meeting.until).toDateString() ===
+                        new Date().toDateString()
+                        ? "Почнеться о {time}."
+                        : "Почнеться завтра о {time}.",
+                      {
+                        time: new Date(meeting.until).toLocaleTimeString(locale(), {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        }),
+                      },
+                    )
                   : {
                       "": "",
-                      models: "Почнеться, щойно завантажаться моделі.",
-                      recording: "Почнеться, коли закінчиться поточний запис.",
-                      next: "Розшифрується наступною.",
-                      user: "Почнеться, коли ви 5 хвилин не користуватиметесь Mac.",
-                      busy: "Почнеться, коли Mac звільниться від іншої роботи.",
-                      turn: "Чекає своєї черги.",
+                      models: t("Почнеться, щойно завантажаться моделі."),
+                      recording: t("Почнеться, коли закінчиться поточний запис."),
+                      next: t("Розшифрується наступною."),
+                      user: t("Почнеться, коли ви 5 хвилин не користуватиметесь Mac."),
+                      busy: t("Почнеться, коли Mac звільниться від іншої роботи."),
+                      turn: t("Чекає своєї черги."),
                     }[meeting.wait]}
               </p>
               {meeting.wait !== "next" && (
@@ -512,13 +529,13 @@ export default function Transcript({
                     }
                   }}
                 >
-                  Розшифрувати зараз
+                  {t("Розшифрувати зараз")}
                 </button>
               )}
             </>
           ) : (
             <progress
-              aria-label="Обробка зустрічі"
+              aria-label={t("Обробка зустрічі")}
               max={1}
               value={meeting.progress}
             />
@@ -530,17 +547,17 @@ export default function Transcript({
           <Search size={13} />
           <input
             autoFocus
-            aria-label="Пошук у документі"
+            aria-label={t("Пошук у документі")}
             value={needle}
             onChange={(e) => {
               setNeedle(e.target.value)
               setTab("turns")
             }}
-            placeholder="Знайти у розшифровці…"
+            placeholder={t("Знайти у розшифровці…")}
           />
           <button
             className="ui-icon"
-            aria-label="Закрити пошук"
+            aria-label={t("Закрити пошук")}
             onClick={() => {
               setFinding(false)
               setNeedle("")
@@ -555,7 +572,7 @@ export default function Transcript({
           {problem}
           <button
             onClick={() => setProblem("")}
-            aria-label="Закрити повідомлення"
+            aria-label={t("Закрити повідомлення")}
           >
             <X size={13} />
           </button>
@@ -568,13 +585,13 @@ export default function Transcript({
               className={tab === "summary" ? "active" : ""}
               onClick={() => setTab("summary")}
             >
-              Підсумок
+              {t("Підсумок")}
             </button>
             <button
               className={tab === "turns" ? "active" : ""}
               onClick={() => setTab("turns")}
             >
-              Розшифровка
+              {t("Розшифровка")}
             </button>
             {lit && (
               <button className="voice-spot" onClick={() => setLit(null)}>
@@ -626,15 +643,15 @@ export default function Transcript({
                   <div className="summary-comparison">
                     <header>
                       <Sparkles size={14} />
-                      Нова редакція · назва й ручні нотатки збережуться
+                      {t("Нова редакція · назва й ручні нотатки збережуться")}
                     </header>
                     <div className="comparison-columns">
                       <section>
-                        <small>Зараз</small>
+                        <small>{t("Зараз")}</small>
                         <SummaryReview summary={s} />
                       </section>
                       <section>
-                        <small>Пропозиція</small>
+                        <small>{t("Пропозиція")}</small>
                         <SummaryReview summary={draft} />
                       </section>
                     </div>
@@ -667,13 +684,13 @@ export default function Transcript({
                           }
                         }}
                       >
-                        Прийняти
+                        {t("Прийняти")}
                       </button>
                       <button
                         className="ui-chip"
                         onClick={() => setDraft(null)}
                       >
-                        Залишити поточний
+                        {t("Залишити поточний")}
                       </button>
                     </footer>
                   </div>
@@ -685,7 +702,7 @@ export default function Transcript({
                       <section className="doc-block">
                         <h3>
                           <Check size={13} />
-                          Вирішено <small>{s.decisions.length}</small>
+                          {t("Вирішено")} <small>{s.decisions.length}</small>
                         </h3>
                         <ul className="decision-list">
                           {s.decisions.map((d, i) => (
@@ -697,16 +714,16 @@ export default function Transcript({
                     <section className="doc-block">
                       <h3>
                         <ListChecks size={13} />
-                        Домовленості <span />
+                        {t("Домовленості")} <span />
                         <button
                           aria-pressed={showDone}
                           onClick={() => setShowDone(!showDone)}
                         >
-                          {showDone ? "Сховати виконані" : "Показати виконані"}
+                          {showDone ? t("Сховати виконані") : t("Показати виконані")}
                         </button>
                         <button
                           className="ui-icon"
-                          aria-label="Додати домовленість"
+                          aria-label={t("Додати домовленість")}
                           onClick={() => setEditing(-1)}
                         >
                           <Plus size={15} />
@@ -722,7 +739,7 @@ export default function Transcript({
                               <button
                                 role="checkbox"
                                 aria-checked={a.done}
-                                aria-label={`Виконано: ${a.task}`}
+                                aria-label={t("Виконано: {task}", { task: a.task })}
                                 onClick={() => void tick(i)}
                               >
                                 {a.done && <Check size={12} />}
@@ -733,13 +750,13 @@ export default function Transcript({
                                   className="commitment-meta"
                                   onClick={() => setEditing(i)}
                                 >
-                                  {a.owner || "Призначити"}{" "}
-                                  <span>· {a.due || "Без строку"}</span>
+                                  {a.owner || t("Призначити")}{" "}
+                                  <span>· {a.due || t("Без строку")}</span>
                                 </button>
                               </div>
                               <button
                                 className="context-action ui-icon"
-                                aria-label="Редагувати домовленість"
+                                aria-label={t("Редагувати домовленість")}
                                 onClick={() => setEditing(i)}
                               >
                                 <MoreHorizontal size={14} />
@@ -752,7 +769,7 @@ export default function Transcript({
                       <section className="doc-block">
                         <h3>
                           <Search size={13} />
-                          Відкриті питання
+                          {t("Відкриті питання")}
                         </h3>
                         <ul className="decision-list">
                           {s.open_questions.map((q, i) => (
@@ -760,7 +777,7 @@ export default function Transcript({
                               {q}
                               <button
                                 className="context-action"
-                                title="Зберегти в нотатках"
+                                title={t("Зберегти в нотатках")}
                                 onClick={() => setSeed(q)}
                               >
                                 <Plus size={13} />
@@ -775,60 +792,60 @@ export default function Transcript({
                   meeting.transcript.length === 0 ? (
                   <div className="empty-reader">
                     <Sparkles size={20} />
-                    <p>Підсумок з’явиться після розшифровки.</p>
+                    <p>{t("Підсумок з’явиться після розшифровки.")}</p>
                   </div>
                 ) : (
                   <div className="empty-reader">
                     <Sparkles size={20} />
-                    <p>Підсумку ще немає. Розшифровка доступна поруч.</p>
+                    <p>{t("Підсумку ще немає. Розшифровка доступна поруч.")}</p>
                     <button
                       className="ui-primary"
                       onClick={preview}
                       disabled={thinking}
                     >
-                      Створити підсумок
+                      {t("Створити підсумок")}
                     </button>
                   </div>
                 )}
               </>
             ) : (
               <div className="transcript-turns">
-                {shown.map((t, i) => (
+                {shown.map((turn, i) => (
                   <div
-                    className={`transcript-turn ${at >= t.start && at < t.end ? "playing" : ""} ${lit && lit !== t.speaker ? "dimmed" : ""}`}
-                    key={`${t.start}-${i}`}
-                    data-at={t.start}
+                    className={`transcript-turn ${at >= turn.start && at < turn.end ? "playing" : ""} ${lit && lit !== turn.speaker ? "dimmed" : ""}`}
+                    key={`${turn.start}-${i}`}
+                    data-at={turn.start}
                   >
                     <button
                       className="turn-time"
-                      onClick={() => player.current?.go(t.start)}
-                      aria-label={`Програти з ${clock(t.start)}`}
+                      onClick={() => player.current?.go(turn.start)}
+                      aria-label={t("Програти з {time}", { time: clock(turn.start) })}
                     >
-                      {clock(t.start)}
+                      {clock(turn.start)}
                     </button>
                     <div>
                       <button
                         className="turn-speaker"
-                        style={{ color: colours.get(t.speaker || "") }}
+                        style={{ color: colours.get(turn.speaker || "") }}
                         onClick={() =>
-                          setLit(lit === t.speaker ? null : (t.speaker ?? null))
+                          setLit(lit === turn.speaker ? null : (turn.speaker ?? null))
                         }
                       >
-                        {t.speaker}
+                        {turn.speaker}
                       </button>
-                      <p>{t.text}</p>
+                      <p>{turn.text}</p>
                     </div>
                     <button
                       className="context-action ui-icon"
-                      aria-label="Копіювати репліку"
-                      onClick={() => navigator.clipboard.writeText(t.text)}
+                      aria-label={t("Копіювати репліку")}
+                      onClick={() => navigator.clipboard.writeText(turn.text)}
                     >
                       <Copy size={12} />
                     </button>
                   </div>
                 ))}
                 {!shown.length && (
-                  <p className="empty-reader">Збігів немає. Змініть запит.</p>
+                  <p className="empty-reader">{t("Збігів немає. Змініть запит.")}</p>
                 )}
               </div>
             )}
@@ -842,7 +859,7 @@ export default function Transcript({
         <Drawer
           open={right}
           onClose={() => setRight(false)}
-          title="Голоси й ритм"
+          title={t("Голоси й ритм")}
         >
           {analytics}
         </Drawer>
@@ -865,7 +882,7 @@ export default function Transcript({
             }}
           >
             <Copy size={13} />
-            Копіювати
+            {t("Копіювати")}
           </button>
           <button
             onClick={() => {
@@ -873,7 +890,7 @@ export default function Transcript({
               setSelected("")
             }}
           >
-            + Нотатка
+            {t("+ Нотатка")}
           </button>
           <button
             onClick={async () => {
@@ -891,9 +908,9 @@ export default function Transcript({
               }
             }}
           >
-            + Домовленість
+            {t("+ Домовленість")}
           </button>
-          <button onClick={() => setSelected("")} aria-label="Закрити">
+          <button onClick={() => setSelected("")} aria-label={t("Закрити")}>
             <X size={13} />
           </button>
         </div>
@@ -912,7 +929,7 @@ export default function Transcript({
       )}
       {undo && (
         <div className="action-toast" role="status">
-          Зміни збережено
+          {t("Зміни збережено")}
           <button
             onClick={async () => {
               try {
@@ -924,7 +941,7 @@ export default function Transcript({
             }}
           >
             <RotateCcw size={12} />
-            Скасувати
+            {t("Скасувати||undo")}
           </button>
         </div>
       )}
@@ -973,7 +990,7 @@ function SpeakerChip({
   return (
     <button
       onClick={onEdit}
-      title="Змінити ім’я учасника"
+      title={t("Змінити ім’я учасника")}
       className="flex items-center gap-1.5 rounded-full border border-line/60 bg-surface/60 px-2.5 py-0.5 text-[11.5px] text-soft transition-colors hover:border-accent/40 hover:text-text"
     >
       <span className="size-1.5 rounded-full" style={{ background: colour }} />
@@ -983,13 +1000,13 @@ function SpeakerChip({
 }
 
 function SummaryReview({ summary }: { summary?: Summary | null }) {
-  if (!summary) return <p>Підсумку ще немає</p>
+  if (!summary) return <p>{t("Підсумку ще немає")}</p>
   return (
     <div className="summary-review">
       <p>{summary.overview}</p>
       {!!summary.decisions?.length && (
         <>
-          <b>Рішення</b>
+          <b>{t("Рішення")}</b>
           <ul>
             {summary.decisions.map((d, i) => (
               <li key={i}>{d}</li>
@@ -999,12 +1016,12 @@ function SummaryReview({ summary }: { summary?: Summary | null }) {
       )}
       {!!summary.action_items?.length && (
         <>
-          <b>Домовленості</b>
+          <b>{t("Домовленості")}</b>
           <ul>
             {summary.action_items.map((a, i) => (
               <li key={i}>
                 {a.done ? "✓ " : ""}
-                {a.task} · {a.owner} · {a.due || "без строку"}
+                {a.task} · {a.owner} · {a.due || t("без строку")}
               </li>
             ))}
           </ul>
@@ -1012,7 +1029,7 @@ function SummaryReview({ summary }: { summary?: Summary | null }) {
       )}
       {!!summary.open_questions?.length && (
         <>
-          <b>Питання</b>
+          <b>{t("Питання")}</b>
           <ul>
             {summary.open_questions.map((q, i) => (
               <li key={i}>{q}</li>
@@ -1022,7 +1039,7 @@ function SummaryReview({ summary }: { summary?: Summary | null }) {
       )}
       {!!summary.chapters?.length && (
         <>
-          <b>Глави</b>
+          <b>{t("Глави")}</b>
           <ul>
             {summary.chapters.map((c, i) => (
               <li key={i}>

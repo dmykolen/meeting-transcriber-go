@@ -64,7 +64,7 @@ The window must not wait for model imports, downloads, or initialization.
 | `internal/insights` | Optional summaries, embeddings, Q&A, project updates via OpenAI, GitHub Copilot, or local `llama-server` |
 | `internal/library` | Processing queue and transcript-derived artifacts |
 | `internal/service` | Wails methods and MCP tools |
-| `frontend/src` | Product UI |
+| `frontend/src` | Product UI; `i18n.ts` and `en.ts` hold the English interface |
 
 Do not duplicate package ownership. `internal/insights` is the only outbound AI
 boundary.

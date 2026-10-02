@@ -148,6 +148,9 @@ func TestKnowledgeIncludesEveryOwnedKindAndExcludesDeletedContent(t *testing.T) 
 		if h.Note == note.ID && h.Kind == "note" {
 			chunks++
 		}
+		if h.Kind == "action" && h.Text != "Домовленість ·  ·  · open" {
+			t.Fatalf("action reads %q, not the line a project item makes", h.Text)
+		}
 	}
 	for _, kind := range []string{"transcript", "summary", "action", "question", "note", "project"} {
 		if !kinds[kind] {

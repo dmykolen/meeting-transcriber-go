@@ -172,14 +172,14 @@ languages, borrowed words or whole sentences in another language — those are
 what people say, and they do not change what you answer in.`
 
 const summaryInput = `[00:00:00] Marta: Треба вирішити доступ до нового кабінету і пакет для Northwind.
-[00:00:12] Dmytro: Пропоную залишити доступ тільки через VPN. Публічний доступ не відкриваємо.
+[00:00:12] Taras: Пропоную залишити доступ тільки через VPN. Публічний доступ не відкриваємо.
 [00:00:28] Sofia: Підтримую. Для зовнішньої команди VPN достатньо.
 [00:00:41] Marta: Домовились: доступ лише через VPN.
 [00:01:03] Marta: Я підготую пакет документів для Northwind до п'ятниці.
-[00:01:21] Dmytro: Я перевірю перелік IP-діапазонів.
+[00:01:21] Taras: Я перевірю перелік IP-діапазонів.
 [00:01:36] Sofia: Можливо, ще варто перейти на новий proxy?
 [00:01:49] Marta: Це сьогодні не вирішуємо.
-[00:02:04] Dmytro: Хто погоджує фінальний перелік IP-діапазонів?
+[00:02:04] Taras: Хто погоджує фінальний перелік IP-діапазонів?
 [00:02:18] Marta: Поки не знаю, уточнимо окремо.
 [00:02:32] Sofia: Тоді я нічого на себе не беру.
 [00:02:42] Marta: Все, на цьому завершили.`
@@ -505,8 +505,8 @@ func scoreSummary(raw string) (float64, map[string]bool) {
 		return action.Owner == "Marta" && contains(action.Task, "northwind") &&
 			(contains(action.Due, "п'ятниц") || contains(action.Due, "п’ятниц"))
 	})
-	checks["dmytro_action_no_due"] = some(got.ActionItems, func(action actionItem) bool {
-		return action.Owner == "Dmytro" && contains(action.Task, "ip") && strings.TrimSpace(action.Due) == ""
+	checks["taras_action_no_due"] = some(got.ActionItems, func(action actionItem) bool {
+		return action.Owner == "Taras" && contains(action.Task, "ip") && strings.TrimSpace(action.Due) == ""
 	})
 	checks["no_sofia_action"] = !some(got.ActionItems, func(action actionItem) bool { return action.Owner == "Sofia" })
 	checks["unresolved_ip_approval"] = some(got.OpenQuestions, func(value string) bool {
@@ -519,7 +519,7 @@ func scoreSummary(raw string) (float64, map[string]bool) {
 	weights := map[string]float64{
 		"valid_strict_schema": 2, "title_4_to_8_words": .5, "ukrainian_output": .5,
 		"overview_covers_outcome": .5, "vpn_decision_only": 1,
-		"marta_action_and_due": 1.5, "dmytro_action_no_due": 1.5,
+		"marta_action_and_due": 1.5, "taras_action_no_due": 1.5,
 		"no_sofia_action": .5, "unresolved_ip_approval": .75, "unresolved_proxy": .75,
 		"chapter_timestamps_in_seconds": .5,
 	}

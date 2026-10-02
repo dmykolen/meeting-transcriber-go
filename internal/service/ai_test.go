@@ -82,3 +82,19 @@ func TestAScheduleNeedsAKnownChoiceAndARealTime(t *testing.T) {
 		t.Fatalf("the schedule on disk is %+v, %v", back.Queue, err)
 	}
 }
+
+func TestOnlyALanguageTheInterfaceHasIsSaved(t *testing.T) {
+	m := settled(t)
+	s := m.Settings()
+	s.UILanguage = "de"
+	if err := m.SaveSettings(s); err == nil {
+		t.Fatal("an interface language the app does not have was saved")
+	}
+	s.UILanguage = "en"
+	if err := m.SaveSettings(s); err != nil {
+		t.Fatal(err)
+	}
+	if back, _ := home.Load(m.dir); back.UILanguage != "en" {
+		t.Fatalf("ui_language on disk is %q", back.UILanguage)
+	}
+}

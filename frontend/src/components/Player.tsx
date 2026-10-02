@@ -7,6 +7,7 @@ import {
 } from "react"
 import { Pause, Play, RotateCcw, Volume2, AlertCircle } from "lucide-react"
 import { Meetings, clock } from "../api"
+import { t } from "../i18n"
 /** go moves the audio. Playing from there is the caller's separate wish — the
  * one thing it never does is leave the audio where it was, which is how the
  * highlight and the sound came to disagree. */
@@ -106,10 +107,10 @@ export default function Player({
         className="audio-play"
         aria-label={
           error
-            ? "Повторити завантаження аудіо"
+            ? t("Повторити завантаження аудіо")
             : playing
-              ? "Пауза"
-              : "Відтворити"
+              ? t("Пауза")
+              : t("Відтворити")
         }
         onClick={() => {
           if (error) {
@@ -127,12 +128,12 @@ export default function Player({
         )}
       </button>
       <span className="audio-clock">
-        {error ? "Аудіо недоступне" : clock(at)}
+        {error ? t("Аудіо недоступне") : clock(at)}
       </span>
       <div className="audio-expanded">
         <button
           className="ui-icon"
-          aria-label="Назад на 10 секунд"
+          aria-label={t("Назад на 10 секунд")}
           onClick={() => {
             if (audio.current) audio.current.currentTime = Math.max(0, at - 10)
           }}
@@ -155,7 +156,7 @@ export default function Player({
             ))}
           </div>
           <input
-            aria-label="Позиція відтворення"
+            aria-label={t("Позиція відтворення")}
             type="range"
             min="0"
             max={duration || 1}
@@ -169,7 +170,7 @@ export default function Player({
         <span className="audio-clock">{clock(duration)}</span>
         <button
           className="audio-rate"
-          aria-label="Швидкість відтворення"
+          aria-label={t("Швидкість відтворення")}
           onClick={() => setRate(rate === 1 ? 1.5 : rate === 1.5 ? 2 : 1)}
         >
           <Volume2 size={12} />

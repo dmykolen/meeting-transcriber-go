@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react"
 import { AnimatePresence, motion } from "motion/react"
 import { ChevronDown, Radio } from "lucide-react"
 import { Meetings, clock, recording, type Line, type Listening } from "../api"
+import { t } from "../i18n"
 
 /**
  * The meeting, as it happens.
@@ -65,16 +66,18 @@ export default function LiveNow({ state }: { state: Listening }) {
         <Radio size={13} className="text-warn" />
         <h2 className="text-[12.5px] font-medium text-warn">
           {state.phase === "held"
-            ? "Запис на паузі"
+            ? t("Запис на паузі")
             : state.kind === "note"
-              ? "Запис нотатки"
-              : "Триває запис"}
+              ? t("Запис нотатки")
+              : t("Триває запис")}
         </h2>
         <span className="text-[11px] tabular-nums text-faint">
           {clock(state.elapsed)}
         </span>
         {state.phase === "wrapping up" && (
-          <span className="text-[11px] text-faint">· тиша {state.quiet} с</span>
+          <span className="text-[11px] text-faint">
+            {t("· тиша {n} с", { n: state.quiet })}
+          </span>
         )}
         <ChevronDown
           size={14}
@@ -93,7 +96,7 @@ export default function LiveNow({ state }: { state: Listening }) {
             <div className="max-h-36 overflow-y-auto px-4 pb-3">
               {lines.length === 0 ? (
                 <p className="text-[12px] leading-relaxed text-faint">
-                  Слухаю. Перші репліки з’являться за кілька секунд.
+                  {t("Слухаю. Перші репліки з’являться за кілька секунд.")}
                 </p>
               ) : (
                 <div className="flex flex-col gap-1">
@@ -113,7 +116,7 @@ export default function LiveNow({ state }: { state: Listening }) {
                           l.who === "you" ? "text-accent" : "text-good"
                         }`}
                       >
-                        {l.who === "you" ? "Ви" : "Співрозмовники"}
+                        {l.who === "you" ? t("Ви") : t("Співрозмовники")}
                       </span>
                       <span className="text-soft">{l.text}</span>
                     </motion.p>
@@ -122,8 +125,9 @@ export default function LiveNow({ state }: { state: Listening }) {
                 </div>
               )}
               <p className="mt-2 border-t border-warn/15 pt-2 text-[10.5px] leading-relaxed text-faint">
-                Попередня розшифровка. Після зустрічі з’явиться остаточний текст
-                з учасниками й пунктуацією.
+                {t(
+                  "Попередня розшифровка. Після зустрічі з’явиться остаточний текст з учасниками й пунктуацією.",
+                )}
               </p>
             </div>
           </motion.div>

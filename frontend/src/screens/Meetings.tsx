@@ -31,6 +31,7 @@ import Head, { Verb } from "../components/Head"
 import Undo from "../components/Undo"
 import Transcript from "./Transcript"
 import Project from "./Project"
+import { t } from "../i18n"
 
 const day = (iso: string) => iso.slice(0, 10)
 
@@ -194,12 +195,14 @@ export default function Workspace({
       {rows === null ? null : shown.length === 0 ? (
         <p className="px-4 py-10 text-center text-[11.5px] leading-relaxed text-faint">
           {binned
-            ? "У кошику порожньо."
+            ? t("У кошику порожньо.")
             : project !== null
-              ? "У цьому проєкті ще нічого немає. Перетягніть нараду на його плитку внизу."
+              ? t(
+                  "У цьому проєкті ще нічого немає. Перетягніть нараду на його плитку внизу.",
+                )
               : range
-                ? "За цей проміжок нічого. Візьміть ширший на смузі вгорі."
-                : "Тут порожньо."}
+                ? t("За цей проміжок нічого. Візьміть ширший на смузі вгорі.")
+                : t("Тут порожньо.")}
         </p>
       ) : (
         group(shown).map(([date, held]) => (
@@ -246,10 +249,10 @@ export default function Workspace({
     <div
       className={`workspace-shell @container/work relative flex h-full min-h-0 flex-col ${focused ? "workspace-focus" : ""}`}
     >
-      <Head title="Записи" count={shown.length}>
+      <Head title={t("Записи")} count={shown.length}>
         {onReturn && open === null && (
           <button className="ui-chip" onClick={onReturn}>
-            ← {returnLabel || "Назад"}
+            ← {returnLabel || t("Назад")}
           </button>
         )}
         {range && (
@@ -261,7 +264,7 @@ export default function Workspace({
           </button>
         )}
         <Verb on={binned} onClick={() => setBinned((b) => !b)} Icon={Trash2}>
-          Кошик
+          {t("Кошик")}
         </Verb>
         {binned && shown.length > 0 && (
           <Verb
@@ -270,7 +273,7 @@ export default function Workspace({
             }}
             Icon={Trash}
           >
-            Спорожнити
+            {t("Спорожнити")}
           </Verb>
         )}
         <Verb
@@ -283,7 +286,7 @@ export default function Workspace({
           }}
           Icon={Import}
         >
-          Додати файл
+          {t("Додати файл")}
         </Verb>
       </Head>
 
@@ -310,7 +313,7 @@ export default function Workspace({
             ) : (
               <Drawer
                 side="left"
-                title="Зустрічі"
+                title={t("Зустрічі")}
                 open={listOpen}
                 onClose={() => setListOpen(false)}
               >
@@ -394,22 +397,25 @@ export default function Workspace({
       {problem && (
         <p role="alert" className="action-toast">
           {problem}
-          <button onClick={() => setProblem("")}>Закрити</button>
+          <button onClick={() => setProblem("")}>{t("Закрити")}</button>
         </p>
       )}
       {confirmBin && (
-        <Confirm title="Очистити кошик" onClose={() => setConfirmBin(false)}>
+        <Confirm title={t("Очистити кошик")} onClose={() => setConfirmBin(false)}>
           <section className="confirm-panel">
             <h2>
-              Видалити назавжди всі {rows?.length ?? 0} записів із кошика?
+              {t("Видалити назавжди все, що в кошику ({n})?", {
+                n: rows?.length ?? 0,
+              })}
             </h2>
             <p>
-              Дія стосується всього кошика, незалежно від фільтра проєкту або
-              дати.
+              {t(
+                "Дія стосується всього кошика, незалежно від фільтра проєкту або дати.",
+              )}
             </p>
             <footer>
               <button className="ui-chip" onClick={() => setConfirmBin(false)}>
-                Залишити
+                {t("Залишити")}
               </button>
               <button
                 className="ui-primary"
@@ -423,7 +429,7 @@ export default function Workspace({
                   }
                 }}
               >
-                Видалити назавжди
+                {t("Видалити назавжди")}
               </button>
             </footer>
           </section>
@@ -608,11 +614,11 @@ function Row({
               <span className="text-accent">
                 ·{" "}
                 {{
-                  done: "готово",
-                  failed: "помилка",
-                  queued: "у черзі",
-                  transcribing: "розшифрування",
-                  summarising: "підсумок",
+                  done: t("готово"),
+                  failed: t("помилка"),
+                  queued: t("у черзі"),
+                  transcribing: t("розшифрування"),
+                  summarising: t("підсумок"),
                 }[recording.status] ?? recording.status}
               </span>
             )}
@@ -631,8 +637,8 @@ function Row({
           {binned && (
             <button
               className="ui-icon"
-              title="Відновити"
-              aria-label="Відновити"
+              title={t("Відновити")}
+              aria-label={t("Відновити")}
               onClick={onRestore}
             >
               <Import size={14} />
@@ -641,7 +647,7 @@ function Row({
           {!binned && (
             <span className="flex h-full items-center gap-px pr-2 opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100">
               <Filing recording={recording} groups={groups} onFile={onFile} />
-              <Tool onClick={onDelete} title="У кошик" danger>
+              <Tool onClick={onDelete} title={t("У кошик")} danger>
                 <Trash2 size={12} />
               </Tool>
             </span>
@@ -682,7 +688,7 @@ function Filing({
       <button
         popoverTarget={id}
         style={{ anchorName: `--${id}` } as React.CSSProperties}
-        title="У проєкт"
+        title={t("У проєкт")}
         className="grid size-[22px] place-items-center rounded text-faint transition-colors hover:bg-surface hover:text-text"
       >
         <FolderInput size={12} />
@@ -732,13 +738,13 @@ function Filing({
               className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-[12px] text-soft transition-colors hover:bg-surface hover:text-text"
             >
               <span className="size-2.5 shrink-0 rounded-[3px] border border-line" />
-              Поза проєктами
+              {t("Поза проєктами")}
             </button>
           </>
         )}
         {groups.length === 0 && (
           <p className="px-2.5 py-2 text-[11.5px] leading-snug text-faint">
-            Проєктів ще немає. Створіть перший плиткою «+» у доку внизу.
+            {t("Проєктів ще немає. Створіть перший плиткою «+» у доку внизу.")}
           </p>
         )}
       </div>
@@ -793,7 +799,7 @@ function NameProject({
           if (e.key === "Escape") onDone("")
         }}
         onBlur={() => onDone("")}
-        placeholder="Назва проєкту"
+        placeholder={t("Назва проєкту")}
         className="w-56 rounded-lg border border-accent/60 bg-raised px-3 py-2 text-[12px] outline-none placeholder:text-faint"
       />
     </div>
@@ -803,8 +809,8 @@ function NameProject({
 function Empty() {
   return (
     <div className="grid h-full place-content-center gap-2 px-8 text-center text-[11.5px] leading-relaxed text-faint">
-      <p>Оберіть запис ліворуч, щоб прочитати його.</p>
-      <p>Проєкт унизу — щоб побачити, як він стоїть.</p>
+      <p>{t("Оберіть запис ліворуч, щоб прочитати його.")}</p>
+      <p>{t("Проєкт унизу — щоб побачити, як він стоїть.")}</p>
     </div>
   )
 }
@@ -813,11 +819,11 @@ function Empty() {
 async function pickFile(): Promise<string | null> {
   try {
     const chosen = await Dialogs.OpenFile({
-      Title: "Додати запис",
+      Title: t("Додати запис"),
       CanChooseFiles: true,
       Filters: [
         {
-          DisplayName: "Аудіо та відео",
+          DisplayName: t("Аудіо та відео"),
           Pattern: "*.wav;*.m4a;*.mp3;*.mp4;*.mov;*.webm;*.aac;*.flac;*.ogg",
         },
       ],

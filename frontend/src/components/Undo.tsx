@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react"
 import { AnimatePresence, motion } from "motion/react"
 import { Undo2 } from "lucide-react"
+import { t } from "../i18n"
 
 /**
  * What replaced "Delete for ever".
@@ -42,13 +43,13 @@ export default function Undo({
         >
           <div className="pointer-events-auto flex max-w-md items-center gap-3 rounded-full border border-line/70 bg-raised/95 py-2 pl-4 pr-2 shadow-[0_8px_32px_-8px_rgba(0,0,0,0.7)] backdrop-blur-xl">
             <span className="min-w-0 flex-1 truncate text-[12.5px] text-soft">
-              У кошику: <span className="text-text">{what}</span>
+              {t("У кошику:")} <span className="text-text">{what}</span>
             </span>
             <button
               onClick={onUndo}
               className="flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1 text-[12px] font-medium text-accent transition-colors hover:bg-accent/12"
             >
-              <Undo2 size={13} /> Скасувати
+              <Undo2 size={13} /> {t("Скасувати||undo")}
             </button>
           </div>
         </motion.div>

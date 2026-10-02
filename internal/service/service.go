@@ -185,15 +185,16 @@ func (m *Meetings) Rename(id int64, from, to string) error {
 // Retitle overrides the model-generated title.
 func (m *Meetings) Retitle(id int64, title string) error { return m.db.Retitle(id, title) }
 
-// ThisIsMe names the laptop owner and backfills any usable self voiceprints.
-func (m *Meetings) ThisIsMe(name string) (string, error) {
+// ThisIsMe names the laptop owner and backfills any usable self voiceprints. It
+// returns how many recordings the voice was learnt from.
+func (m *Meetings) ThisIsMe(name string) (int, error) {
 	name = strings.TrimSpace(name)
 	if name == "" {
-		return "", errors.New("a name is needed")
+		return 0, errors.New("Потрібне ім’я")
 	}
 	recent, err := m.db.Recent(200)
 	if err != nil {
-		return "", err
+		return 0, err
 	}
 	taught := 0
 	for _, r := range recent {
@@ -202,10 +203,10 @@ func (m *Meetings) ThisIsMe(name string) (string, error) {
 			continue
 		}
 		if err := m.db.Remember(name, print, store.Source{Recording: r.ID, Speaker: name}); err != nil {
-			return "", err
+			return 0, err
 		}
 		if err := m.db.Rename(r.ID, library.Me, name); err != nil {
-			return "", err
+			return 0, err
 		}
 		if taught++; taught >= store.Keep {
 			break
@@ -218,15 +219,7 @@ func (m *Meetings) ThisIsMe(name string) (string, error) {
 	m.config.Me = name
 	err = home.Save(m.dir, m.config)
 	m.mu.Unlock()
-	if err != nil {
-		return "", err
-	}
-	if taught == 0 {
-		return fmt.Sprintf("Your turns are named %s from now on. Nothing recorded yet has "+
-			"enough of your voice to learn it from, so that part waits for the next meeting.", name), nil
-	}
-	return fmt.Sprintf("Your turns are named %s from now on, and the voice was learnt from %d %s.",
-		name, taught, plural(taught, "recording")), nil
+	return taught, err
 }
 
 // People lists everybody the app can recognise by voice.
@@ -300,29 +293,34 @@ func (m *Meetings) Analytics(id int64) (*store.Analytics, error) {
 	return &a, nil
 }
 
+// Indexed counts the transcript passages search finds by meaning and those it
+// finds by their words only.
+type Indexed struct {
+	Meaning int `json:"meaning"`
+	Words   int `json:"words"`
+}
+
 // Reindex fills in any missing search vectors.
-func (m *Meetings) Reindex() (string, error) {
+func (m *Meetings) Reindex() (Indexed, error) {
 	if err := m.reindex(context.Background(), true); err != nil {
-		return "", err
+		return Indexed{}, err
 	}
 	with, without := m.db.Indexed()
-	return fmt.Sprintf("Пошук за змістом оновлено: %d уривків шукаються за змістом, %d — лише за словами.",
-		with, without), nil
+	return Indexed{Meaning: with, Words: without}, nil
+}
+
+// Tidied is what an audio-retention sweep freed. Kept means audio is kept for
+// ever, so nothing could go.
+type Tidied struct {
+	Files int   `json:"files"`
+	MB    int64 `json:"mb"`
+	Kept  bool  `json:"kept"`
 }
 
 // Tidy runs the audio-retention sweep now.
-func (m *Meetings) Tidy() (string, error) {
+func (m *Meetings) Tidy() (Tidied, error) {
 	gone, freed, err := library.Sweep(m.db, filepath.Join(m.dir, "recordings"), m.config.Keep.AudioDays)
-	switch {
-	case err != nil:
-		return "", err
-	case m.config.Keep.AudioDays <= 0:
-		return "Nothing was deleted: audio is set to be kept for ever.", nil
-	case gone == 0:
-		return "Nothing to delete — no audio is older than that yet.", nil
-	}
-	return fmt.Sprintf("Deleted %d %s, %d MB. The transcripts are untouched.",
-		gone, plural(gone, "recording"), freed/(1<<20)), nil
+	return Tidied{Files: gone, MB: freed >> 20, Kept: m.config.Keep.AudioDays <= 0}, err
 }
 
 func plural(n int, word string) string {
@@ -545,6 +543,7 @@ type Settings struct {
 
 	Transcribe   string `json:"transcribe"`   // "after", "at" or "idle"
 	TranscribeAt string `json:"transcribeAt"` // "19:00", for "at"
+	UILanguage   string `json:"uiLanguage"`   // "uk" or "en"
 
 	Folder string `json:"folder"`
 }
@@ -559,6 +558,7 @@ func (m *Meetings) Settings() Settings {
 		Embeddings:    m.config.AI.Embeddings,
 		Transcribe:    m.config.Queue.When,
 		TranscribeAt:  m.config.Queue.At,
+		UILanguage:    m.config.UILanguage,
 		Language:      m.config.Language,
 		OpenAIKey:     m.config.OpenAIKey,
 		OpenAIModel:   m.config.OpenAIModel,
@@ -589,7 +589,10 @@ func (m *Meetings) SaveSettings(s Settings) error {
 		return fmt.Errorf("невідомий вибір, коли розшифровувати: %q", s.Transcribe)
 	}
 	if _, err := time.Parse("15:04", s.TranscribeAt); err != nil {
-		return fmt.Errorf("час розшифровки має виглядати як 19:00, а не %q", s.TranscribeAt)
+		return errors.New("Час розшифровки має виглядати як 19:00")
+	}
+	if !slices.Contains(home.UILanguages, s.UILanguage) {
+		return fmt.Errorf("невідома мова інтерфейсу: %q", s.UILanguage)
 	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -597,6 +600,7 @@ func (m *Meetings) SaveSettings(s Settings) error {
 	m.config.AI = home.AI{Provider: s.AIProvider, CopilotModel: s.CopilotModel,
 		LocalModel: s.LocalModel, Embeddings: s.Embeddings}
 	m.config.Queue = home.Queue{When: s.Transcribe, At: s.TranscribeAt}
+	m.config.UILanguage = s.UILanguage
 	m.lib.Schedule(s.Transcribe, s.TranscribeAt)
 	m.config.Language = s.Language
 	m.config.OpenAIKey = s.OpenAIKey

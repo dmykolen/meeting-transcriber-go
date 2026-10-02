@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from "react"
 import { Search as SearchIcon, Sparkles, X } from "lucide-react"
 import Head from "../components/Head"
 import KnowledgeSource from "../components/KnowledgeSource"
-import { Meetings, why, type KnowledgeHit } from "../api"
+import { Meetings, many, why, type KnowledgeHit } from "../api"
+import { t } from "../i18n"
 const saved = {
   query: "",
   semantic: false,
@@ -69,12 +70,12 @@ export default function Search({
   }, [])
   return (
     <div className="knowledge-screen">
-      <Head title="Пошук в архіві" />
+      <Head title={t("Пошук в архіві")} />
       <div className="knowledge-query">
         <div className="knowledge-query-line">
           <SearchIcon size={15} />
           <input
-            aria-label="Пошук в архіві"
+            aria-label={t("Пошук в архіві")}
             autoFocus
             value={query}
             onChange={(e) => {
@@ -84,12 +85,12 @@ export default function Search({
               setError("")
             }}
             onKeyDown={(e) => e.key === "Enter" && void find(query, semantic)}
-            placeholder="Знайти сказане, записане або вирішене…"
+            placeholder={t("Знайти сказане, записане або вирішене…")}
           />
           {query && (
             <button
               className="ui-icon"
-              aria-label="Очистити запит"
+              aria-label={t("Очистити запит")}
               onClick={() => {
                 setQuery("")
                 setHits(null)
@@ -105,7 +106,7 @@ export default function Search({
               disabled={busy || query.trim().length < 2}
               onClick={() => void find(query, true)}
             >
-              {busy ? "Шукаю…" : "Знайти"}
+              {busy ? t("Шукаю…") : t("Знайти")}
             </button>
           )}
         </div>
@@ -119,7 +120,7 @@ export default function Search({
               saved.hits = null
             }}
           >
-            Точні слова
+            {t("Точні слова")}
           </button>
           <button
             aria-pressed={semantic}
@@ -131,9 +132,9 @@ export default function Search({
             }}
           >
             <Sparkles size={12} />
-            За змістом
+            {t("За змістом")}
           </button>
-          <span>Зустрічі · проєкти · нотатки · домовленості</span>
+          <span>{t("Зустрічі · проєкти · нотатки · домовленості")}</span>
         </div>
       </div>
       <div
@@ -148,32 +149,35 @@ export default function Search({
               className="ui-chip"
               onClick={() => void find(query, semantic)}
             >
-              Повторити
+              {t("Повторити")}
             </button>
           </p>
         )}
         {busy && (
           <div className="search-working">
-            {semantic ? "Оновлюю індекс і зіставляю джерела…" : "Шукаю слова…"}
+            {semantic
+              ? t("Оновлюю індекс і зіставляю джерела…")
+              : t("Шукаю слова…")}
             <i />
           </div>
         )}
         {!busy && hits && (
           <p className="result-count">
-            {hits.length}
-            {hits.length === 60 ? " перших" : ""} джерел
+            {hits.length === 60
+              ? t("{n} перших джерел", { n: hits.length })
+              : `${hits.length} ${many(hits.length, "джерело", "джерела", "джерел")}`}
           </p>
         )}
         {!busy && hits?.length === 0 && (
           <p className="search-empty">
-            Збігів немає. Спробуйте інше формулювання або пошук за змістом.
+            {t("Збігів немає. Спробуйте інше формулювання або пошук за змістом.")}
           </p>
         )}
         {!hits && !busy && !error && (
           <p className="search-empty">
             {semantic
-              ? "Введіть думку або питання й натисніть «Знайти»."
-              : "Пошук починається від двох символів."}
+              ? t("Введіть думку або питання й натисніть «Знайти».")
+              : t("Пошук починається від двох символів.")}
           </p>
         )}
         {!busy &&

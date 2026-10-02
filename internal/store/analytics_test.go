@@ -26,13 +26,13 @@ func TestTalkTimeCountsAnOverlapOnce(t *testing.T) {
 
 func TestSharesAddUpAndTheLoudestIsFirst(t *testing.T) {
 	a := Analyse([]Turn{
-		{Start: 0, End: 30, Speaker: "Dmytro", Text: "a b c"},
+		{Start: 0, End: 30, Speaker: "Taras", Text: "a b c"},
 		{Start: 30, End: 40, Speaker: "Marta", Text: "d"},
 		{Start: 40, End: 50, Speaker: "Marta", Text: "e"},
 	}, 60)
 
-	if len(a.Speakers) != 2 || a.Speakers[0].Speaker != "Dmytro" {
-		t.Fatalf("speakers %+v, want Dmytro first", a.Speakers)
+	if len(a.Speakers) != 2 || a.Speakers[0].Speaker != "Taras" {
+		t.Fatalf("speakers %+v, want Taras first", a.Speakers)
 	}
 	if a.Speakers[1].Turns != 2 {
 		t.Fatalf("Marta had %d turns, want 2", a.Speakers[1].Turns)

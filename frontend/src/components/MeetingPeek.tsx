@@ -3,6 +3,7 @@ import { createPortal } from "react-dom"
 import { AnimatePresence, motion } from "motion/react"
 import { ArrowUpRight, AudioLines, ListChecks } from "lucide-react"
 import { length, type Recording } from "../api"
+import { t } from "../i18n"
 export default function MeetingPeek({
   recording,
   children,
@@ -66,27 +67,29 @@ export default function MeetingPeek({
             >
               <header>
                 <AudioLines size={14} />
-                <span>Швидкий перегляд</span>
+                <span>{t("Швидкий перегляд")}</span>
                 <small>{length(recording.duration)}</small>
               </header>
               <h3>{recording.title}</h3>
               <p>
                 {recording.summary?.overview ||
                   ({
-                    done: "Підсумку ще немає",
-                    queued: "У черзі обробки",
-                    transcribing: "Створюється розшифровка",
-                    summarising: "Готується підсумок",
-                    failed: "Обробка зупинилася",
+                    done: t("Підсумку ще немає"),
+                    queued: t("У черзі обробки"),
+                    transcribing: t("Створюється розшифровка"),
+                    summarising: t("Готується підсумок"),
+                    failed: t("Обробка зупинилася"),
                   }[recording.status] ??
-                    "Підсумку ще немає")}
+                    t("Підсумку ще немає"))}
               </p>
               <footer>
                 <span>
                   <ListChecks size={13} />
-                  {recording.summary?.action_items?.filter((a) => !a.done)
-                    .length || 0}{" "}
-                  відкритих справ
+                  {t("Відкриті справи: {n}", {
+                    n:
+                      recording.summary?.action_items?.filter((a) => !a.done)
+                        .length || 0,
+                  })}
                 </span>
                 <button
                   className="ui-chip"
@@ -95,7 +98,7 @@ export default function MeetingPeek({
                     onOpen()
                   }}
                 >
-                  Відкрити <ArrowUpRight size={13} />
+                  {t("Відкрити")} <ArrowUpRight size={13} />
                 </button>
               </footer>
             </motion.aside>

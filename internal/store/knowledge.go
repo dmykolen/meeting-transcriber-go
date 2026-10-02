@@ -70,7 +70,13 @@ func (d *DB) Knowledge() ([]KnowledgeHit, error) {
 		_ = json.Unmarshal([]byte(raw), &s)
 		add(KnowledgeHit{Kind: "summary", Recording: id, Title: title, Text: strings.Join(append([]string{s.Overview}, s.Decisions...), "\n")})
 		for i, a := range s.ActionItems {
-			add(KnowledgeHit{Kind: "action", Recording: id, Title: title, Note: int64(i), Text: fmt.Sprintf("%s · %s · %s · виконано: %t", a.Task, a.Owner, a.Due, a.Done)})
+			// The same line a project item makes, so it reads the same in either
+			// interface language and to the model.
+			state := "open"
+			if a.Done {
+				state = "done"
+			}
+			add(KnowledgeHit{Kind: "action", Recording: id, Title: title, Note: int64(i), Text: fmt.Sprintf("%s · %s · %s · %s", a.Task, a.Owner, a.Due, state)})
 		}
 		add(KnowledgeHit{Kind: "question", Recording: id, Title: title, Text: strings.Join(s.OpenQuestions, "\n")})
 		add(KnowledgeHit{Kind: "note", Recording: id, Title: title, Text: note})

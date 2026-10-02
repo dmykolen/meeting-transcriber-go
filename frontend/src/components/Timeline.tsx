@@ -2,6 +2,7 @@ import { useMemo, useRef, useState } from "react"
 import { ChevronDown } from "lucide-react"
 import type { Group, Mark } from "../api"
 import { colourOf } from "../colours"
+import { lang, t } from "../i18n"
 
 /** A day, as the whole app keys them. */
 const key = (d: Date) => d.toISOString().slice(0, 10)
@@ -65,7 +66,7 @@ export default function Timeline({
 
     // Unfiled is a lane like any other: a year that is mostly unfiled should
     // look mostly unfiled.
-    const lanes = [...groups, { id: 0, name: "Поза проєктами", count: 0, colour: "" }]
+    const lanes = [...groups, { id: 0, name: t("Поза проєктами"), count: 0, colour: "" }]
       .map((g) => ({
         ...g,
         colour: g.id ? colourOf(g.name, g.colour) : "var(--color-faint)",
@@ -90,7 +91,7 @@ export default function Timeline({
       })
     }
     return { from, days, lanes, ticks }
-  }, [marks, groups])
+  }, [marks, groups, lang()])
 
   /** Where a day sits along the axis, 0..100. */
   const at = (d: Date) => ((+d - +from) / DAY / days) * 100
@@ -136,7 +137,7 @@ export default function Timeline({
             size={10}
             className={`transition-transform duration-200 ${open ? "" : "-rotate-90"}`}
           />
-          {days} дн.
+          {t("{days} дн.", { days })}
         </button>
 
         <div className="min-w-0 flex-1">

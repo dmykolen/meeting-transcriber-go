@@ -2,6 +2,8 @@ import type { ComponentProps } from "react"
 import { CalendarDays, SlidersHorizontal } from "lucide-react"
 import Timeline from "./Timeline"
 import Reveal from "./Reveal"
+import { locale, t } from "../i18n"
+import { many } from "../api"
 export default function EdgeTimeline(props: ComponentProps<typeof Timeline>) {
   const latest = props.marks.reduce(
     (date, m) => (m.started > date ? m.started : date),
@@ -15,7 +17,7 @@ export default function EdgeTimeline(props: ComponentProps<typeof Timeline>) {
           <span className="edge-line" />
           <span className="edge-caption">
             <CalendarDays size={12} />
-            Хронологія
+            {t("Хронологія")}
           </span>
           <span className="edge-line" />
         </>
@@ -24,24 +26,27 @@ export default function EdgeTimeline(props: ComponentProps<typeof Timeline>) {
       <header className="timeline-title">
         <span>
           <SlidersHorizontal size={14} />
-          <strong>Хронологія зустрічей</strong>
-          <small>{props.marks.length} записів</small>
+          <strong>{t("Хронологія зустрічей")}</strong>
+          <small>
+            {props.marks.length}{" "}
+            {many(props.marks.length, "запис", "записи", "записів")}
+          </small>
         </span>
         <small>
           {latest
-            ? new Date(latest).toLocaleDateString("uk", {
+            ? new Date(latest).toLocaleDateString(locale(), {
                 day: "numeric",
                 month: "long",
               })
-            : "Архів порожній"}
+            : t("Архів порожній")}
         </small>
       </header>
       <Timeline {...props} />
       <div className="timeline-fields">
         <label>
-          Від
+          {t("Від")}
           <input
-            aria-label="Початок діапазону"
+            aria-label={t("Початок діапазону")}
             type="date"
             value={props.range?.[0] ?? ""}
             onChange={(e) =>
@@ -57,9 +62,9 @@ export default function EdgeTimeline(props: ComponentProps<typeof Timeline>) {
         </label>
         <span>—</span>
         <label>
-          До
+          {t("До")}
           <input
-            aria-label="Кінець діапазону"
+            aria-label={t("Кінець діапазону")}
             type="date"
             value={props.range?.[1] ?? ""}
             onChange={(e) =>
@@ -74,10 +79,10 @@ export default function EdgeTimeline(props: ComponentProps<typeof Timeline>) {
           />
         </label>
         {props.range && (
-          <button onClick={() => props.onRange(null)}>Увесь період</button>
+          <button onClick={() => props.onRange(null)}>{t("Увесь період")}</button>
         )}
         <small>
-          Наведіть на запис · протягніть діапазон · клік фіксує панель
+          {t("Наведіть на запис · протягніть діапазон · клік фіксує панель")}
         </small>
       </div>
     </Reveal>

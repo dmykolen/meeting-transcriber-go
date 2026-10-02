@@ -21,7 +21,7 @@ func TestOneCommitmentSaidThriceIsOneLine(t *testing.T) {
 		{"Узгодити перелік ролей", "", 1},
 		{"узгодити перелік ролей.", "Marta", 2},    // same thing, punctuated
 		{"Узгодити  перелік   ролей", "Serhii", 3}, // same thing, spaced
-		{"Закрити доступ ззовні", "Dmytro", 3},
+		{"Закрити доступ ззовні", "Taras", 3},
 	}
 	for i, s := range said {
 		r, err := db.Add(Recording{

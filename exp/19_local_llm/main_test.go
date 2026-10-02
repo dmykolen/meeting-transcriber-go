@@ -18,7 +18,7 @@ func TestIdealSummaryScoresTen(t *testing.T) {
 		},
 		ActionItems: []actionItem{
 			{Task: "Підготувати пакет для Northwind", Owner: "Marta", Due: "до п'ятниці"},
-			{Task: "Перевірити IP-діапазони", Owner: "Dmytro"},
+			{Task: "Перевірити IP-діапазони", Owner: "Taras"},
 		},
 		OpenQuestions: []string{
 			"Хто погоджує фінальний перелік IP-діапазонів?",
@@ -71,7 +71,7 @@ func TestSummaryRejectsMinuteValuesInSecondsField(t *testing.T) {
 		Decisions: []string{"VPN"},
 		ActionItems: []actionItem{
 			{Task: "Northwind", Owner: "Marta", Due: "до п'ятниці"},
-			{Task: "IP", Owner: "Dmytro"},
+			{Task: "IP", Owner: "Taras"},
 		},
 		OpenQuestions: []string{"Хто погоджує IP?"},
 	}

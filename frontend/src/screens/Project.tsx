@@ -21,6 +21,7 @@ import {
 import NotesDeck from "../components/NotesDeck"
 import Paint from "../components/Paint"
 import { colourOf, picked, tone } from "../colours"
+import { locale, t, tr } from "../i18n"
 
 /** Model-maintained project state, with deterministic summary fallback. */
 export default function Project({
@@ -83,7 +84,9 @@ export default function Project({
   }
 
   if (!group || !state)
-    return <p className="reader-loading">{problem || "Відкриваю проєкт…"}</p>
+    return (
+      <p className="reader-loading">{problem ? tr(problem) : t("Відкриваю проєкт…")}</p>
+    )
   const quiet = new Date(Date.now() - 21 * 86400000)
 
   return (
@@ -94,7 +97,7 @@ export default function Project({
       <header className="project-toolbar flex h-bar flex-none items-center gap-2 border-b border-line/70 px-5">
         <button
           onClick={() => setPicking((p) => !p)}
-          title="Колір проєкту"
+          title={t("Колір проєкту")}
           style={{ background: colour }}
           className="size-3 shrink-0 rounded-[3px] transition-transform hover:scale-125"
         />
@@ -123,7 +126,7 @@ export default function Project({
             await Api.DropGroup(id)
             onChanged()
           }}
-          title="Розформувати. Наради лишаться, без проєкту."
+          title={t("Розформувати. Наради лишаться, без проєкту.")}
           className="grid size-6 place-items-center rounded text-faint transition-colors hover:bg-raised hover:text-warn"
         >
           <Trash2 size={13} />
@@ -139,7 +142,8 @@ export default function Project({
           disabled={!state.questions?.some((q) => !q.done)}
           onClick={() =>
             setSeed(
-              "До наступної зустрічі\n\n" +
+              t("До наступної зустрічі") +
+                "\n\n" +
                 state.questions
                   .filter((q) => !q.done)
                   .map((q) => "• " + q.text)
@@ -147,7 +151,7 @@ export default function Project({
             )
           }
         >
-          + Порядок денний
+          {t("+ Порядок денний")}
         </button>
       </header>
       {problem && (
@@ -174,16 +178,16 @@ export default function Project({
         <div className="min-h-0 overflow-y-auto px-5 pb-8 pt-4">
           <dl className="flex flex-wrap gap-x-7 gap-y-2">
             {[
-              ["нарад", String(state.meetings)],
-              ["годин", state.hours.toFixed(1)],
-              ["людей", String(state.people.length)],
-              ["незакрито", String(state.work.filter((w) => !w.done).length)],
+              [t("нарад"), String(state.meetings)],
+              [t("годин"), state.hours.toFixed(1)],
+              [t("людей"), String(state.people.length)],
+              [t("незакрито"), String(state.work.filter((w) => !w.done).length)],
               // A short date: the others are two or three characters, and a
               // full "Today 04:41 PM" here breaks the rhythm of the row.
               [
-                "востаннє",
+                t("востаннє"),
                 state.last
-                  ? new Date(state.last).toLocaleDateString("uk", {
+                  ? new Date(state.last).toLocaleDateString(locale(), {
                       day: "numeric",
                       month: "short",
                     })
@@ -204,7 +208,7 @@ export default function Project({
           {state.meetings > 0 && (
             <section className="mt-5">
               <h3 className="mb-2 flex items-center gap-2 text-[10px] uppercase tracking-[0.14em] text-faint">
-                <Sparkles size={11} /> Де воно стоїть
+                <Sparkles size={11} /> {t("Де воно стоїть")}
                 {/* The line saying how this paragraph was written is also the
                     button that writes it again. Nothing that says where
                     something came from should need a second control beside it
@@ -212,7 +216,7 @@ export default function Project({
                 <button
                   onClick={redo}
                   disabled={busy}
-                  title="Перечитати всі наради з першої і зібрати документ заново"
+                  title={t("Перечитати всі наради з першої і зібрати документ заново")}
                   className="group ml-1 inline-flex items-center gap-1.5 rounded-full border border-dashed border-line px-2 py-0.5 text-[9px] normal-case tracking-normal transition-colors hover:border-[var(--tone)] hover:text-text disabled:cursor-progress"
                 >
                   <RefreshCw
@@ -224,10 +228,16 @@ export default function Project({
                     }
                   />
                   {busy
-                    ? `перечитую — ${state.folded} з ${state.meetings}`
+                    ? t("перечитую — {done} з {all}", {
+                        done: state.folded,
+                        all: state.meetings,
+                      })
                     : state.written
-                      ? `зібрано моделлю з ${state.meetings} ${many(state.meetings, "наради", "нарад", "нарад")}`
-                      : `зібрано з підсумків — зібрати моделлю`}
+                      ? t("зібрано моделлю з {n} {word}", {
+                          n: state.meetings,
+                          word: many(state.meetings, "наради", "нарад", "нарад"),
+                        })
+                      : t("зібрано з підсумків — зібрати моделлю")}
                 </button>
               </h3>
               {/* The largest thing on the page. Somebody opening a project wants
@@ -256,7 +266,7 @@ export default function Project({
             </section>
           )}
 
-          <Block title="Робота" Icon={ListChecks} note={`${state.work.length}`}>
+          <Block title={t("Робота")} Icon={ListChecks} note={`${state.work.length}`}>
             {state.work.map((w) => (
               <Task
                 key={w.text}
@@ -285,7 +295,7 @@ export default function Project({
           </Block>
 
           <Block
-            title="Вирішено"
+            title={t("Вирішено")}
             Icon={Gavel}
             note={`${state.decisions.length}`}
           >
@@ -301,7 +311,7 @@ export default function Project({
           </Block>
 
           <Block
-            title="Досі без відповіді"
+            title={t("Досі без відповіді")}
             Icon={CircleHelp}
             note={`${state.questions.length}`}
           >
@@ -316,7 +326,7 @@ export default function Project({
             ))}
           </Block>
 
-          <Block title="Наради" Icon={Sparkles} note={`${rows.length}`}>
+          <Block title={t("Наради")} Icon={Sparkles} note={`${rows.length}`}>
             {rows.map((r) => (
               <button
                 key={r.id}
@@ -339,7 +349,7 @@ export default function Project({
 
         <aside className="min-h-0 overflow-y-auto border-t border-line/70 px-4 pb-8 @min-[600px]/proj:border-l @min-[600px]/proj:border-t-0">
           <h3 className="sticky top-0 z-10 flex items-baseline justify-between bg-surface/90 py-3 text-[10.5px] backdrop-blur">
-            Хто тут був
+            {t("Хто тут був")}
             <span className="text-[9px] tabular-nums text-faint">
               {state.people.length}
             </span>
@@ -364,7 +374,7 @@ export default function Project({
                     className="shrink-0 text-[10px] tabular-nums"
                     style={{ color: colourOf(p.name) }}
                   >
-                    {(p.seconds / 3600).toFixed(1)} год
+                    {t("{h} год", { h: (p.seconds / 3600).toFixed(1) })}
                   </span>
                 </div>
                 <span className="mt-1.5 block h-[3px] rounded-full bg-raised">
@@ -378,7 +388,7 @@ export default function Project({
                 </span>
                 <span className="mt-1 block text-[9px] text-faint">
                   {p.meetings} {many(p.meetings, "нарада", "наради", "нарад")}
-                  {gone && ` · востаннє ${when(p.last)}`}
+                  {gone && ` · ${t("востаннє")} ${when(p.last)}`}
                 </span>
               </div>
             )
@@ -417,7 +427,11 @@ function Block({
 /** How many meetings said it — the honest signal that nobody is doing it. */
 function Times({ n }: { n: number }) {
   if (n < 2) return null
-  return <span className="shrink-0 text-[9.5px] text-faint">казано ×{n}</span>
+  return (
+    <span className="shrink-0 text-[9.5px] text-faint">
+      {t("казано ×{n}", { n })}
+    </span>
+  )
 }
 
 function Task({
@@ -483,7 +497,7 @@ function Task({
         )}
         {(line.owner || line.due || line.pinned) && (
           <span className="mt-0.5 block text-[9.5px] text-faint">
-            {[line.owner, line.due, line.pinned ? "ваше формулювання" : ""]
+            {[line.owner, line.due, line.pinned ? t("ваше формулювання") : ""]
               .filter(Boolean)
               .join(" · ")}
           </span>
@@ -491,7 +505,7 @@ function Task({
       </span>
       <button
         onClick={onOpen}
-        title="Відкрити нараду, де це сказали"
+        title={t("Відкрити нараду, де це сказали")}
         className="shrink-0"
       >
         <Times n={line.times} />

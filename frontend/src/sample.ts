@@ -60,7 +60,7 @@ const recordings: Recording[] = [
     status: "done",
     progress: 1,
     turns: 153,
-    speakers: ["Marta", "Sofia", "Dmytro Mykolenko"],
+    speakers: ["Marta", "Sofia", "Taras Petrenko"],
     summary,
   },
   {
@@ -143,7 +143,7 @@ const transcript = [
   {
     start: 441,
     end: 452,
-    speaker: "Dmytro Mykolenko",
+    speaker: "Taras Petrenko",
     text: "Продукт повністю не закриваємо — обмежуємо для зовнішнього світу, доступ лишається через VPN.",
   },
 ]
@@ -311,7 +311,7 @@ export const sample = {
         recording: 1,
         title: summary.title,
         start: 441,
-        speaker: "Dmytro Mykolenko",
+        speaker: "Taras Petrenko",
         text: transcript[4].text,
       },
       {
@@ -333,7 +333,7 @@ export const sample = {
         recording: 1,
         title: summary.title,
         start: 441,
-        speaker: "Dmytro Mykolenko",
+        speaker: "Taras Petrenko",
         text: transcript[4].text,
       },
       {
@@ -383,7 +383,7 @@ export const sample = {
         by: "",
         pinned: false,
         text: "Узгодити перелік ролей із безпекою",
-        owner: "Dmytro",
+        owner: "Taras",
         due: "",
         done: false,
         times: 3,
@@ -454,7 +454,7 @@ export const sample = {
     ],
     people: [
       {
-        name: "Dmytro Mykolenko",
+        name: "Taras Petrenko",
         seconds: 5400,
         meetings: 9,
         last: recordings[0].started,
@@ -525,6 +525,7 @@ export const sample = {
     localModel: "",
     transcribe: "at" as const,
     transcribeAt: "19:00",
+    uiLanguage: "uk" as const,
     embeddings: "local" as const,
     folder: "/Users/you/MeetingTranscriber",
   }),
@@ -625,12 +626,9 @@ export const sample = {
     return "Кошик очищено"
   },
   Again: async () => {},
-  ThisIsMe: async (name: string) =>
-    `Learnt your voice from 6 recordings. Your turns are now named ${name}.`,
-  Reindex: async () =>
-    "Indexed 12 recordings. 486 passages searchable by meaning, 0 by keyword only.",
-  Tidy: async () =>
-    "Deleted 3 recordings, 412 MB. The transcripts are untouched.",
+  ThisIsMe: async () => 6,
+  Reindex: async () => ({ meaning: 486, words: 0 }),
+  Tidy: async () => ({ files: 3, mb: 412, kept: false }),
 
   Analytics: async (id: number) =>
     id === 3
@@ -687,7 +685,7 @@ export const sample = {
               questions: 5,
             },
             {
-              speaker: "Dmytro Mykolenko",
+              speaker: "Taras Petrenko",
               seconds: 310,
               share: 0.2,
               turns: 44,
@@ -706,7 +704,7 @@ export const sample = {
   People: async () => [
     { id: 1, name: "Marta", samples: 6, meetings: 12 },
     { id: 2, name: "Sofia", samples: 4, meetings: 9 },
-    { id: 3, name: "Dmytro Mykolenko", samples: 8, meetings: 21 },
+    { id: 3, name: "Taras Petrenko", samples: 8, meetings: 21 },
   ],
   Forget: async () => {},
   Summarise: async () => {},
@@ -731,7 +729,7 @@ export const sample = {
     skipped: 7,
     spared: 63,
     meetings: [],
-    voices: ["Dmytro Mykolenko", "Marta", "Sofia"],
+    voices: ["Taras Petrenko", "Marta", "Sofia"],
     decided: [
       {
         recording: 1,
@@ -775,7 +773,7 @@ export const sample = {
         started: new Date(Date.now() - 5 * 864e5).toISOString(),
         index: 0,
         task: "Узгодити перелік ролей із безпекою",
-        owner: "Dmytro Mykolenko",
+        owner: "Taras Petrenko",
         due: "цього тижня",
         done: false,
       },
@@ -815,7 +813,7 @@ if (new URLSearchParams(location.search).has("stress")) {
   const people = [
     "Марта",
     "Софія",
-    "Дмитро",
+    "Тарас",
     "Марія",
     "Андрій",
     "Софія",

@@ -18,7 +18,7 @@ const CHROMA = 0.23
 /**
  * tone is the colour a name always has.
  *
- * FNV-1a because it spreads short strings — "Marta" and "Olha" differ in one
+ * FNV-1a because it spreads short strings — "Marta" and "Marya" differ in one
  * letter and must not land on one hue, which a naive sum of character codes
  * does constantly.
  */
@@ -105,8 +105,8 @@ export const on = (colour: string) => `contrast-color(${colour})`
  * The wheel gives a name the same colour everywhere, which is what makes a
  * person recognisable across meetings — but it cannot promise that two people
  * in the *same* meeting get different ones, and with ten slots and six speakers
- * that promise is the one that matters. Measured on a real meeting: Marta and
- * the owner both landed on hue 130, one at 78% lightness and one at 58%, and in
+ * that promise is the one that matters. Measured on a real meeting: a colleague
+ * and the owner both landed on hue 130, one at 78% lightness and one at 58%, and in
  * a seven-pixel bar those are the same green.
  *
  * So: everyone keeps the colour their name gives them, and anyone who would
@@ -140,8 +140,8 @@ export function palette(
     const wanted = SWATCHES.indexOf(tone(name))
     // Separate on hue, not on the whole colour. Two slots can share a hue at
     // two lightnesses, and 78% against 58% of one green is a difference nobody
-    // reads in a seven-pixel bar — which is exactly how the owner and Marta
-    // ended up as the same lime in a six-person meeting.
+    // reads in a seven-pixel bar — which is exactly how the owner and a
+    // colleague ended up as the same lime in a six-person meeting.
     if (!usedHue.has(HUES[wanted])) {
       out.set(name, take(wanted))
       continue

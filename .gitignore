@@ -7,5 +7,14 @@ frontend/.bindings-tmp-*/
 frontend/.env*.local
 .DS_Store
 
-# Local experiment media is not part of the application source
-exp/truth/*.m4a
+# Experiment ground truth and transcript dumps come from private meetings and
+# stay on the machine that ran them. The measured numbers in exp/out are kept.
+exp/truth/
+exp/out/A-whisper-*.txt
+exp/out/B-parakeet-*.txt
+exp/out/C-split-*.txt
+exp/out/E-pipeline-*.txt
+exp/out/I-timeline.txt
+exp/out/J-rows-*.txt
+exp/out/L-*-*.txt
+exp/out/M-*-*.txt

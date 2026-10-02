@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react"
 import { createPortal } from "react-dom"
 import { AnimatePresence, motion } from "motion/react"
 import { X } from "lucide-react"
+import { t } from "../i18n"
 
 let drawerCount = 0
 let previousInert = false
@@ -90,7 +91,7 @@ export default function Drawer({
       {open && (
         <div className="drawer-layer">
           <motion.button
-            aria-label="Закрити панель"
+            aria-label={t("Закрити панель")}
             tabIndex={-1}
             className="drawer-scrim"
             initial={{ opacity: 0 }}
@@ -113,7 +114,7 @@ export default function Drawer({
               <strong>{title}</strong>
               <button
                 className="ui-icon"
-                aria-label="Закрити"
+                aria-label={t("Закрити")}
                 onClick={onClose}
               >
                 <X size={16} />

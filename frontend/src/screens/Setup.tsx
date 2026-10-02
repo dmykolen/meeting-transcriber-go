@@ -1,5 +1,6 @@
 import { motion } from "motion/react"
 import { bytes, type SetupState } from "../api"
+import { t, tr } from "../i18n"
 
 /**
  * The first run.
@@ -23,20 +24,18 @@ export default function Setup({ state }: { state: SetupState | null }) {
           <Mark stage={stage} />
 
           <h1 className="mt-7 text-[22px] font-semibold tracking-[-0.01em]">
-            {stage === "broken" ? "Something went wrong" : "Getting ready"}
+            {stage === "broken" ? t("Щось пішло не так") : t("Готуюся до роботи")}
           </h1>
 
           <p className="mt-2 text-[13px] leading-relaxed text-soft">
             {stage === "broken" ? (
-              state?.problem
+              tr(state?.problem ?? "")
             ) : stage === "loading" ? (
-              "Opening the models. A few seconds."
+              t("Відкриваю моделі. Кілька секунд.")
             ) : (
-              <>
-                Downloading the models that transcribe and recognise voices. This
-                happens once — after today the app starts instantly, and works
-                with no internet at all.
-              </>
+              t(
+                "Завантажую моделі, які розшифровують мовлення й розпізнають голоси. Це буває один раз: далі застосунок запускається одразу й працює без інтернету.",
+              )
             )}
           </p>
 
@@ -64,8 +63,9 @@ export default function Setup({ state }: { state: SetupState | null }) {
 
           {stage === "broken" && (
             <p className="mt-6 text-[12px] leading-relaxed text-faint">
-              Check the connection and reopen the app — it carries on from where
-              it stopped rather than starting again.
+              {t(
+                "Перевірте з’єднання й відкрийте застосунок знову: завантаження продовжиться з того місця, де зупинилося.",
+              )}
             </p>
           )}
         </motion.div>

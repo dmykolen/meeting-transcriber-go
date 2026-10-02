@@ -3,7 +3,8 @@ import { AnimatePresence, motion } from "motion/react"
 import { Check, MoreHorizontal, RotateCcw } from "lucide-react"
 import Head from "../components/Head"
 import ActionEditor from "../components/ActionEditor"
-import { Meetings, when, why, type Outstanding } from "../api"
+import { Meetings, many, when, why, type Outstanding } from "../api"
+import { t } from "../i18n"
 export default function Todo({ onOpen }: { onOpen: (id: number) => void }) {
   const [items, setItems] = useState<Outstanding[]>([]),
     [done, setDone] = useState(false),
@@ -27,13 +28,13 @@ export default function Todo({ onOpen }: { onOpen: (id: number) => void }) {
   }, [undo])
   return (
     <div className="knowledge-screen">
-      <Head title="Домовленості">
+      <Head title={t("Домовленості")}>
         <button
           className="ui-chip"
           aria-pressed={done}
           onClick={() => setDone(!done)}
         >
-          {done ? "Сховати виконані" : "Показати виконані"}
+          {done ? t("Сховати виконані") : t("Показати виконані")}
         </button>
       </Head>
       <div className="knowledge-results">
@@ -43,13 +44,16 @@ export default function Todo({ onOpen }: { onOpen: (id: number) => void }) {
           </p>
         )}
         <p className="result-count">
-          {items.length} домовленостей · {done ? "усі" : "відкриті"}
+          {t(done ? "{n} {word} · усі" : "{n} {word} · відкриті", {
+            n: items.length,
+            word: many(items.length, "домовленість", "домовленості", "домовленостей"),
+          })}
         </p>
         {!items.length && (
           <p className="search-empty">
             {done
-              ? "Домовленостей ще немає. Додайте їх у документі зустрічі."
-              : "Відкритих домовленостей немає."}
+              ? t("Домовленостей ще немає. Додайте їх у документі зустрічі.")
+              : t("Відкритих домовленостей немає.")}
           </p>
         )}
         <AnimatePresence initial={false}>
@@ -65,7 +69,7 @@ export default function Todo({ onOpen }: { onOpen: (id: number) => void }) {
             >
               <button
                 role="checkbox"
-                aria-label={`Виконано: ${a.task}`}
+                aria-label={t("Виконано: {task}", { task: a.task })}
                 aria-checked={a.done}
                 onClick={async () => {
                   try {
@@ -86,8 +90,8 @@ export default function Todo({ onOpen }: { onOpen: (id: number) => void }) {
                     className="commitment-meta"
                     onClick={() => setEditing(a)}
                   >
-                    {a.owner || "Призначити"}{" "}
-                    <span>· {a.due || "Без строку"}</span>
+                    {a.owner || t("Призначити")}{" "}
+                    <span>· {a.due || t("Без строку")}</span>
                   </button>
                   <button onClick={() => onOpen(a.recording)}>{a.title}</button>
                   <small>{when(a.started)}</small>
@@ -95,7 +99,7 @@ export default function Todo({ onOpen }: { onOpen: (id: number) => void }) {
               </div>
               <button
                 className="context-action ui-icon"
-                aria-label="Редагувати домовленість"
+                aria-label={t("Редагувати домовленість")}
                 onClick={() => setEditing(a)}
               >
                 <MoreHorizontal size={14} />
@@ -115,7 +119,7 @@ export default function Todo({ onOpen }: { onOpen: (id: number) => void }) {
       )}
       {undo && (
         <div className="action-toast" role="status">
-          Домовленість оновлено
+          {t("Домовленість оновлено")}
           <button
             onClick={async () => {
               try {
@@ -128,7 +132,7 @@ export default function Todo({ onOpen }: { onOpen: (id: number) => void }) {
             }}
           >
             <RotateCcw size={12} />
-            Скасувати
+            {t("Скасувати||undo")}
           </button>
         </div>
       )}

@@ -9,6 +9,7 @@ import Search from "./screens/Search"
 import Todo from "./screens/Todo"
 import Ask from "./screens/Ask"
 import Rail, { type Screen } from "./components/Rail"
+import { t } from "./i18n"
 
 const SettingsScreen = lazy(() => import("./screens/Settings"))
 
@@ -153,10 +154,10 @@ export default function App() {
                   }
                   returnLabel={
                     origin === "ask"
-                      ? "До відповіді"
+                      ? t("До відповіді")
                       : origin === "search"
-                        ? "До пошуку"
-                        : "Назад"
+                        ? t("До пошуку")
+                        : t("Назад")
                   }
                   onPicked={() => setOpen(null)}
                   project={project}
@@ -173,7 +174,7 @@ export default function App() {
               {screen === "settings" && (
                 <Suspense
                   fallback={
-                    <p className="reader-loading">Відкриваю параметри…</p>
+                    <p className="reader-loading">{t("Відкриваю параметри…")}</p>
                   }
                 >
                   <SettingsScreen />

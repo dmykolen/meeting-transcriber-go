@@ -67,6 +67,33 @@ func TestAScheduleThisBuildCannotReadTranscribesAfterEachRecording(t *testing.T)
 	}
 }
 
+// An older settings file never chose a language: it keeps the Ukrainian it had.
+func TestTheInterfaceStaysUkrainianForAnOlderSettingsFile(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "config.toml"), []byte("language = \"uk\"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := Load(dir)
+	if err != nil || cfg.UILanguage != "uk" {
+		t.Fatalf("ui_language = %q, %v", cfg.UILanguage, err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "config.toml"), []byte("ui_language = \"de\"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if cfg, _ := Load(dir); cfg.UILanguage != "uk" {
+		t.Fatalf("an unknown language became %q", cfg.UILanguage)
+	}
+	// A first run picks one the interface is written in and writes it down.
+	fresh := t.TempDir()
+	first, err := Load(fresh)
+	if err != nil || (first.UILanguage != "uk" && first.UILanguage != "en") {
+		t.Fatalf("a first run chose %q, %v", first.UILanguage, err)
+	}
+	if again, _ := Load(fresh); again.UILanguage != first.UILanguage {
+		t.Fatalf("the first run's choice was not kept: %q then %q", first.UILanguage, again.UILanguage)
+	}
+}
+
 func TestAutoIsTheOnlyWayToAskForDetection(t *testing.T) {
 	dir := t.TempDir()
 	cfg, err := Load(dir)

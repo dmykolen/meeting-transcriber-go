@@ -9,10 +9,13 @@ measured before they affect production.
 exp/
 ├── NN_name/   one focused executable or analysis
 ├── out/       reproducible text results
-└── truth/     reviewed ground truth and labels
+└── truth/     reviewed ground truth and labels (ignored by git)
 ```
 
-Raw private recordings are local inputs and must not be committed.
+Private recordings and everything made from them — ground truth, transcript
+dumps, titles, people's names — are local inputs and must not be committed.
+`.gitignore` keeps `exp/truth/` and the transcript dumps out; results keep
+the numbers and refer to recordings by ID.
 
 ## When an experiment is required
 

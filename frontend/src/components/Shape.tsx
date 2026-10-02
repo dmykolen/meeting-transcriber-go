@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react"
 import { motion } from "motion/react"
 import { Activity, MessageCircleQuestion, Scale } from "lucide-react"
-import { Meetings, clock, type Analytics } from "../api"
+import { Meetings, clock, many, type Analytics } from "../api"
+import { t } from "../i18n"
 
 /**
  * The shape of a meeting: who held the floor, how fast, who was asking rather
@@ -43,40 +44,42 @@ export default function Shape({
   return (
     <section className="mt-6">
       <h2 className="mb-2 flex items-center gap-1.5 text-[10.5px] font-semibold uppercase tracking-wider text-faint">
-        <Activity size={11} /> Голоси й ритм
+        <Activity size={11} /> {t("Голоси й ритм")}
       </h2>
 
       <div className="rounded-panel border border-line/60 bg-surface/40 px-4 py-3.5">
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-faint">
           <span>
-            Мовлення <b className="font-medium text-soft">{clock(a.speech)}</b>
+            {t("Мовлення")}{" "}
+            <b className="font-medium text-soft">{clock(a.speech)}</b>
           </span>
           <span>
-            Паузи <b className="font-medium text-soft">{clock(a.silence)}</b>
+            {t("Паузи")}{" "}
+            <b className="font-medium text-soft">{clock(a.silence)}</b>
           </span>
           {a.overlap > 1 && (
             <span>
-              Перекриття{" "}
+              {t("Перекриття")}{" "}
               <b className="font-medium text-soft">{clock(a.overlap)}</b>
             </span>
           )}
           <span>
             <b className="font-medium text-soft">{Math.round(a.pace)}</b>{" "}
-            слів/хв
+            {t("слів/хв")}
           </span>
           {alone && (
             <span>
-              <b className="font-medium text-soft">{a.words}</b> слів
+              <b className="font-medium text-soft">{a.words}</b> {t("слів")}
             </span>
           )}
           {a.speakers.length > 1 && (
             <span className="flex items-center gap-1">
               <Scale size={11} />
               {a.balance > 0.85
-                ? "Рівномірна участь"
+                ? t("Рівномірна участь")
                 : a.balance > 0.6
-                  ? "Збалансована участь"
-                  : "Переважає один голос"}
+                  ? t("Збалансована участь")
+                  : t("Переважає один голос")}
             </span>
           )}
         </div>
@@ -88,7 +91,7 @@ export default function Shape({
               <motion.button
                 key={i}
                 onClick={() => onJump(m.at)}
-                title={`${clock(m.at)} — ${m.words} слів`}
+                title={`${clock(m.at)} — ${m.words} ${t("слів")}`}
                 initial={{ scaleY: 0 }}
                 animate={{ scaleY: 1 }}
                 transition={{
@@ -139,7 +142,11 @@ export default function Shape({
                   />
                 </span>
                 <span className="mt-1 block text-[9.5px] tabular-nums text-faint">
-                  {v.turns} реплік · {Math.round(v.pace)} wpm
+                  {t("{n} {word} · {pace} wpm", {
+                    n: v.turns,
+                    word: many(v.turns, "репліка", "репліки", "реплік"),
+                    pace: Math.round(v.pace),
+                  })}
                 </span>
               </div>
             ))}
@@ -150,7 +157,7 @@ export default function Shape({
           <p className="mt-3 flex items-start gap-1.5 border-t border-line/40 pt-2.5 text-[10.5px] leading-relaxed text-faint">
             <MessageCircleQuestion size={11} className="mt-[3px] shrink-0" />
             <span className="min-w-0">
-              Питань:{" "}
+              {t("Питань:")}{" "}
               {a.speakers
                 .filter((v) => v.questions > 0)
                 .sort((x, y) => y.questions - x.questions)

@@ -26,6 +26,7 @@ import {
 import { Browser } from "@wailsio/runtime"
 import {
   Meetings,
+  many,
   why,
   type AIState,
   type CopilotAccount,
@@ -36,6 +37,7 @@ import {
   type Source,
 } from "../api"
 import { colourOf, picked, tone, wash } from "../colours"
+import { setLang, t, tr } from "../i18n"
 import Head from "../components/Head"
 import Paint from "../components/Paint"
 import Snippet from "../components/Snippet"
@@ -91,10 +93,20 @@ export default function Settings() {
 
   const teach = () =>
     run("me", async () => {
-      const message = await Meetings.ThisIsMe(me.trim())
+      const name = me.trim()
+      const taught = await Meetings.ThisIsMe(name)
       setMe("")
       voices()
-      return message
+      return taught
+        ? t("Ваші репліки відтепер підписані «{name}», а голос запам’ятано з {n} {word}.", {
+            name,
+            n: taught,
+            word: many(taught, "запису", "записів", "записів"),
+          })
+        : t(
+            "Ваші репліки відтепер підписані «{name}». Жоден запис ще не має досить вашого голосу, тож голос запам’ятається з наступної зустрічі.",
+            { name },
+          )
     })
 
   // Both of these can take a moment and both have something to report, so they
@@ -145,7 +157,9 @@ export default function Settings() {
   }, [])
 
   if (!values)
-    return <p className="reader-loading">{said || "Відкриваю параметри…"}</p>
+    return (
+      <p className="reader-loading">{said ? tr(said) : t("Відкриваю параметри…")}</p>
+    )
 
   const save = async (next: Values) => {
     setValues(next)
@@ -165,21 +179,34 @@ export default function Settings() {
 
   return (
     <div className="settings-screen flex h-full flex-col">
-      <Head title="Параметри">
+      <Head title={t("Параметри")}>
         <motion.span
           className="flex items-center gap-1 text-[11px] text-good"
           animate={{ opacity: saved ? 1 : 0 }}
         >
           <Check size={12} />
-          Збережено
+          {t("Збережено")}
         </motion.span>
+        <div role="group" aria-label={t("Мова інтерфейсу")}>
+          <Choice
+            options={[
+              { id: "uk", label: "Українська" },
+              { id: "en", label: "English" },
+            ]}
+            value={values.uiLanguage}
+            onChange={(id) => {
+              void setLang(id)
+              void save({ ...values, uiLanguage: id as Values["uiLanguage"] })
+            }}
+          />
+        </div>
       </Head>
       {said && (
         <p className="reader-error" role="status">
-          {said}
+          {tr(said)}
           {said.startsWith("Не збережено") && (
             <button className="ui-chip" onClick={() => void save(values)}>
-              Повторити
+              {t("Повторити")}
             </button>
           )}
         </p>
@@ -187,10 +214,10 @@ export default function Settings() {
 
       <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-10">
         <div className="settings-grid">
-          <Group title="Слухання" Icon={Ear}>
+          <Group title={t("Слухання")} Icon={Ear}>
             <Row
-              label="Автоматично записувати зустрічі"
-              hint="Аудіо обробляється на цьому пристрої."
+              label={t("Автоматично записувати зустрічі")}
+              hint={t("Аудіо обробляється на цьому пристрої.")}
             >
               <Toggle
                 on={values.listening}
@@ -198,49 +225,49 @@ export default function Settings() {
               />
             </Row>
             <Row
-              label="Джерела звуку"
+              label={t("Джерела звуку")}
               hint={
                 values.system
-                  ? "Ваш голос і звук співрозмовників записуються окремо."
-                  : "Лише звук мікрофона. Автоматичні записи в цьому режимі не відкидаються."
+                  ? t("Ваш голос і звук співрозмовників записуються окремо.")
+                  : t("Лише звук мікрофона. Автоматичні записи в цьому режимі не відкидаються.")
               }
             >
               <Choice
                 options={[
-                  { id: "both", label: "Мікрофон + система" },
-                  { id: "mic", label: "Мікрофон" },
+                  { id: "both", label: t("Мікрофон + система") },
+                  { id: "mic", label: t("Мікрофон") },
                 ]}
                 value={values.system ? "both" : "mic"}
                 onChange={(id) => save({ ...values, system: id === "both" })}
               />
             </Row>
             <Row
-              label="Почати після мовлення"
-              hint="Тривалість мовлення для автоматичного старту."
+              label={t("Почати після мовлення")}
+              hint={t("Тривалість мовлення для автоматичного старту.")}
             >
               <Number
                 value={values.startSpeech}
-                unit="с"
+                unit={t("с")}
                 min={5}
                 max={300}
                 onChange={(n) => save({ ...values, startSpeech: n })}
               />
             </Row>
             <Row
-              label="Завершити після тиші"
-              hint="Пауза, після якої зустріч вважається завершеною."
+              label={t("Завершити після тиші")}
+              hint={t("Пауза, після якої зустріч вважається завершеною.")}
             >
               <Number
                 value={values.quietEnds}
-                unit="с"
+                unit={t("с")}
                 min={15}
                 max={1800}
                 onChange={(n) => save({ ...values, quietEnds: n })}
               />
             </Row>
             <Row
-              label="Зберігати автоматичні голосові нотатки"
-              hint="Зберігати також записи, де говорите лише ви. Ручний запис зберігається завжди."
+              label={t("Зберігати автоматичні голосові нотатки")}
+              hint={t("Зберігати також записи, де говорите лише ви. Ручний запис зберігається завжди.")}
             >
               <Toggle
                 on={values.keepNotes}
@@ -248,12 +275,12 @@ export default function Settings() {
               />
             </Row>
             <Row
-              label="Захопити початок"
-              hint="Додати попередні секунди, якщо зустріч помічено із запізненням."
+              label={t("Захопити початок")}
+              hint={t("Додати попередні секунди, якщо зустріч помічено із запізненням.")}
             >
               <Number
                 value={values.preroll}
-                unit="с"
+                unit={t("с")}
                 min={0}
                 max={600}
                 onChange={(n) => save({ ...values, preroll: n })}
@@ -261,11 +288,11 @@ export default function Settings() {
             </Row>
           </Group>
 
-          <Group title="Розшифровка" Icon={Rows2}>
+          <Group title={t("Розшифровка")} Icon={Rows2}>
             <Row
-              label="Мова"
+              label={t("Мова")}
               hint={
-                "Код мови: uk, en або auto. Явний вибір допомагає правильно розпізнавати українську."
+                t("Код мови: uk, en або auto. Явний вибір допомагає правильно розпізнавати українську.")
               }
             >
               <Text
@@ -277,8 +304,8 @@ export default function Settings() {
               />
             </Row>
             <Row
-              label="Модель розпізнавання"
-              hint="Whisper підтримує вибір мови. Parakeet визначає її автоматично; перший запуск завантажить модель."
+              label={t("Модель розпізнавання")}
+              hint={t("Whisper підтримує вибір мови. Parakeet визначає її автоматично; перший запуск завантажить модель.")}
             >
               <Choice
                 options={[
@@ -292,21 +319,22 @@ export default function Settings() {
               />
             </Row>
             <Row
-              label="Коли розшифровувати"
+              label={t("Коли розшифровувати")}
               hint={
                 {
-                  after:
+                  after: t(
                     "Одразу після кожного запису. Поки йде розшифровка, Mac працює на повну.",
-                  at: "Записи чекають до вказаної години. Якщо Mac тоді спить, розшифровка почнеться, щойно він прокинеться.",
-                  idle: "Коли ви 5 хвилин не користуєтесь Mac і його не завантажує інша робота.",
+                  ),
+                  at: t("Записи чекають до вказаної години. Якщо Mac тоді спить, розшифровка почнеться, щойно він прокинеться."),
+                  idle: t("Коли ви 5 хвилин не користуєтесь Mac і його не завантажує інша робота."),
                 }[values.transcribe]
               }
             >
               <Choice
                 options={[
-                  { id: "after", label: "Одразу" },
-                  { id: "at", label: "О годині" },
-                  { id: "idle", label: "Авто" },
+                  { id: "after", label: t("Одразу") },
+                  { id: "at", label: t("О годині") },
+                  { id: "idle", label: t("Авто") },
                 ]}
                 value={values.transcribe}
                 onChange={(id) =>
@@ -316,8 +344,8 @@ export default function Settings() {
             </Row>
             {values.transcribe === "at" && (
               <Row
-                label="О котрій"
-                hint="Щодня. Записане пізніше чекає до наступного дня; потрібну зустріч можна розшифрувати одразу кнопкою в ній."
+                label={t("О котрій")}
+                hint={t("Щодня. Записане пізніше чекає до наступного дня; потрібну зустріч можна розшифрувати одразу кнопкою в ній.")}
               >
                 {/* Not type="time": WebKit draws that in the app's English
                     locale, as 07:00 PM, whatever lang says. */}
@@ -332,17 +360,17 @@ export default function Settings() {
             )}
           </Group>
 
-          <Group title="Учасники" Icon={UserRound}>
+          <Group title={t("Учасники")} Icon={UserRound}>
             <Row
-              label="Мій голос"
-              hint="Вкажіть ім’я для голосу з мікрофона у наступних записах."
+              label={t("Мій голос")}
+              hint={t("Вкажіть ім’я для голосу з мікрофона у наступних записах.")}
             >
               <div className="flex items-center gap-1.5">
                 <input
                   value={me}
                   onChange={(e) => setMe(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && teach()}
-                  placeholder="Ваше ім’я"
+                  placeholder={t("Ваше ім’я")}
                   className="w-32 rounded-lg border border-line/60 bg-surface/60 px-2.5 py-1.5 text-[12px] outline-none transition-colors placeholder:text-faint focus:border-accent/50"
                 />
                 <button
@@ -351,14 +379,15 @@ export default function Settings() {
                   className="flex items-center gap-1.5 rounded-lg bg-accent px-2.5 py-1.5 text-[11.5px] font-medium text-ink transition-opacity disabled:opacity-30"
                 >
                   <Mic size={13} />{" "}
-                  {busy === "me" ? "Запам’ятовую…" : "Запам’ятати"}
+                  {busy === "me" ? t("Запам’ятовую…") : t("Запам’ятати")}
                 </button>
               </div>
             </Row>
             {people.length === 0 ? (
               <p className="px-4 py-3 text-[12px] leading-relaxed text-faint">
-                Учасників ще немає. Назвіть голос у зустрічі, щоб розпізнавати
-                його надалі.
+                {t(
+                  "Учасників ще немає. Назвіть голос у зустрічі, щоб розпізнавати його надалі.",
+                )}
               </p>
             ) : (
               people.map((p) => (
@@ -367,10 +396,10 @@ export default function Settings() {
             )}
           </Group>
 
-          <Group title="Проєкти" Icon={FolderOpen}>
+          <Group title={t("Проєкти")} Icon={FolderOpen}>
             {projects.length === 0 ? (
               <p className="px-4 py-3 text-[12px] leading-relaxed text-faint">
-                Створіть проєкт у Dock і додайте до нього зустрічі.
+                {t("Створіть проєкт у Dock і додайте до нього зустрічі.")}
               </p>
             ) : (
               projects.map((g) => (
@@ -379,16 +408,18 @@ export default function Settings() {
             )}
           </Group>
 
-          <Group title="AI та архів" Icon={Sparkles}>
+          <Group title={t("AI та архів")} Icon={Sparkles}>
             <Row
-              label="AI для підсумків і відповідей"
+              label={t("AI для підсумків і відповідей")}
               hint={
                 {
-                  openai: "OpenAI за вашим ключем.",
-                  copilot:
+                  openai: t("OpenAI за вашим ключем."),
+                  copilot: t(
                     "Моделі вашого GitHub Copilot. Запити витрачають AI Credits плану.",
-                  local:
+                  ),
+                  local: t(
                     "Модель на цьому Mac: текст зустрічей нікуди не надсилається.",
+                  ),
                 }[values.aiProvider]
               }
             >
@@ -396,7 +427,7 @@ export default function Settings() {
                 options={[
                   { id: "openai", label: "OpenAI" },
                   { id: "copilot", label: "GitHub Copilot" },
-                  { id: "local", label: "Локально" },
+                  { id: "local", label: t("Локально") },
                 ]}
                 value={values.aiProvider}
                 onChange={(id) =>
@@ -409,12 +440,12 @@ export default function Settings() {
                 label="GitHub Copilot"
                 hint={
                   ai?.signingIn
-                    ? "Підтвердіть доступ у браузері, який відкрився."
+                    ? t("Підтвердіть доступ у браузері, який відкрився.")
                     : checking
-                      ? "Перевіряю акаунт…"
+                      ? t("Перевіряю акаунт…")
                       : account?.login
-                        ? `Підключено: ${account.login}.`
-                        : "Не підключено. Відкриється браузер, де треба підтвердити доступ."
+                        ? t("Підключено: {login}.", { login: account.login })
+                        : t("Не підключено. Відкриється браузер, де треба підтвердити доступ.")
                 }
               >
                 <button
@@ -427,21 +458,21 @@ export default function Settings() {
                   className="flex items-center gap-1.5 rounded-lg border border-line/60 bg-surface/60 px-2.5 py-1.5 text-[11.5px] text-soft transition-colors hover:border-accent/40 hover:text-text disabled:opacity-40"
                 >
                   <LogIn size={13} />
-                  {account?.login ? "Інший акаунт" : "Підключити"}
+                  {account?.login ? t("Інший акаунт") : t("Підключити")}
                 </button>
               </Row>
             )}
             {values.aiProvider === "copilot" && !!account?.login && (
-              <Row label="Модель Copilot" hint="«Автоматично» — Copilot обирає сам.">
+              <Row label={t("Модель Copilot")} hint={t("«Автоматично» — Copilot обирає сам.")}>
                 <select
-                  aria-label="Модель Copilot"
+                  aria-label={t("Модель Copilot")}
                   value={values.copilotModel}
                   onChange={(e) =>
                     save({ ...values, copilotModel: e.target.value })
                   }
                   className="w-44 rounded-lg border border-line/60 bg-surface/60 px-2 py-1.5 text-[12px] outline-none transition-colors focus:border-accent/50"
                 >
-                  <option value="">Автоматично</option>
+                  <option value="">{t("Автоматично")}</option>
                   {account.models.map((m) => (
                     <option key={m.id} value={m.id}>
                       {m.name}
@@ -452,8 +483,8 @@ export default function Settings() {
             )}
             {values.aiProvider === "local" && (
               <Row
-                label="Локальна модель"
-                hint="Вбудована — Gemma 4 E2B, 2,8 ГБ. Для більшої вставте посилання на .gguf з Hugging Face."
+                label={t("Локальна модель")}
+                hint={t("Вбудована — Gemma 4 E2B, 2,8 ГБ. Для більшої вставте посилання на .gguf з Hugging Face.")}
               >
                 <Text
                   value={values.localModel}
@@ -465,17 +496,17 @@ export default function Settings() {
               </Row>
             )}
             <Row
-              label="Пошук за змістом"
+              label={t("Пошук за змістом")}
               hint={
                 values.embeddings === "local"
-                  ? "Qwen3 Embedding на цьому Mac, 0,6 ГБ. Після зміни індекс перебудовується."
-                  : "Вектори для пошуку й Ask робить OpenAI. Після зміни індекс перебудовується."
+                  ? t("Qwen3 Embedding на цьому Mac, 0,6 ГБ. Після зміни індекс перебудовується.")
+                  : t("Вектори для пошуку й Ask робить OpenAI. Після зміни індекс перебудовується.")
               }
             >
               <Choice
                 options={[
                   { id: "openai", label: "OpenAI" },
-                  { id: "local", label: "Локально" },
+                  { id: "local", label: t("Локально") },
                 ]}
                 value={values.embeddings}
                 onChange={(id) =>
@@ -486,8 +517,8 @@ export default function Settings() {
             {(values.aiProvider === "openai" ||
               values.embeddings === "openai") && (
               <Row
-                label="Ключ OpenAI"
-                hint="Лише для того, що вище обрано через OpenAI. Розпізнавання мовлення працює локально."
+                label={t("Ключ OpenAI")}
+                hint={t("Лише для того, що вище обрано через OpenAI. Розпізнавання мовлення працює локально.")}
               >
                 <Text
                   value={values.openaiKey}
@@ -500,7 +531,7 @@ export default function Settings() {
               </Row>
             )}
             {values.aiProvider === "openai" && (
-              <Row label="Модель OpenAI" hint="Назва моделі, доступної вашому ключу.">
+              <Row label={t("Модель OpenAI")} hint={t("Назва моделі, доступної вашому ключу.")}>
                 <Text
                   value={values.openaiModel}
                   placeholder="gpt-5.4-mini"
@@ -511,14 +542,14 @@ export default function Settings() {
               </Row>
             )}
             <Row
-              label="Автоматичні підсумки"
-              hint="Для зустрічей, усіх записів або лише вручну. Ручне оновлення доступне в документі."
+              label={t("Автоматичні підсумки")}
+              hint={t("Для зустрічей, усіх записів або лише вручну. Ручне оновлення доступне в документі.")}
             >
               <Choice
                 options={[
-                  { id: "meetings", label: "Зустрічі" },
-                  { id: "always", label: "Усе" },
-                  { id: "never", label: "Вимкнено" },
+                  { id: "meetings", label: t("Зустрічі") },
+                  { id: "always", label: t("Усе") },
+                  { id: "never", label: t("Вимкнено") },
                 ]}
                 value={values.summarise}
                 onChange={(id) =>
@@ -527,16 +558,24 @@ export default function Settings() {
               />
             </Row>
             <Row
-              label="Індекс розшифровок"
-              hint="Оновити старі розшифровки. Решта архіву індексується під час пошуку за змістом."
+              label={t("Індекс розшифровок")}
+              hint={t("Оновити старі розшифровки. Решта архіву індексується під час пошуку за змістом.")}
             >
               <button
-                onClick={() => run("index", () => Meetings.Reindex())}
+                onClick={() =>
+                  run("index", async () => {
+                    const done = await Meetings.Reindex()
+                    return t(
+                      "Пошук за змістом оновлено: {meaning} уривків шукаються за змістом, {words} — лише за словами.",
+                      { meaning: done.meaning, words: done.words },
+                    )
+                  })
+                }
                 disabled={busy !== "" || !!ai?.indexing}
                 className="flex items-center gap-1.5 rounded-lg border border-line/60 bg-surface/60 px-2.5 py-1.5 text-[11.5px] text-soft transition-colors hover:border-accent/40 hover:text-text disabled:opacity-40"
               >
                 <Brain size={13} />{" "}
-                {busy === "index" ? "Індексую…" : "Оновити індекс"}
+                {busy === "index" ? t("Індексую…") : t("Оновити індекс")}
               </button>
             </Row>
             {ai && (ai.fetching || ai.indexing || ai.signingIn || ai.problem) && (
@@ -547,7 +586,7 @@ export default function Settings() {
                 {ai.fetching && (
                   <>
                     <p className="text-soft">
-                      Завантажую {ai.fetching} ·{" "}
+                      {t("Завантажую {what}", { what: ai.fetching })} ·{" "}
                       <span className="tabular-nums">
                         {Math.round(ai.fraction * 100)}%
                       </span>
@@ -563,7 +602,10 @@ export default function Settings() {
                 {ai.indexing && (
                   <>
                     <p className="text-soft">
-                      Оновлюю пошук за змістом: {ai.indexing} ·{" "}
+                      {t("Оновлюю пошук за змістом: {what}", {
+                        what: tr(ai.indexing),
+                      })}{" "}
+                      ·{" "}
                       <span className="tabular-nums">
                         {Math.round(ai.indexed * 100)}%
                       </span>
@@ -591,7 +633,7 @@ export default function Settings() {
                       )}
                     </p>
                   ))}
-                {ai.problem && <p className="text-warn">{ai.problem}</p>}
+                {ai.problem && <p className="text-warn">{tr(ai.problem)}</p>}
               </div>
             )}
           </Group>
@@ -608,38 +650,54 @@ export default function Settings() {
             />
           </Group>
 
-          <Group title="Зберігання" Icon={FolderOpen}>
+          <Group title={t("Зберігання")} Icon={FolderOpen}>
             <Row
-              label="Зберігати аудіо"
-              hint="Строк у днях; 0 — без обмеження. Текст зберігається."
+              label={t("Зберігати аудіо")}
+              hint={t("Строк у днях; 0 — без обмеження. Текст зберігається.")}
             >
               <Number
                 value={values.keepAudioDays}
-                unit="днів"
+                unit={t("днів")}
                 min={0}
                 max={3650}
                 onChange={(n) => save({ ...values, keepAudioDays: n })}
               />
             </Row>
             <Row
-              label="Очистити старе аудіо"
-              hint="Видаляє лише звук за вказаним строком зберігання."
+              label={t("Очистити старе аудіо")}
+              hint={t("Видаляє лише звук за вказаним строком зберігання.")}
             >
               <button
-                onClick={() => run("tidy", () => Meetings.Tidy())}
+                onClick={() =>
+                  run("tidy", async () => {
+                    const freed = await Meetings.Tidy()
+                    return freed.kept
+                      ? t("Нічого не видалено: аудіо зберігається без обмеження.")
+                      : freed.files
+                        ? t(
+                            "Видалено аудіо {n} {word}, звільнено {mb} МБ. Розшифровки не змінено.",
+                            {
+                              n: freed.files,
+                              word: many(freed.files, "запису", "записів", "записів"),
+                              mb: freed.mb,
+                            },
+                          )
+                        : t("Немає аудіо, старшого за цей строк.")
+                  })
+                }
                 disabled={busy !== ""}
                 className="flex items-center gap-1.5 rounded-lg border border-line/60 bg-surface/60 px-2.5 py-1.5 text-[11.5px] text-soft transition-colors hover:border-warn/50 hover:text-text disabled:opacity-40"
               >
                 <Trash2 size={13} />{" "}
-                {busy === "tidy" ? "Очищаю…" : "Звільнити місце"}
+                {busy === "tidy" ? t("Очищаю…") : t("Звільнити місце")}
               </button>
             </Row>
-            <Row label="Папка даних" hint={values.folder}>
+            <Row label={t("Папка даних")} hint={values.folder}>
               <button
                 onClick={() => Meetings.RevealFolder()}
                 className="flex items-center gap-1.5 rounded-lg border border-line/60 bg-surface/60 px-2.5 py-1.5 text-[11.5px] text-soft transition-colors hover:border-accent/40 hover:text-text"
               >
-                <FolderOpen size={13} /> Відкрити
+                <FolderOpen size={13} /> {t("Відкрити")}
               </button>
             </Row>
           </Group>
@@ -650,13 +708,13 @@ export default function Settings() {
               animate={{ opacity: 1, y: 0 }}
               className="rounded-panel border border-line/60 bg-surface/50 px-4 py-2.5 text-[12px] leading-relaxed text-soft"
             >
-              {said}
+              {tr(said)}
             </motion.p>
           )}
 
           <p className="flex items-start gap-2 text-[11px] leading-relaxed text-faint">
             <Trash2 size={12} className="mt-0.5 shrink-0" />
-            Усі локальні дані застосунку зберігаються у папці вище.
+            {t("Усі локальні дані застосунку зберігаються у папці вище.")}
           </p>
         </div>
       </div>
@@ -699,10 +757,10 @@ type MCPClient = "claude" | "codex" | "vscode"
 
 function MCPIndicator({ state }: { state: MCPState | null }) {
   const status = {
-    running: { label: "MCP server працює", colour: "bg-good" },
-    starting: { label: "MCP server запускається", colour: "bg-accent" },
-    failed: { label: "MCP server недоступний", colour: "bg-warn" },
-    stopped: { label: "MCP server зупинено", colour: "bg-faint" },
+    running: { label: t("MCP server працює"), colour: "bg-good" },
+    starting: { label: t("MCP server запускається"), colour: "bg-accent" },
+    failed: { label: t("MCP server недоступний"), colour: "bg-warn" },
+    stopped: { label: t("MCP server зупинено"), colour: "bg-faint" },
   }[state?.status ?? "starting"]
 
   return (
@@ -740,7 +798,7 @@ function MCPPanel({
   > = {
     claude: {
       title: "Claude Desktop",
-      note: "Локальний stdio · claude_desktop_config.json",
+      note: t("Локальний stdio · claude_desktop_config.json"),
       value: JSON.stringify(
         {
           mcpServers: {
@@ -784,20 +842,20 @@ function MCPPanel({
       setCopied(key)
       window.setTimeout(() => setCopied(""), 1600)
     } catch {
-      onError("Не вдалося скопіювати. Виділіть текст вручну.")
+      onError(t("Не вдалося скопіювати. Виділіть текст вручну."))
     }
   }
 
   return (
     <div className="mcp-settings">
       <div className="mcp-meta">
-        <div className="mcp-labels" aria-label="Доступні дані">
+        <div className="mcp-labels" aria-label={t("Доступні дані")}>
           {[
-            "Зустрічі",
-            "Розшифровки",
-            "Нотатки",
-            "Проєкти",
-            "Завдання",
+            t("Зустрічі"),
+            t("Розшифровки"),
+            t("Нотатки"),
+            t("Проєкти"),
+            t("Завдання"),
             "Read-only",
           ].map((label) => (
             <span key={label}>{label}</span>
@@ -809,7 +867,7 @@ function MCPPanel({
           </code>
           <button
             onClick={() => copy(url, "url")}
-            aria-label="Копіювати адресу MCP"
+            aria-label={t("Копіювати адресу MCP")}
             className="shrink-0 rounded-md p-1.5 text-faint transition-colors hover:bg-surface hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
           >
             {copied === "url" ? <Check size={13} /> : <Copy size={13} />}
@@ -819,14 +877,15 @@ function MCPPanel({
 
       {state?.problem && (
         <p className="border-t border-line/50 px-4 py-2.5 text-[11px] leading-relaxed text-warn">
-          {state.problem}. Перезапустіть застосунок або змініть MT_MCP_ADDR.
+          {tr(state.problem)}.{" "}
+          {t("Перезапустіть застосунок або змініть MT_MCP_ADDR.")}
         </p>
       )}
 
       <div className="mcp-connect border-t border-line/50">
         <div
           role="tablist"
-          aria-label="Застосунок для підключення"
+          aria-label={t("Застосунок для підключення")}
           className="flex gap-1 border-b border-line/50 px-4 pt-3"
         >
           {(Object.keys(configs) as MCPClient[]).map((id) => (
@@ -856,10 +915,10 @@ function MCPPanel({
             <button
               onClick={() => copy(selected.value, client)}
               aria-label={
-                copied === client ? "Скопійовано" : "Копіювати конфігурацію"
+                copied === client ? t("Скопійовано") : t("Копіювати конфігурацію")
               }
               title={
-                copied === client ? "Скопійовано" : "Копіювати конфігурацію"
+                copied === client ? t("Скопійовано") : t("Копіювати конфігурацію")
               }
               className="absolute right-2 top-2 rounded-md border border-line/50 bg-surface/90 p-1.5 text-faint transition-colors hover:border-accent/40 hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
             >
@@ -1081,7 +1140,8 @@ function Face({
           <span className="min-w-0">
             <h3 className="truncate text-[13px] font-medium">{person.name}</h3>
             <p className="mt-0.5 text-[11px] text-faint">
-              {person.samples} {"зразків"} · {person.meetings} {"зустрічей"}
+              {person.samples} {many(person.samples, "зразок", "зразки", "зразків")} ·{" "}
+              {person.meetings} {many(person.meetings, "зустріч", "зустрічі", "зустрічей")}
             </p>
           </span>
         </button>
@@ -1090,7 +1150,7 @@ function Face({
             await Meetings.Forget(person.name)
             onChanged()
           }}
-          title="Забути голос. Імена у збережених розшифровках залишаться."
+          title={t("Забути голос. Імена у збережених розшифровках залишаться.")}
           className="shrink-0 rounded-lg p-1.5 text-faint transition-colors hover:bg-raised hover:text-warn"
         >
           <X size={14} />
@@ -1108,7 +1168,7 @@ function Face({
           >
             <div className="space-y-3.5 px-4 pb-4 pl-[38px]">
               <div>
-                <Label>Колір</Label>
+                <Label>{t("Колір")}</Label>
                 <div className="mt-1.5">
                   <Paint
                     colour={colour}
@@ -1121,7 +1181,7 @@ function Face({
 
               {seen.length > 0 && (
                 <div>
-                  <Label>У проєктах</Label>
+                  <Label>{t("У проєктах")}</Label>
                   <div className="mt-1.5 flex flex-wrap gap-1.5">
                     {seen.map((g) => (
                       <span
@@ -1141,7 +1201,7 @@ function Face({
                           g.id === 0 ? "bg-raised text-faint" : ""
                         }`}
                       >
-                        {g.name || "Поза проєктами"}
+                        {g.name || t("Поза проєктами")}
                         <span className="ml-1.5 tabular-nums opacity-60">
                           {g.count}
                         </span>
@@ -1152,16 +1212,17 @@ function Face({
               )}
 
               <div>
-                <Label>Зразки голосу</Label>
+                <Label>{t("Зразки голосу")}</Label>
                 <div className="mt-1 -ml-1">
                   {samples === null ? (
                     <p className="px-1 py-1 text-[11.5px] text-faint">
-                      Завантажую…
+                      {t("Завантажую…")}
                     </p>
                   ) : samples.length === 0 ? (
                     <p className="px-1 py-1 text-[11.5px] leading-relaxed text-faint">
-                      Для старих зразків джерела ще немає. Воно з’явиться після
-                      наступного розпізнавання.
+                      {t(
+                        "Для старих зразків джерела ще немає. Воно з’явиться після наступного розпізнавання.",
+                      )}
                     </p>
                   ) : (
                     samples.map((src, i) => (
@@ -1214,7 +1275,7 @@ function Folder({ group, onChanged }: { group: Group; onChanged: () => void }) {
       <div className="flex items-center gap-3">
         <button
           onClick={() => setPicking((p) => !p)}
-          title="Колір проєкту"
+          title={t("Колір проєкту")}
           style={{ background: colour }}
           className="size-2.5 shrink-0 rounded-full transition-transform hover:scale-125"
         />
@@ -1239,14 +1300,14 @@ function Folder({ group, onChanged }: { group: Group; onChanged: () => void }) {
           className="-mx-1.5 min-w-0 flex-1 rounded-lg bg-transparent px-1.5 py-0.5 font-[inherit] text-[13px] font-medium text-text outline-none transition-colors hover:bg-raised/50 focus:bg-raised"
         />
         <span className="shrink-0 text-[11px] tabular-nums text-faint">
-          {group.count} {"зустрічей"}
+          {group.count} {many(group.count, "зустріч", "зустрічі", "зустрічей")}
         </span>
         <button
           onClick={async () => {
             await Meetings.DropGroup(group.id)
             onChanged()
           }}
-          title="Видалити проєкт. Зустрічі залишаться, нотатки проєкту буде видалено."
+          title={t("Видалити проєкт. Зустрічі залишаться, нотатки проєкту буде видалено.")}
           className="shrink-0 rounded-lg p-1.5 text-faint transition-colors hover:bg-raised hover:text-warn"
         >
           <X size={14} />

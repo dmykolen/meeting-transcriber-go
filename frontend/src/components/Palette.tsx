@@ -17,6 +17,7 @@ import {
   type Recording,
 } from "../api"
 import { colourOf } from "../colours"
+import { lang, t, type Key } from "../i18n"
 
 type Hit = {
   kind: "meeting" | "project" | "person" | "do"
@@ -33,7 +34,7 @@ const ICON = {
   person: UserRound,
   do: Sparkles,
 }
-const GROUP = {
+const GROUP: Record<keyof typeof ICON, Key> = {
   meeting: "Наради",
   project: "Проєкти",
   person: "Люди",
@@ -92,34 +93,39 @@ export default function Palette({
       {
         kind: "do",
         id: -1,
-        label: "Почати або зупинити запис",
+        label: t("Почати або зупинити запис"),
         run: () => Api.Record(),
       },
       {
         kind: "do",
         id: -2,
-        label: "Шукати в усьому архіві",
+        label: t("Шукати в усьому архіві"),
         run: () => onScreen("search"),
       },
       {
         kind: "do",
         id: -3,
-        label: "Запитати про весь архів",
+        label: t("Запитати про весь архів"),
         run: () => onScreen("ask"),
       },
       {
         kind: "do",
         id: -4,
-        label: "Зобовʼязання",
+        label: t("Зобовʼязання"),
         run: () => onScreen("todo"),
       },
       {
         kind: "do",
         id: -5,
-        label: "Налаштування",
+        label: t("Налаштування"),
         run: () => onScreen("settings"),
       },
-      { kind: "do", id: -6, label: "Сьогодні", run: () => onScreen("today") },
+      {
+        kind: "do",
+        id: -6,
+        label: t("Сьогодні"),
+        run: () => onScreen("today"),
+      },
     ]
 
     return [
@@ -155,7 +161,7 @@ export default function Palette({
           run: () => onOpenMeeting(r.id),
         })),
     ]
-  }, [query, rows, groups, people, onOpenMeeting, onOpenProject, onScreen])
+  }, [query, rows, groups, people, onOpenMeeting, onOpenProject, onScreen, lang()])
 
   const go = (hit?: Hit) => {
     hit?.run()
@@ -186,7 +192,7 @@ export default function Palette({
               e.currentTarget.blur()
             }
           }}
-          placeholder="Нарада, проєкт, людина, дія…"
+          placeholder={t("Нарада, проєкт, людина, дія…")}
           className="min-w-0 flex-1 bg-transparent text-[11.5px] outline-none placeholder:text-faint/80"
         />
         <kbd className="shrink-0 text-[9px] tabular-nums text-faint/70">⌘K</kbd>
@@ -208,7 +214,7 @@ export default function Palette({
                 <div key={`${hit.kind}${hit.id}`}>
                   {first && (
                     <p className="px-3 pb-1 pt-2 text-[9px] uppercase tracking-[0.14em] text-faint">
-                      {GROUP[hit.kind]}
+                      {t(GROUP[hit.kind])}
                     </p>
                   )}
                   <button

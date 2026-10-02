@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react"
 import { KeyRound } from "lucide-react"
 import { Meetings } from "../api"
+import { t } from "../i18n"
 
 /**
- * Summaries, the to-do list and Ask all need a key; transcription and speakers
+ * Summaries, the to-do list and Ask all need an AI; transcription and speakers
  * never do. Without one those screens used to sit there looking broken, which
  * is the worst of both worlds — say so instead.
  *
@@ -24,8 +25,10 @@ export default function NeedsKey({ what }: { what: string }) {
     <div className="flex items-start gap-2.5 rounded-panel border border-line/60 bg-surface/50 px-4 py-3">
       <KeyRound size={14} className="mt-0.5 shrink-0 text-faint" />
       <p className="text-[12.5px] leading-relaxed text-soft">
-        {what}: додайте ключ OpenAI у параметрах. Розшифровка й розпізнавання
-        учасників працюють локально.
+        {t(
+          "{what}: оберіть AI у параметрах. Розшифровка й розпізнавання учасників працюють локально.",
+          { what },
+        )}
       </p>
     </div>
   )

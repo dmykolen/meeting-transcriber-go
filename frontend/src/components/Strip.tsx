@@ -2,6 +2,7 @@ import { useEffect, useState } from "react"
 import { motion } from "motion/react"
 import { Pause, Play, Square } from "lucide-react"
 import { Meetings, clock, recording, type Line, type Listening } from "../api"
+import { t } from "../i18n"
 
 /**
  * The strip that floats under the menu bar while a meeting is recorded.
@@ -46,7 +47,7 @@ export default function Strip() {
     >
       <span
         className="flex shrink-0 items-center gap-2"
-        aria-label={`${held ? "Пауза" : "Запис"} ${clock(state!.elapsed)}`}
+        aria-label={`${held ? t("Пауза") : t("Запис||recording")} ${clock(state!.elapsed)}`}
       >
         <span className="relative flex size-2">
           {!held && (
@@ -65,36 +66,36 @@ export default function Strip() {
         {!told ? (
           <>
             <span className="truncate">
-              Попередьте учасників, що зустріч записується
+              {t("Попередьте учасників, що зустріч записується")}
             </span>
             <button onClick={() => setTold(true)} className="strip-told">
-              Попереджено
+              {t("Попереджено")}
             </button>
           </>
         ) : held ? (
           <span className="truncate text-soft">
-            Пауза: сказане зараз не записується
+            {t("Пауза: сказане зараз не записується")}
           </span>
         ) : last ? (
           <span className="truncate text-soft">
             <span className={last.who === "you" ? "text-accent" : "text-good"}>
-              {last.who === "you" ? "Ви: " : "Співрозмовники: "}
+              {last.who === "you" ? t("Ви") : t("Співрозмовники")}:{" "}
             </span>
             {last.text}
           </span>
         ) : (
-          <span className="text-faint">Слухаю</span>
+          <span className="text-faint">{t("Слухаю")}</span>
         )}
       </p>
 
       <span className="flex shrink-0 items-center gap-1">
         <button
           onClick={() => Meetings.Hold(!held).catch(() => {})}
-          aria-label={held ? "Продовжити запис" : "Призупинити запис"}
+          aria-label={held ? t("Продовжити запис") : t("Призупинити запис")}
           title={
             held
-              ? "Продовжити запис"
-              : "Призупинити: сказане під час паузи не записується"
+              ? t("Продовжити запис")
+              : t("Призупинити: сказане під час паузи не записується")
           }
           className="strip-button"
         >
@@ -106,8 +107,8 @@ export default function Strip() {
         </button>
         <button
           onClick={() => Meetings.Record().catch(() => {})}
-          aria-label="Зупинити запис"
-          title="Зупинити запис"
+          aria-label={t("Зупинити запис")}
+          title={t("Зупинити запис")}
           className="strip-button"
         >
           <Square size={11} fill="currentColor" />

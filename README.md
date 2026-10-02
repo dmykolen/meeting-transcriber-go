@@ -5,160 +5,177 @@
 <h1 align="center">Meeting Transcriber</h1>
 
 <p align="center">
-  A private macOS meeting archive that records calls, separates speakers,
-  writes searchable transcripts, and keeps decisions and follow-up work in one place.
+  A private meeting archive for macOS. It records your calls, writes down who
+  said what, and keeps the decisions and the follow-up work. Transcription runs
+  on your Mac: no bot joins the call, and no account is needed.
 </p>
 
 <p align="center">
-  <strong>Interactive demo:</strong>
-  download <a href="docs/demo.html"><code>docs/demo.html</code></a> and open it locally.
+  <a href="https://github.com/dmykolen/meeting-transcriber-go/releases/latest"><strong>Download for macOS</strong></a>
+  · Apple Silicon · macOS 14.2 or newer · MIT
 </p>
 
-Meeting Transcriber is for people who leave a call knowing that something
-important was decided, but not where it was said or who agreed to do it. It
-records the microphone and the other side of the call, turns the audio into a
-speaker-labelled transcript, and keeps the result on the Mac.
+<p align="center">
+  <img src="docs/images/meeting.webp" width="920" alt="A meeting in the Library: the summary with decisions, tasks with owners, open questions, and who spoke how much">
+</p>
 
-The app is useful before, during, and after a meeting:
+You leave a call knowing something was decided, but not where it was said or
+who agreed to do it. Meeting Transcriber records the microphone and the other
+side of the call, turns the audio into a transcript with speaker names, and
+keeps it on the Mac with the decisions, questions and tasks that came out of
+it. Over weeks it becomes an archive you can search, ask and hand to your own
+AI tools.
 
-- it can start recording automatically when a conversation begins;
-- the live transcript appears while the meeting is still running;
-- saved meetings remain searchable by words or meaning;
-- decisions, questions, deadlines, and action items are collected across calls;
-- projects show how work changed from one meeting to the next;
-- Claude, Codex, and GitHub Copilot can read the archive through the built-in
-  read-only MCP server.
+## What it does
 
-Transcription, speaker detection, playback, analytics, and keyword search run
-locally. Summaries, Ask, AI-maintained project state, and search by meaning are
-optional, and each can come from OpenAI, from your GitHub Copilot, or from a
-model that runs on the Mac, so that nothing leaves it.
+### Records the call, with a strip that stays out of the way
 
-> [!NOTE]
-> The current package is built for Apple Silicon Macs and requires macOS 14.2
-> or newer. System-audio capture depends on Core Audio process taps introduced
-> in macOS 14.2.
+The app notices when a conversation starts and records it, or you press
+**Record**. The microphone and the system audio go to separate channels, so
+your voice is never confused with the people on the call. While it records, a
+strip under the menu bar asks you to tell the others, then shows the latest
+line it heard, with **Pause** and **Stop** at hand. The strip stays over
+full-screen apps and is left out of screen sharing.
 
-## How the app is put together
+<p align="center">
+  <img src="docs/images/strip.gif" width="623" alt="The recording strip under the menu bar: the reminder to tell everyone, live lines, pause and stop">
+</p>
 
-The interface and backend ship as one desktop application. The React interface
-is embedded in the Go executable by Wails; the same process owns the recording
-queue, SQLite database, local models, and HTTP MCP server.
+### Writes the transcript and learns the voices
 
-```mermaid
-flowchart LR
-    Person["Person at the Mac"]
-    Clients["Claude · Codex · GitHub Copilot"]
-    OpenAI["OpenAI · GitHub Copilot<br/>optional, or a local model"]
+Whisper turns the recording into a transcript; speaker separation splits the
+other side of the call into voices. Name a voice once and later meetings use
+the name when the voice matches. Click any line to hear it.
 
-    subgraph App["Meeting Transcriber.app"]
-        direction TB
-        UI["React interface<br/>Wails webview"]
-        Core["Go application services"]
-        Capture["Microphone + system audio"]
-        Pipeline["Transcription + speakers"]
-        MCP["Read-only MCP server"]
+<p align="center">
+  <img src="docs/images/transcript.webp" width="920" alt="A transcript with named speakers, timestamps and the voices panel">
+</p>
 
-        UI <--> Core
-        Capture --> Core
-        Core --> Pipeline
-        Core <--> MCP
-    end
+### Keeps what was decided and who does what
 
-    subgraph Local["~/MeetingTranscriber"]
-        DB[("SQLite archive")]
-        Audio["Recordings"]
-        Models["Local model files"]
-    end
+With AI switched on, each meeting gets an overview, chapters, decisions, open
+questions and tasks with owners and deadlines. **Today** collects what happened recently and what is
+still open; **Tasks** lists every promise across meetings.
 
-    Person --> UI
-    Clients <--> MCP
-    Pipeline <--> Models
-    Core <--> DB
-    Capture --> Audio
-    Pipeline --> Audio
-    Core -. "summaries, embeddings, Ask" .-> OpenAI
+<p align="center">
+  <img src="docs/images/today.webp" width="920" alt="Today: open tasks with owners and the meetings they came from">
+</p>
 
-    classDef app fill:#EEF2FF,stroke:#6366F1,color:#1E1B4B
-    classDef local fill:#ECFDF5,stroke:#10B981,color:#064E3B
-    classDef external fill:#FFF7ED,stroke:#F97316,color:#7C2D12
-    class UI,Core,Capture,Pipeline,MCP app
-    class DB,Audio,Models local
-    class Person,Clients,OpenAI external
-```
+### Follows a project across meetings
 
-The `.app` also carries the native libraries used for speaker processing and a
-small `audiotee` helper for macOS system audio. Models are deliberately not
-inside the application: they are downloaded once on the first launch and kept
-in the user's data folder.
+File meetings into a project and it keeps a living document: where things
+stand, the work list, decisions, questions and people, each linked to the
+meeting it came from. An item you edit is pinned: the model can mark it done
+but never rewrites it.
 
-## What it can do
+### Answers questions from your archive
 
-| Area | What the user gets |
+Search by words, or by meaning when AI search is on. **Ask** answers from your
+meetings, notes and projects and links every answer back to the passages it
+used.
+
+<p align="center">
+  <img src="docs/images/ask.webp" width="920" alt="Ask: an answer with links to the meetings it came from">
+</p>
+
+### Lets your AI tools read it
+
+A read-only MCP server is built in. Claude Desktop, Codex, ChatGPT and VS Code
+with GitHub Copilot can search transcripts, open meetings, list tasks and read
+project state. See [MCP access](#mcp-access).
+
+### Everything else
+
+| Area | What you get |
 |---|---|
-| Recording | Manual recording, automatic listening, microphone and system audio on separate channels, a live transcript, and a strip over every window that reminds you to tell the others and pauses or stops the recording |
-| Import | Existing audio or video files accepted through the native file picker and decoded with app-managed tools |
-| Transcript | Timestamped turns, speaker labels, click-to-play rows, waveform scrubbing, renaming, notes, and retranscription |
-| People | Learned speaker names and reusable voice samples; the laptop owner can be identified once with **This is me** |
-| Summary | Overview, topics, decisions, questions, owners, deadlines, and action items |
-| Today | A recent briefing: what happened, what was decided, overdue work, recurring questions, and participants |
-| Search | Local full-text search; search by meaning with OpenAI or a local embedding model |
-| Projects | Meetings grouped into projects with a living status, work list, decisions, questions, people, and history |
-| Ask | Answers grounded in saved meetings, with links back to the source passages |
-| Retention | Audio expires after the configured period; transcripts, summaries, notes, and analytics remain |
-| MCP Server | Read-only access to meetings, transcripts, notes, projects, tasks, briefings, and recognised people |
-| AI | OpenAI with your key, the models of your GitHub Copilot plan, or local models through the bundled `llama-server`; chosen in Settings and applied at once |
+| Recording | Automatic or manual, microphone and system audio on separate channels, live transcript, pause and stop from the strip |
+| Import | Audio and video files from the native file picker |
+| Transcript | Timestamps, speaker names, click to play, waveform, notes, retranscription |
+| People | Learned voice names; the person at the Mac is identified once in Settings |
+| Summary | Overview, chapters, topics, decisions, open questions, tasks with owners and deadlines |
+| Today and Tasks | A recent briefing, open and overdue work, recurring questions |
+| Projects | A living status per project, with links back to each meeting |
+| Search and Ask | Local keyword search, search by meaning, answers with sources |
+| Schedule | Transcribe right after a recording, at a set time, or when nobody is using the Mac; **Transcribe now** puts one meeting first |
+| Retention | Audio expires after a set number of days; transcripts, summaries and notes stay |
+| MCP | Read-only access to meetings, transcripts, notes, projects, tasks, briefings and people |
+| Interface | English or Ukrainian, switched in Settings |
 
-### What happens to a recording
+## Private by design
 
-Whether audio comes from a live call or an imported file, it enters the same
-queue. A live recording has priority, so an old import cannot make the current
-meeting lag. Settings decide when the queue runs: right after each recording, at
-a chosen time of day, or once nobody has used the Mac for five minutes and
-nothing else keeps it busy. **Розшифрувати зараз** in a meeting puts it first.
+| Runs on your Mac | Optional, and only if you choose it |
+|---|---|
+| Recording, transcription and speaker separation | Summaries, Ask and project updates from OpenAI or GitHub Copilot |
+| Voice names, playback, analytics | Search by meaning with OpenAI embeddings |
+| Keyword search and the whole archive | |
+| Summaries, Ask and search by meaning with a local model | |
 
-```mermaid
-flowchart LR
-    Start{"Live call or<br/>imported file?"}
-    Capture["Capture or copy audio"]
-    Queue["Add to SQLite queue"]
-    Decode["Decode and fold channels"]
-    ASR["Transcribe locally"]
-    Speakers["Separate speakers"]
-    Names["Apply learned names"]
-    Save["Save transcript + voice evidence"]
-    Index["Build searchable passages"]
-    Summary{"AI chosen and<br/>summary policy?"}
-    AI["Create summary and<br/>update project state"]
-    Ready["Ready in Library,<br/>Today, Search, and MCP"]
+AI is optional. Without it, recording, transcripts, speaker names and keyword
+search all work. With the local option, summaries and answers come from a model
+that runs on the Mac, so nothing leaves it.
 
-    Start --> Capture --> Queue --> Decode --> ASR --> Speakers --> Names --> Save --> Index --> Summary
-    Summary -->|"yes"| AI --> Ready
-    Summary -->|"no"| Ready
+The MCP server only listens on `127.0.0.1` and never returns API keys or raw
+voiceprints.
 
-    classDef local fill:#ECFDF5,stroke:#10B981,color:#064E3B
-    classDef decision fill:#FFF7ED,stroke:#F97316,color:#7C2D12
-    classDef result fill:#EEF2FF,stroke:#6366F1,color:#1E1B4B
-    class Capture,Queue,Decode,ASR,Speakers,Names,Save,Index local
-    class Start,Summary decision
-    class AI,Ready result
+## Install
+
+1. Download the `.dmg` from the
+   [latest release](https://github.com/dmykolen/meeting-transcriber-go/releases/latest).
+2. Open it and drag **Meeting Transcriber** to **Applications**.
+3. Open the app. It is not notarized by Apple, so the first time macOS refuses
+   to open it. Go to **System Settings → Privacy & Security**, find the message
+   about Meeting Transcriber and choose **Open Anyway**. You do this once.
+4. Allow **Microphone** and **System Audio Recording** when macOS asks.
+
+On the first launch the app downloads about 600 MiB into `~/MeetingTranscriber`:
+the transcription, speech-detection and speaker models, and FFmpeg.
+The window opens straight away and shows the download; after that, recording
+and transcription work offline.
+
+Transcription uses Whisper large-v3-turbo, so it handles the languages Whisper
+does. Set the language in Settings or let it be detected for each meeting.
+English and Ukrainian are the most tested.
+
+## AI options
+
+Choose in **Settings → AI and archive**. Recording and transcription do not
+depend on it.
+
+- **OpenAI** — paste an API key.
+- **GitHub Copilot** — the app fetches the Copilot CLI (about 90 MB), you sign
+  in with GitHub in the browser and pick one of your plan's models. Requests
+  use your plan's AI Credits; Business and Enterprise plans need the Copilot
+  CLI policy enabled.
+- **Local** — the app fetches Gemma 4 E2B (2.8 GB) and runs it with the bundled
+  `llama-server`. Paste a Hugging Face `.gguf` link to use a bigger model.
+  Search by meaning can run locally too, with Qwen3 Embedding 0.6B (0.6 GB).
+
+## Where your data lives
+
+```text
+~/MeetingTranscriber/
+├── config.toml       settings, the AI choice, and an optional OpenAI key
+├── meetings.db       transcripts, summaries, projects, notes, and search data
+├── recordings/       captured and imported audio
+├── models/           downloaded models, local AI models included
+├── bin/              FFmpeg, and the Copilot CLI when chosen
+├── copilot/          the Copilot CLI's own state
+├── cache/            playback files
+└── logs/mt.log       the application log
 ```
 
-The microphone channel identifies the person using the Mac; the system channel
-contains the remote participants. The app skips speaker separation for a
-mic-only recording and reuses previously learned names only when there is
-enough voice evidence to do so safely.
+`MT_HOME` moves the whole folder. Audio is kept for 30 days by default; deleting
+audio never deletes the transcript or anything made from it.
 
 ## MCP access
 
-The MCP server is part of the main application, not a second program. It opens
-after the configuration and SQLite database are ready, without waiting for the
-speech models.
+The MCP server is part of the app, not a second program. It opens as soon as
+the database is ready, without waiting for the speech models.
 
 ```mermaid
 flowchart TB
-    DB[("The same SQLite archive<br/>used by the desktop UI")]
-    Tools["9 typed, read-only MCP tools"]
+    DB[("The same SQLite archive<br/>the app uses")]
+    Tools["9 read-only MCP tools"]
     HTTP["Streamable HTTP<br/>127.0.0.1:8765/mcp"]
     Stdio["stdio mode<br/>--mcp-stdio"]
     Codex["Codex / ChatGPT"]
@@ -180,213 +197,156 @@ flowchart TB
     class Codex,VSCode,Claude client
 ```
 
-The tools can list and open recordings, search transcripts and stored
-knowledge, inspect projects, list action items, build a recent briefing, and
-list recognised people. They do not expose the OpenAI key or raw voiceprint
-vectors, and the HTTP endpoint only accepts loopback addresses.
+The tools list and open recordings, search transcripts and stored knowledge,
+read projects, list action items, build a recent briefing and list recognised
+people. Codex, ChatGPT and VS Code connect to the HTTP endpoint while the app is
+open; Claude Desktop starts the same executable in stdio mode.
 
-Open **Settings → MCP Server** in the app for live status and ready-to-copy
-configuration for Claude Desktop, Codex, and VS Code. The complete examples are
-also in [docs/mcp.md](docs/mcp.md).
+**Settings → MCP Server** shows the live status and ready-to-copy configuration
+for each client. The same examples are in [docs/mcp.md](docs/mcp.md).
 
-Codex and VS Code connect to the HTTP endpoint while the desktop app is open.
-Claude Desktop starts the same executable in headless stdio mode, so there is
-still only one application to install.
+## How it works
 
-## First launch
-
-The person installing the app does not need Go, Python, Docker, Homebrew,
-FFmpeg, or a model manager.
-
-```mermaid
-sequenceDiagram
-    autonumber
-    actor User
-    participant App as Meeting Transcriber
-    participant Disk as ~/MeetingTranscriber
-    participant Net as Model sources
-    participant macOS
-
-    User->>App: Open from Applications
-    App->>Disk: Create config.toml, meetings.db, and folders
-    App->>App: Start the local MCP server
-    App->>Disk: Check which models are already present
-    alt Models are missing
-        App->>Net: Download required assets
-        App-->>User: Show model name and progress
-        Net-->>Disk: Store completed model files
-    end
-    App->>App: Load transcription and speaker models
-    App-->>User: Open the Today screen
-    User->>App: Start the first recording
-    App->>macOS: Request microphone and system-audio access
-    macOS-->>User: Show privacy prompts
-    User-->>macOS: Allow access
-    App-->>User: Record and transcribe locally
-```
-
-On the first launch, the app:
-
-1. creates `~/MeetingTranscriber`;
-2. writes a default `config.toml` and creates `meetings.db`;
-3. downloads roughly 600 MiB of required transcription, voice, VAD, and media
-   assets;
-4. loads the models and opens the normal interface.
-
-The download happens once. If it fails, reopening the app keeps completed
-assets and retries what is still missing. After setup, local transcription can
-work without an internet connection.
-
-macOS asks for **Microphone** and **System Audio Recording** permission when
-audio capture is first opened. These are the only required user actions. AI can
-be chosen later in Settings, but recording and transcription do not depend on
-it:
-
-- **OpenAI** — paste an API key.
-- **GitHub Copilot** — the app fetches the Copilot CLI (about 90 MB), you
-  approve access in the browser, and pick one of your plan's models. Requests
-  spend the plan's AI Credits; Business and Enterprise need the Copilot CLI
-  policy enabled.
-- **Local** — the app fetches Gemma 4 E2B (2.8 GB) and runs it with the bundled
-  `llama-server`; paste a Hugging Face `.gguf` link to use a bigger model.
-  Search by meaning can run locally too, with Qwen3 Embedding (0.6 GB).
-
-The app keeps its files here:
-
-```text
-~/MeetingTranscriber/
-├── config.toml       settings, the AI choice, and an optional OpenAI key
-├── meetings.db       transcripts, summaries, projects, notes, and search data
-├── recordings/       captured and imported media
-├── models/           downloaded model files, local AI models included
-├── bin/              app-managed tools: FFmpeg, and the Copilot CLI when chosen
-├── copilot/          the Copilot CLI's own state
-├── cache/            generated playback files
-└── logs/mt.log       application log
-```
-
-`MT_HOME` can point the whole data directory somewhere else. By default, audio
-is kept for 30 days; changing that setting does not delete the transcript or
-other meeting data.
-
-## Build and package
-
-### Requirements
-
-- an Apple Silicon Mac running macOS 14.2 or newer;
-- Go `1.26.2`, matching `go.mod`;
-- Node.js and npm for the embedded React interface;
-- CMake and Xcode Command Line Tools;
-- an internet connection for the first build, because pinned native sources
-  and frontend dependencies are fetched.
-
-From this directory:
-
-```bash
-# Development binary: build/mt
-make
-
-# Installable macOS bundle: build/Meeting Transcriber.app
-make bundle
-
-# Disk image to share: build/MeetingTranscriber.dmg
-make dmg
-
-# Open the bundle correctly so macOS attributes permissions to the app
-make run
-
-# Replace /Applications/Meeting Transcriber.app with this build
-make install
-```
-
-The build stages are:
+One process owns everything: the React interface is embedded in the Go
+executable by Wails, and the same process records, runs the queue, keeps the
+SQLite database and serves MCP.
 
 ```mermaid
 flowchart LR
-    Source["Go + React source"]
-    Native["Pinned whisper.cpp,<br/>audiotee, and llama.cpp"]
-    Frontend["npm build"]
-    Binary["build/mt"]
-    Bundle["build/Meeting Transcriber.app"]
-    DMG["build/MeetingTranscriber.dmg"]
+    Person["Person at the Mac"]
+    Clients["Claude · Codex · GitHub Copilot"]
+    AI["OpenAI · GitHub Copilot<br/>optional, or a local model"]
 
-    Source --> Native
-    Source --> Frontend
-    Native --> Binary
-    Frontend --> Binary
-    Binary --> Bundle
-    Bundle --> DMG
+    subgraph App["Meeting Transcriber.app"]
+        direction TB
+        UI["React interface<br/>Wails webview"]
+        Core["Go application services"]
+        Capture["Microphone + system audio"]
+        Pipeline["Transcription + speakers"]
+        MCP["Read-only MCP server"]
 
-    classDef source fill:#F8FAFC,stroke:#64748B,color:#0F172A
-    classDef artifact fill:#EEF2FF,stroke:#6366F1,color:#1E1B4B
-    class Source,Native,Frontend source
-    class Binary,Bundle,DMG artifact
+        UI <--> Core
+        Capture --> Core
+        Core --> Pipeline
+        Core <--> MCP
+    end
+
+    subgraph Local["~/MeetingTranscriber"]
+        DB[("SQLite archive")]
+        Audio["Recordings"]
+        Models["Model files"]
+    end
+
+    Person --> UI
+    Clients <--> MCP
+    Pipeline <--> Models
+    Core <--> DB
+    Capture --> Audio
+    Pipeline --> Audio
+    Core -. "summaries, embeddings, Ask" .-> AI
+
+    classDef app fill:#EEF2FF,stroke:#6366F1,color:#1E1B4B
+    classDef local fill:#ECFDF5,stroke:#10B981,color:#064E3B
+    classDef external fill:#FFF7ED,stroke:#F97316,color:#7C2D12
+    class UI,Core,Capture,Pipeline,MCP app
+    class DB,Audio,Models local
+    class Person,Clients,AI external
 ```
 
-`build/mt` contains the Go backend, embedded frontend, and both MCP transports.
-The distributable `.app` wraps that executable together with `audiotee`,
-`llama-server`, the speaker-processing dynamic libraries, the icon, and macOS
-metadata. The model
-files remain outside the bundle and are downloaded per user.
+A live call and an imported file enter the same queue. A recording in progress
+always comes first, so old imports never make the current meeting lag.
 
-In other words: there is one main executable and no separate MCP binary, but
-the complete `.app` is the unit that must be installed and launched. Running
-the bare `build/mt` from Terminal gives macOS privacy permissions to the
-terminal instead of Meeting Transcriber.
+```mermaid
+flowchart LR
+    Start{"Live call or<br/>imported file?"}
+    Capture["Capture or copy audio"]
+    Queue["Add to SQLite queue"]
+    Decode["Decode and align channels"]
+    ASR["Transcribe locally"]
+    Speakers["Separate speakers"]
+    Names["Apply learned names"]
+    Save["Save transcript + voice evidence"]
+    Index["Build searchable passages"]
+    Summary{"AI chosen?"}
+    AI["Summarise and<br/>update the project"]
+    Ready["Ready in Library,<br/>Today, Search, and MCP"]
 
-## Share the app, not the source
+    Start --> Capture --> Queue --> Decode --> ASR --> Speakers --> Names --> Save --> Index --> Summary
+    Summary -->|"yes"| AI --> Ready
+    Summary -->|"no"| Ready
 
-The file to send to a colleague is:
-
-```text
-build/MeetingTranscriber.dmg
+    classDef local fill:#ECFDF5,stroke:#10B981,color:#064E3B
+    classDef decision fill:#FFF7ED,stroke:#F97316,color:#7C2D12
+    classDef result fill:#EEF2FF,stroke:#6366F1,color:#1E1B4B
+    class Capture,Queue,Decode,ASR,Speakers,Names,Save,Index local
+    class Start,Summary decision
+    class AI,Ready result
 ```
 
-They open the disk image, drag **Meeting Transcriber** to **Applications**, and
-launch it from there. The DMG contains the UI, Go backend, MCP server, system
-audio helper, local AI helper, and native libraries. They do not need the
-repository or a development environment.
+The microphone channel is the person at the Mac; the system channel is everyone
+else. Speaker separation runs on the system channel, so your own voice echoing
+in the room does not become a second speaker. The `.app` carries the speaker
+libraries, an `audiotee` helper for system audio and `llama-server` for local
+models; the models themselves are downloaded per user.
 
-There are two different signing cases:
+The reasoning behind these choices, with the measurements, is in
+[engineering decisions](.spec/decisions.md) and
+[architecture](.spec/architecture.md).
 
-### Local or trusted testing
+## Build from source
 
-`make dmg` signs the bundle ad hoc unless it finds the local certificate created
-by `make cert`. That local certificate keeps microphone permissions stable
-between builds on the developer's own Mac; it is not a public distribution
-identity.
+You need an Apple Silicon Mac with macOS 14.2 or newer, Go 1.26.2, Node.js
+with npm, CMake and the Xcode Command Line Tools. The first build fetches the
+pinned native sources and frontend dependencies.
 
-A DMG made this way can be sent to a trusted colleague, but Gatekeeper may block
-the first launch because the app is not notarized. The colleague must explicitly
-approve it in **System Settings → Privacy & Security**. This is workable for a
-small internal test, not a good release experience.
+```bash
+make           # build/mt, the development binary
+make bundle    # build/Meeting Transcriber.app
+make run       # open the bundle, so macOS gives the permissions to the app
+make install   # replace /Applications/Meeting Transcriber.app with this build
+make dmg       # build/MeetingTranscriber.dmg
+make test      # go vet and go test
+```
 
-### Normal colleague distribution
+Always run the `.app`. Started as a bare `build/mt` from a terminal, the
+microphone permission belongs to the terminal and the app records silence.
+`make cert` creates a local signing identity once, so macOS keeps the
+permissions across rebuilds.
 
-For a DMG that opens without security workarounds:
+To work on the interface with sample data and without the models:
 
-1. join the Apple Developer Program and obtain a **Developer ID Application**
-   certificate;
-2. sign the app and every nested executable with that identity and the hardened
-   runtime enabled;
-3. submit the app or DMG to Apple's notarization service with `notarytool`;
-4. staple the accepted notarization ticket;
-5. verify the final DMG on a clean Mac before sharing it.
+```bash
+cd frontend
+VITE_DESIGN=1 npm run dev
+```
 
-The current Makefile builds and signs the local package, but it does not yet
-implement this Developer ID and notarization release pipeline. Apple's current
-references are [Signing Mac Software with Developer ID](https://developer.apple.com/developer-id/)
-and [Notarizing macOS software before distribution](https://developer.apple.com/documentation/security/notarizing-macos-software-before-distribution).
+## Contributing
 
-> [!IMPORTANT]
-> Do not send only `build/mt`. The `.app` is what carries the native libraries,
-> system-audio helper, app identity, icon, and privacy descriptions. The DMG is
-> the intended hand-off.
+Issues and pull requests are welcome. [AGENTS.md](AGENTS.md) is the working
+agreement for this repository: how the code is organised, what must not break,
+and how changes are tested. Audio, model and threshold changes are decided by
+measurements in `exp/`, described in [experiments](.spec/experiments.md); the
+[roadmap](.spec/roadmap.md) lists what comes next.
 
-## Development references
+## License
 
-- [Architecture](.spec/architecture.md)
-- [Engineering decisions](.spec/decisions.md)
-- [Experiments](.spec/experiments.md)
-- [Roadmap](.spec/roadmap.md)
-- [MCP setup](docs/mcp.md)
+MIT. See [LICENSE](LICENSE).
+
+## Acknowledgements
+
+Meeting Transcriber stands on these projects:
+[whisper.cpp](https://github.com/ggml-org/whisper.cpp) and
+[llama.cpp](https://github.com/ggml-org/llama.cpp) (MIT),
+[sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx) (Apache-2.0),
+[audiotee](https://github.com/makeusabrew/audiotee) (MIT),
+[Wails](https://github.com/wailsapp/wails) (MIT),
+[React](https://react.dev), [Motion](https://motion.dev),
+[Lucide](https://lucide.dev) and [Tailwind CSS](https://tailwindcss.com), and
+the [Geologica](https://fonts.google.com/specimen/Geologica) typeface (SIL Open
+Font License, [notice](frontend/public/fonts/OFL.txt)).
+
+The models it downloads keep their own licences: Whisper large-v3-turbo (MIT),
+Silero VAD (MIT), pyannote segmentation 3.0 (MIT), 3D-Speaker CAM++
+(Apache-2.0), Parakeet TDT 0.6B v3 (CC BY 4.0), Gemma 4 E2B (Apache-2.0) and
+Qwen3 Embedding 0.6B (Apache-2.0). FFmpeg is downloaded as a separate program
+under its own licence.

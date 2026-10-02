@@ -163,6 +163,35 @@ export class CopilotAccount {
     }
 }
 
+/**
+ * Indexed counts the transcript passages search finds by meaning and those it
+ * finds by their words only.
+ */
+export class Indexed {
+    "meaning": number;
+    "words": number;
+
+    /** Creates a new Indexed instance. */
+    constructor($$source: Partial<Indexed> = {}) {
+        if (!("meaning" in $$source)) {
+            this["meaning"] = 0;
+        }
+        if (!("words" in $$source)) {
+            this["words"] = 0;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new Indexed instance from a string or object.
+     */
+    static createFrom($$source: any = {}): Indexed {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new Indexed($$parsedSource as Partial<Indexed>);
+    }
+}
+
 export class KnowledgeAnswer {
     "text": string;
     "sources": store$0.KnowledgeHit[];
@@ -400,6 +429,11 @@ export class Settings {
      * "19:00", for "at"
      */
     "transcribeAt": string;
+
+    /**
+     * "uk" or "en"
+     */
+    "uiLanguage": string;
     "folder": string;
 
     /** Creates a new Settings instance. */
@@ -457,6 +491,9 @@ export class Settings {
         }
         if (!("transcribeAt" in $$source)) {
             this["transcribeAt"] = "";
+        }
+        if (!("uiLanguage" in $$source)) {
+            this["uiLanguage"] = "";
         }
         if (!("folder" in $$source)) {
             this["folder"] = "";
@@ -542,6 +579,39 @@ export class State {
     static createFrom($$source: any = {}): State {
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         return new State($$parsedSource as Partial<State>);
+    }
+}
+
+/**
+ * Tidied is what an audio-retention sweep freed. Kept means audio is kept for
+ * ever, so nothing could go.
+ */
+export class Tidied {
+    "files": number;
+    "mb": number;
+    "kept": boolean;
+
+    /** Creates a new Tidied instance. */
+    constructor($$source: Partial<Tidied> = {}) {
+        if (!("files" in $$source)) {
+            this["files"] = 0;
+        }
+        if (!("mb" in $$source)) {
+            this["mb"] = 0;
+        }
+        if (!("kept" in $$source)) {
+            this["kept"] = false;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new Tidied instance from a string or object.
+     */
+    static createFrom($$source: any = {}): Tidied {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new Tidied($$parsedSource as Partial<Tidied>);
     }
 }
 

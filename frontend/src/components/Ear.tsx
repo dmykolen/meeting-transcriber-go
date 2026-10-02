@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react"
 import { Circle, EarOff, Loader, Pause, Square, TriangleAlert } from "lucide-react"
 import { Meetings, clock, type Listening } from "../api"
+import { t, tr } from "../i18n"
 
 /**
  * The always-on part, made visible.
@@ -83,7 +84,10 @@ function describe(s: Listening) {
         spin: false,
         pressable: true,
         label: clock(s.elapsed),
-        title: `Триває запис ${s.kind === "note" ? "нотатки" : "зустрічі"} — ⌘R зупинити`,
+        title:
+          s.kind === "note"
+            ? t("Триває запис нотатки — ⌘R зупинити")
+            : t("Триває запис зустрічі — ⌘R зупинити"),
       }
     case "wrapping up":
       return {
@@ -94,7 +98,7 @@ function describe(s: Listening) {
         spin: false,
         pressable: true,
         label: clock(s.elapsed),
-        title: `Тиша вже ${s.quiet} с — можливо, зустріч завершилась`,
+        title: t("Тиша вже {n} с — можливо, зустріч завершилась", { n: s.quiet }),
       }
     case "held":
       return {
@@ -105,7 +109,7 @@ function describe(s: Listening) {
         spin: false,
         pressable: true,
         label: clock(s.elapsed),
-        title: "Запис на паузі: сказане зараз не записується — ⌘R зупинити",
+        title: t("Запис на паузі: сказане зараз не записується — ⌘R зупинити"),
       }
     case "listening":
       return {
@@ -115,10 +119,10 @@ function describe(s: Listening) {
         halo: "",
         spin: false,
         pressable: true,
-        label: "Запис",
+        label: t("Запис"),
         title: s.system
-          ? "Слухаю. Почати запис — ⌘R"
-          : "Слухаю лише вас: звук співрозмовників не захоплюється",
+          ? t("Слухаю. Почати запис — ⌘R")
+          : t("Слухаю лише вас: звук співрозмовників не захоплюється"),
       }
     case "opening":
       return {
@@ -128,8 +132,8 @@ function describe(s: Listening) {
         halo: "",
         spin: true,
         pressable: false,
-        label: "Запуск",
-        title: "Відкриваю мікрофон. macOS може запитати дозвіл.",
+        label: t("Запуск"),
+        title: t("Відкриваю мікрофон. macOS може запитати дозвіл."),
       }
     case "paused":
     case "off":
@@ -140,8 +144,8 @@ function describe(s: Listening) {
         halo: "",
         spin: false,
         pressable: false,
-        label: "Вимкнено",
-        title: "Слухання вимкнено. Увімкніть його в параметрах.",
+        label: t("Вимкнено"),
+        title: t("Слухання вимкнено. Увімкніть його в параметрах."),
       }
     default:
       return {
@@ -151,8 +155,8 @@ function describe(s: Listening) {
         halo: "",
         spin: false,
         pressable: false,
-        label: "Помилка",
-        title: s.problem || "Не вдалося відкрити мікрофон",
+        label: t("Помилка"),
+        title: s.problem ? tr(s.problem) : t("Не вдалося відкрити мікрофон"),
       }
   }
 }

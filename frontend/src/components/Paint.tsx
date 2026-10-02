@@ -1,5 +1,6 @@
 import { Pipette } from "lucide-react"
 import { SWATCHES, hex } from "../colours"
+import { t } from "../i18n"
 
 /**
  * Giving something a colour.
@@ -48,7 +49,7 @@ export default function Paint({
           the swatch so the swatch is what you press, and the system panel is
           what opens. */}
       <label
-        title="Будь-який інший колір"
+        title={t("Будь-який інший колір")}
         className="relative ml-0.5 grid size-4 cursor-pointer place-items-center rounded-full border border-line text-faint transition-colors hover:border-soft hover:text-soft"
         style={{ background: chosen && !SWATCHES.includes(colour) ? colour : undefined }}
       >
@@ -67,7 +68,7 @@ export default function Paint({
           className="ml-1 inline-flex items-center gap-1 rounded px-1.5 py-1 text-[10px] text-faint transition-colors hover:bg-raised hover:text-text"
         >
           <span className="size-2 rounded-full" style={{ background: derived }} />
-          Скинути
+          {t("Скинути")}
         </button>
       )}
     </div>

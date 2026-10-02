@@ -94,7 +94,7 @@ Evidence: `exp/11_speakers`, `exp/12_community1`, `exp/13_company`, and
   a privacy permission. The GPU figure is a moment, so a spike only costs one
   30-second pass. Load in the two minutes after a job is the app's own and does
   not stop a batch while the Mac stays unattended.
-- A recording asked for by hand ("Розшифрувати зараз", or a retry) goes next,
+- A recording asked for by hand ("Transcribe now", or a retry) goes next,
   whatever the schedule, but still after a job in flight and after a live
   recording. The request lives in memory; after a restart the recording follows
   the schedule again.
@@ -123,6 +123,24 @@ Evidence: `exp/11_speakers`, `exp/12_community1`, `exp/13_company`, and
 - Destructive actions use bin + undo and reserve their layout space.
 - Every wait has a visible state.
 - Motion explains navigation or state and respects reduced motion.
+
+## Interface language
+
+- The interface is Ukrainian or English, switched in Settings without a
+  restart. The Ukrainian text is the key (`t("…")`); `frontend/src/en.ts` maps
+  it to English, and a key without English does not compile. A word with two
+  meanings carries one after `||` ("Скасувати||undo").
+- No i18n library: two languages, typed keys, and Ukrainian plurals already
+  handled by `Intl.PluralRules` did not justify one.
+- Messages the Go side writes stay Ukrainian. The interface translates the ones
+  it knows, keeping any ": detail" after a known head, so Go needs no language
+  of its own. Results the interface words itself (index, retention, voice)
+  come back as numbers.
+- A first run follows the Mac: Ukrainian if it is among the preferred
+  languages, English otherwise. An older settings file stays Ukrainian.
+- English loads as a separate chunk only when chosen.
+- WebKit draws `<input type="time">` in the app's locale whatever `lang` says,
+  so the schedule's time is a text field.
 
 ## MCP safety
 

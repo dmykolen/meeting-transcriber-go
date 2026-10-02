@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import { X } from "lucide-react"
 import { Meetings, why, type Action } from "../api"
+import { t } from "../i18n"
 export default function ActionEditor({
   recording,
   index,
@@ -47,18 +48,18 @@ export default function ActionEditor({
         }}
       >
         <header>
-          <h2>{index < 0 ? "Нова домовленість" : "Домовленість"}</h2>
+          <h2>{index < 0 ? t("Нова домовленість") : t("Домовленість")}</h2>
           <button
             type="button"
             className="ui-icon"
-            aria-label="Закрити"
+            aria-label={t("Закрити")}
             onClick={onClose}
           >
             <X size={16} />
           </button>
         </header>
         <label>
-          Що потрібно зробити
+          {t("Що потрібно зробити")}
           <textarea
             autoFocus
             required
@@ -68,19 +69,19 @@ export default function ActionEditor({
         </label>
         <div className="field-pair">
           <label>
-            Відповідальний
+            {t("Відповідальний")}
             <input
               value={value.owner}
               onChange={(e) => setValue({ ...value, owner: e.target.value })}
-              placeholder="Ім’я"
+              placeholder={t("Ім’я")}
             />
           </label>
           <label>
-            Строк
+            {t("Строк")}
             <input
               value={value.due}
               onChange={(e) => setValue({ ...value, due: e.target.value })}
-              placeholder="Наприклад, 12 вересня"
+              placeholder={t("Наприклад, 12 вересня")}
             />
           </label>
         </div>
@@ -91,13 +92,13 @@ export default function ActionEditor({
         )}
         <footer>
           <button type="button" className="ui-chip" onClick={onClose}>
-            Скасувати
+            {t("Скасувати")}
           </button>
           <button
             className="ui-primary"
             disabled={saving || !value.task.trim()}
           >
-            {saving ? "Зберігаю…" : "Зберегти"}
+            {saving ? t("Зберігаю…") : t("Зберегти")}
           </button>
         </footer>
       </form>

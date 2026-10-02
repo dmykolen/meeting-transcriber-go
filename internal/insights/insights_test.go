@@ -122,10 +122,10 @@ func TestLocalModelsSummariseAndFindOnThisMac(t *testing.T) {
 
 	summary, err := c.Summarise(context.Background(), []Turn{
 		{Start: 0, Speaker: "Marta", Text: "Треба вирішити доступ до нового кабінету і пакет для Northwind."},
-		{Start: 12, Speaker: "Dmytro", Text: "Пропоную залишити доступ тільки через VPN. Публічний доступ не відкриваємо."},
+		{Start: 12, Speaker: "Taras", Text: "Пропоную залишити доступ тільки через VPN. Публічний доступ не відкриваємо."},
 		{Start: 41, Speaker: "Marta", Text: "Домовились: доступ лише через VPN."},
 		{Start: 63, Speaker: "Marta", Text: "Я підготую пакет документів для Northwind до п'ятниці."},
-		{Start: 124, Speaker: "Dmytro", Text: "Хто погоджує фінальний перелік IP-діапазонів?"},
+		{Start: 124, Speaker: "Taras", Text: "Хто погоджує фінальний перелік IP-діапазонів?"},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -137,7 +137,7 @@ func TestLocalModelsSummariseAndFindOnThisMac(t *testing.T) {
 
 	passages, err := c.Embed(context.Background(), []string{
 		"Marta: Домовились, доступ лише через VPN.",
-		"Dmytro: Я перевірю перелік IP-діапазонів.",
+		"Taras: Я перевірю перелік IP-діапазонів.",
 	})
 	if err != nil {
 		t.Fatal(err)

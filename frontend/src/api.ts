@@ -2,6 +2,7 @@
 // reaches into a path with a Go module name in it.
 import * as Meetings from "../bindings/github.com/dmykolen/meeting-transcriber-go/internal/service/meetings"
 import * as Status from "../bindings/github.com/dmykolen/meeting-transcriber-go/internal/service/status"
+import { lang, locale, t, tr, type Key } from "./i18n"
 
 // Design mode: run the screens on sample data, for working on the interface
 // without waiting for a gigabyte of models.
@@ -310,6 +311,8 @@ export type Settings = {
   /** After each recording, at a time of day, or when the Mac is free. */
   transcribe: "after" | "at" | "idle"
   transcribeAt: string
+  /** The language of the interface itself. */
+  uiLanguage: "uk" | "en"
   folder: string
 }
 
@@ -317,7 +320,8 @@ export type Settings = {
  * What a failed call said. Wails names every Go error "RuntimeError", and
  * String(e) would put that word in front of the message.
  */
-export const why = (e: unknown) => (e instanceof Error ? e.message : String(e))
+export const why = (e: unknown) =>
+  tr(e instanceof Error ? e.message : String(e))
 
 /** Seconds as a person says them: 4:07, or 1:12:30 for the long ones. */
 export function clock(seconds: number): string {
@@ -332,22 +336,20 @@ export function clock(seconds: number): string {
 /**
  * Ukrainian counts three ways — 1 нарада, 2 наради, 5 нарад — and the app said
  * "2 нарад" everywhere it counted anything. Intl knows which form a number
- * takes; the words are the only part worth writing down.
+ * takes; the words are the only part worth writing down. English needs two.
  */
 const rule = new Intl.PluralRules("uk")
-export const many = (
-  n: number,
-  one: string,
-  few: string,
-  rest: string,
-): string => (({ one, few }) as Record<string, string>)[rule.select(n)] ?? rest
+export const many = (n: number, one: Key, few: string, rest: Key): string =>
+  lang() === "en"
+    ? t(n === 1 ? one : rest)
+    : ((({ one, few }) as Record<string, string>)[rule.select(n)] ?? rest)
 
 /** "18 minutes", "1 hr 4 min" — a length, not a timestamp. */
 export function length(seconds: number): string {
   const m = Math.round(seconds / 60)
-  if (m < 1) return "до хвилини"
-  if (m < 60) return `${m} хв`
-  return `${Math.floor(m / 60)} год ${m % 60} хв`
+  if (m < 1) return t("до хвилини")
+  if (m < 60) return t("{m} хв", { m })
+  return t("{h} год {m} хв", { h: Math.floor(m / 60), m: m % 60 })
 }
 
 /** Today, Yesterday, or the date. Nobody wants a full timestamp in a list. */
@@ -357,16 +359,16 @@ export function when(iso: string): string {
   const day = (d: Date) =>
     new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()
   const days = Math.round((day(now) - day(at)) / 86_400_000)
-  const time = at.toLocaleTimeString("uk-UA", {
+  const time = at.toLocaleTimeString(locale(), {
     hour: "2-digit",
     minute: "2-digit",
   })
-  if (days === 0) return `Сьогодні ${time}`
-  if (days === 1) return `Учора ${time}`
+  if (days === 0) return t("Сьогодні {time}", { time })
+  if (days === 1) return t("Учора {time}", { time })
   if (days < 7)
-    return at.toLocaleDateString("uk-UA", { weekday: "long" }) + ` ${time}`
+    return at.toLocaleDateString(locale(), { weekday: "long" }) + ` ${time}`
   return (
-    at.toLocaleDateString("uk-UA", { day: "numeric", month: "short" }) +
+    at.toLocaleDateString(locale(), { day: "numeric", month: "short" }) +
     ` ${time}`
   )
 }

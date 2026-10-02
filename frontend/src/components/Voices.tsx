@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react"
 import type { Turn } from "../api"
 import { clock } from "../api"
+import { t } from "../i18n"
 
 /**
  * Who held the floor, in order — a row each.
@@ -137,7 +138,7 @@ export default function Voices({
         {over && (
           <span className="tabular-nums">
             {clock(over.start)} — {clock(over.end)} ·{" "}
-            {Math.round(over.end - over.start)} с
+            {t("{n} с", { n: Math.round(over.end - over.start) })}
           </span>
         )}
       </p>

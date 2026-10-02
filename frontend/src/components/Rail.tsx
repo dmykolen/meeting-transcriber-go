@@ -8,6 +8,7 @@ import {
   Sunrise,
 } from "lucide-react"
 import Ear from "./Ear"
+import { t, type Key } from "../i18n"
 
 export type Screen =
   | "today"
@@ -26,7 +27,7 @@ const screens = [
   { id: "settings", label: "Параметри", Icon: Settings2, key: "," },
 ] as const satisfies readonly {
   id: Screen
-  label: string
+  label: Key
   Icon: typeof Search
   key: string
 }[]
@@ -52,8 +53,8 @@ export default function Rail({
           <button
             key={id}
             onClick={() => onChange(id)}
-            title={`${label}   ⌘${key}`}
-            aria-label={label}
+            title={`${t(label)}   ⌘${key}`}
+            aria-label={t(label)}
             aria-current={active ? "page" : undefined}
             className="rail-control group relative flex w-full flex-col items-center gap-1 rounded-xl px-1 py-2"
           >
@@ -76,7 +77,7 @@ export default function Rail({
                 active ? "text-text" : "text-faint group-hover:text-soft"
               }`}
             >
-              {label}
+              {t(label)}
             </span>
           </button>
         )

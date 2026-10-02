@@ -71,7 +71,7 @@ func TestOnePersonIsNotGivenTwoSeatsAtTheTable(t *testing.T) {
 func TestVoiceprintsAreCappedAndTheRedundantOneGoes(t *testing.T) {
 	db := openDB(t)
 	for i := range Keep + 4 {
-		if err := db.Remember("Dmytro", voice(uint64(100+i), 0), Source{Recording: int64(i + 1), Speaker: "Dmytro"}); err != nil {
+		if err := db.Remember("Taras", voice(uint64(100+i), 0), Source{Recording: int64(i + 1), Speaker: "Taras"}); err != nil {
 			t.Fatal(err)
 		}
 	}

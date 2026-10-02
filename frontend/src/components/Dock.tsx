@@ -15,6 +15,7 @@ import {
 import { FolderPlus, Layers, Grid2X2 } from "lucide-react"
 import type { Group } from "../api"
 import { colourOf, on as legible } from "../colours"
+import { t } from "../i18n"
 
 /**
  * The projects, as a dock.
@@ -81,7 +82,7 @@ export default function Dock({
     {
       key: "all",
       id: null,
-      name: "Усі записи",
+      name: t("Усі записи"),
       note: "",
       colour: "var(--color-raised)",
     },
@@ -255,18 +256,18 @@ export default function Dock({
 
         <button
           className="dock-more ui-icon"
-          aria-label="Усі проєкти"
+          aria-label={t("Усі проєкти")}
           popoverTarget="all-projects"
         >
           <Grid2X2 size={17} />
         </button>
         <div id="all-projects" popover="auto" className="all-projects">
           <header>
-            <strong>Проєкти · {groups.length}</strong>
+            <strong>{t("Проєкти · {n}", { n: groups.length })}</strong>
           </header>
           <input
-            aria-label="Знайти проєкт"
-            placeholder="Знайти проєкт…"
+            aria-label={t("Знайти проєкт")}
+            placeholder={t("Знайти проєкт…")}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
           />
@@ -299,7 +300,7 @@ export default function Dock({
           hot={false}
           down={false}
           still={!!still}
-          label="Новий проєкт"
+          label={t("Новий проєкт")}
           onDown={() => {}}
           onClick={onNew}
         >
@@ -324,7 +325,7 @@ export default function Dock({
           style={{ x, opacity: shown, y: rise }}
           className="pointer-events-none absolute bottom-[calc(100%+9px)] left-0 flex h-[34px] -translate-x-1/2 items-center gap-2 whitespace-nowrap px-3.5 text-[11.5px]"
         >
-          {over !== null && <span className="text-faint">Перенести в</span>}
+          {over !== null && <span className="text-faint">{t("Перенести в")}</span>}
           <span className="font-medium">{item?.name ?? ""}</span>
           {item?.note && over === null && (
             <span className="text-faint tabular-nums">{item.note}</span>

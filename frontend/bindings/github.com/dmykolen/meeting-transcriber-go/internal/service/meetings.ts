@@ -360,8 +360,10 @@ export function Redate(recording: number, when: string): $CancellablePromise<voi
 /**
  * Reindex fills in any missing search vectors.
  */
-export function Reindex(): $CancellablePromise<string> {
-    return $Call.ByID(1676040235);
+export function Reindex(): $CancellablePromise<$models.Indexed> {
+    return $Call.ByID(1676040235).then(($result: any) => {
+        return $$createType29($result);
+    });
 }
 
 export function RemoveNote(id: number): $CancellablePromise<void> {
@@ -416,7 +418,7 @@ export function Rush(id: number): $CancellablePromise<void> {
  */
 export function Samples(name: string): $CancellablePromise<store$0.Source[]> {
     return $Call.ByID(3779078695, name).then(($result: any) => {
-        return $$createType30($result);
+        return $$createType31($result);
     });
 }
 
@@ -439,19 +441,19 @@ export function SaveSettings(s: $models.Settings): $CancellablePromise<void> {
  */
 export function Search(query: string): $CancellablePromise<store$0.Hit[]> {
     return $Call.ByID(3261299832, query).then(($result: any) => {
-        return $$createType32($result);
+        return $$createType33($result);
     });
 }
 
 export function SearchKnowledge(query: string, semantic: boolean): $CancellablePromise<store$0.KnowledgeHit[]> {
     return $Call.ByID(4128673916, query, semantic).then(($result: any) => {
-        return $$createType34($result);
+        return $$createType35($result);
     });
 }
 
 export function Settings(): $CancellablePromise<$models.Settings> {
     return $Call.ByID(912023337).then(($result: any) => {
-        return $$createType35($result);
+        return $$createType36($result);
     });
 }
 
@@ -460,7 +462,7 @@ export function Settings(): $CancellablePromise<$models.Settings> {
  */
 export function Span(days: number): $CancellablePromise<store$0.Mark[]> {
     return $Call.ByID(613994076, days).then(($result: any) => {
-        return $$createType37($result);
+        return $$createType38($result);
     });
 }
 
@@ -469,7 +471,7 @@ export function Span(days: number): $CancellablePromise<store$0.Mark[]> {
  */
 export function Standing(group: number): $CancellablePromise<store$0.Standing | null> {
     return $Call.ByID(1867745684, group).then(($result: any) => {
-        return $$createType39($result);
+        return $$createType40($result);
     });
 }
 
@@ -488,9 +490,10 @@ export function Summarise(id: number): $CancellablePromise<void> {
 }
 
 /**
- * ThisIsMe names the laptop owner and backfills any usable self voiceprints.
+ * ThisIsMe names the laptop owner and backfills any usable self voiceprints. It
+ * returns how many recordings the voice was learnt from.
  */
-export function ThisIsMe(name: string): $CancellablePromise<string> {
+export function ThisIsMe(name: string): $CancellablePromise<number> {
     return $Call.ByID(50897806, name);
 }
 
@@ -511,8 +514,10 @@ export function TickItem(group: number, id: number, done: boolean): $Cancellable
 /**
  * Tidy runs the audio-retention sweep now.
  */
-export function Tidy(): $CancellablePromise<string> {
-    return $Call.ByID(2734074620);
+export function Tidy(): $CancellablePromise<$models.Tidied> {
+    return $Call.ByID(2734074620).then(($result: any) => {
+        return $$createType41($result);
+    });
 }
 
 /**
@@ -520,7 +525,7 @@ export function Tidy(): $CancellablePromise<string> {
  */
 export function Waveform(id: number): $CancellablePromise<number[]> {
     return $Call.ByID(1827314399, id).then(($result: any) => {
-        return $$createType40($result);
+        return $$createType42($result);
     });
 }
 
@@ -554,15 +559,17 @@ const $$createType25 = store$0.Person.createFrom;
 const $$createType26 = $Create.Array($$createType25);
 const $$createType27 = store$0.Summary.createFrom;
 const $$createType28 = $Create.Nullable($$createType27);
-const $$createType29 = store$0.Source.createFrom;
-const $$createType30 = $Create.Array($$createType29);
-const $$createType31 = store$0.Hit.createFrom;
-const $$createType32 = $Create.Array($$createType31);
-const $$createType33 = store$0.KnowledgeHit.createFrom;
-const $$createType34 = $Create.Array($$createType33);
-const $$createType35 = $models.Settings.createFrom;
-const $$createType36 = store$0.Mark.createFrom;
-const $$createType37 = $Create.Array($$createType36);
-const $$createType38 = store$0.Standing.createFrom;
-const $$createType39 = $Create.Nullable($$createType38);
-const $$createType40 = $Create.Array($Create.Any);
+const $$createType29 = $models.Indexed.createFrom;
+const $$createType30 = store$0.Source.createFrom;
+const $$createType31 = $Create.Array($$createType30);
+const $$createType32 = store$0.Hit.createFrom;
+const $$createType33 = $Create.Array($$createType32);
+const $$createType34 = store$0.KnowledgeHit.createFrom;
+const $$createType35 = $Create.Array($$createType34);
+const $$createType36 = $models.Settings.createFrom;
+const $$createType37 = store$0.Mark.createFrom;
+const $$createType38 = $Create.Array($$createType37);
+const $$createType39 = store$0.Standing.createFrom;
+const $$createType40 = $Create.Nullable($$createType39);
+const $$createType41 = $models.Tidied.createFrom;
+const $$createType42 = $Create.Array($Create.Any);

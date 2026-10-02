@@ -12,10 +12,12 @@ export {
     AIState,
     Answer,
     CopilotAccount,
+    Indexed,
     KnowledgeAnswer,
     MCPState,
     Meeting,
     Settings,
     Stage,
-    State
+    State,
+    Tidied
 } from "./models.js";

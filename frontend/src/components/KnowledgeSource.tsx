@@ -8,7 +8,8 @@ import {
 } from "lucide-react"
 import { clock, type KnowledgeHit } from "../api"
 import Drawer from "./Drawer"
-export const kindName: Record<string, string> = {
+import { t, type Key } from "../i18n"
+export const kindName: Record<string, Key> = {
   transcript: "Розшифровка",
   summary: "Підсумок",
   note: "Нотатка",
@@ -45,7 +46,7 @@ export default function KnowledgeSource({
       <article className="knowledge-hit">
         <header>
           <Icon size={13} />
-          <span>{kindName[hit.kind] || hit.kind}</span>
+          <span>{kindName[hit.kind] ? t(kindName[hit.kind]) : hit.kind}</span>
           <b>{hit.title}</b>
           {hit.kind === "transcript" && <time>{clock(hit.start)}</time>}
         </header>
@@ -54,23 +55,25 @@ export default function KnowledgeSource({
         </button>
         <footer>
           <button onClick={go}>
-            Відкрити {hit.kind === "transcript" ? "момент" : "документ"}
+            {hit.kind === "transcript"
+              ? t("Відкрити момент")
+              : t("Відкрити документ")}
             <ArrowUpRight size={12} />
           </button>
-          <button onClick={() => setOpen(true)}>Джерело поруч</button>
+          <button onClick={() => setOpen(true)}>{t("Джерело поруч")}</button>
         </footer>
       </article>
       <Drawer
         open={open}
         onClose={() => setOpen(false)}
-        title={kindName[hit.kind] || "Джерело"}
+        title={t(kindName[hit.kind] || "Джерело")}
       >
         <div className="source-document">
           <h3>{hit.title}</h3>
           {hit.kind === "transcript" && <time>{clock(hit.start)}</time>}
           <p>{hit.text}</p>
           <button className="ui-chip" onClick={go}>
-            Відкрити документ
+            {t("Відкрити документ")}
             <ArrowUpRight size={13} />
           </button>
         </div>

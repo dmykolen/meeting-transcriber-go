@@ -4,6 +4,7 @@ import Head from "../components/Head"
 import KnowledgeSource from "../components/KnowledgeSource"
 import { Meetings, why, type KnowledgeAnswer } from "../api"
 import NeedsKey from "../components/NeedsKey"
+import { t } from "../i18n"
 const saved = { question: "", answer: null as KnowledgeAnswer | null }
 export default function Ask({
   onOpen,
@@ -34,45 +35,48 @@ export default function Ask({
   }
   return (
     <div className="knowledge-screen">
-      <Head title="Запитати архів" />
+      <Head title={t("Запитати архів")} />
       <div className="knowledge-query">
-        <NeedsKey what="Відповіді з архіву" />
+        <NeedsKey what={t("Відповіді з архіву")} />
         <p className="knowledge-intro">
-          Пов’яжіть сказане на зустрічах із рішеннями проєктів і власними
-          нотатками.
+          {t(
+            "Пов’яжіть сказане на зустрічах із рішеннями проєктів і власними нотатками.",
+          )}
         </p>
         <div className="knowledge-query-line">
           <Sparkles size={15} />
           <input
-            aria-label="Питання до архіву"
+            aria-label={t("Питання до архіву")}
             value={question}
             onChange={(e) => {
               setQuestion(e.target.value)
               saved.question = e.target.value
             }}
             onKeyDown={(e) => e.key === "Enter" && void send()}
-            placeholder="Що змінилося і чому?"
+            placeholder={t("Що змінилося і чому?")}
           />
           <button
             className="ui-primary"
             disabled={busy || !question.trim()}
             onClick={() => void send()}
           >
-            {busy ? "Зіставляю…" : "Запитати"}
+            {busy ? t("Зіставляю…") : t("Запитати")}
             <ArrowUpRight size={13} />
           </button>
         </div>
         <div className="knowledge-coverage">
-          <span>Увесь архів</span>
+          <span>{t("Увесь архів")}</span>
           <small>
-            Зустрічі · розшифровки · підсумки · проєкти · нотатки · домовленості
+            {t(
+              "Зустрічі · розшифровки · підсумки · проєкти · нотатки · домовленості",
+            )}
           </small>
         </div>
       </div>
       <div className="knowledge-results">
         {busy && (
           <div className="search-working">
-            Знаходжу джерела та формую відповідь…
+            {t("Знаходжу джерела та формую відповідь…")}
             <i />
           </div>
         )}
@@ -80,7 +84,7 @@ export default function Ask({
           <p role="alert" className="error">
             {problem}
             <button className="ui-chip" onClick={() => void send()}>
-              Повторити
+              {t("Повторити")}
             </button>
           </p>
         )}
@@ -88,7 +92,7 @@ export default function Ask({
           <>
             <p className="knowledge-answer">{answer.text}</p>
             <h3 className="result-count">
-              Джерела відповіді · {answer.sources?.length || 0}
+              {t("Джерела відповіді · {n}", { n: answer.sources?.length || 0 })}
             </h3>
             {answer.sources?.map((h) => (
               <KnowledgeSource

@@ -5,7 +5,7 @@ re-proposed.
 
 ## Next
 
-The next iteration takes the first two, in that order (owner, 2026-09-29).
+The voice-recognition fix comes next (owner, 2026-09-29).
 
 1. **Voice recognition after the speaker-model switch** (found by
    `exp/20_voices`, 2026-09-29)
@@ -22,23 +22,18 @@ The next iteration takes the first two, in that order (owner, 2026-09-29).
    - `mine()` can leave the owner's print identical to a far-side label's
      print (10 current-model meetings).
 
-2. **Interface in Ukrainian and English**
-   - A language switch in Settings; Ukrainian stays the default.
-   - It covers the whole interface, the recording strip, and the messages the
-     app itself shows.
-
-3. **Vocabulary and transcript correction**
+2. **Vocabulary and transcript correction**
    - Let a person correct names, products, and technical terms.
    - Reuse corrections on later meetings.
    - The old prompt-only glossary experiment failed; the implementation needs a
      new measured approach that does not restore looping context.
 
-4. **Dictation mode**
+3. **Dictation mode**
    - One button and hotkey start and stop.
    - After stopping, choose a project or leave the note unfiled.
    - Optionally clean dictated text without making AI mandatory for capture.
 
-5. **Local model quality**
+4. **Local model quality**
    - The local option ships with a small, unmeasured default (Gemma 4 E2B).
      Its first run chaptered everything at 0 s and dropped a spoken deadline.
    - Measure current candidates on several anonymized real transcripts,
@@ -46,7 +41,7 @@ The next iteration takes the first two, in that order (owner, 2026-09-29).
      Qwen3.5+ and the Ukrainian MamayLM v2.
    - See [the measured spike](spikes/performance-local-llm-spike.md).
 
-6. **GitHub Copilot end to end**
+5. **GitHub Copilot end to end**
    - Start, sign-in state, the model list and errors are verified; a
      successful summary is not, because the test account was over its monthly
      quota.
@@ -118,6 +113,8 @@ Measured on a copy of the owner's archive on 2026-09-28 (109 meetings, 42.8 h,
 - ~~AI from OpenAI, GitHub Copilot, or a local model, and local search vectors.~~
 - ~~Always-on-top recording strip: tell the others, pause, stop.~~
 - ~~Background semantic-index progress with named phases.~~
+- ~~Interface in Ukrainian and English, switched in Settings.~~
+- ~~Transcription schedule: right after a recording, at a set time, or when the Mac is free.~~
 
 ## Do not propose again
 

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -48,6 +49,7 @@ type Config struct {
 	Summarise Choice `toml:"summarise"`
 	Density string `toml:"density"`
 	Transcriber string `toml:"transcriber"`
+	UILanguage  string `toml:"ui_language"` // "uk" or "en", the interface's own language
 	Me string `toml:"me"`
 	Listen Listen `toml:"listen"`
 	Keep   Keep   `toml:"keep"`
@@ -145,6 +147,7 @@ func Defaults() Config {
 	return Config{
 		Language:    "uk",
 		Transcriber: "whisper",
+		UILanguage:  "uk",
 		OpenAIModel: "gpt-5.4-mini",
 		Summarise:   "meetings",
 		Density:     "compact",
@@ -170,6 +173,9 @@ func Load(dir string) (Config, error) {
 
 	switch _, err := os.Stat(path); {
 	case os.IsNotExist(err):
+		// A first run speaks the language of the Mac; an older settings file
+		// without the key keeps the Ukrainian it always had.
+		cfg.UILanguage = system()
 		return cfg, write(path, cfg)
 	case err != nil:
 		return cfg, err
@@ -206,7 +212,23 @@ func Load(dir string) (Config, error) {
 	if _, err := time.Parse("15:04", cfg.Queue.At); err != nil {
 		cfg.Queue.At = Defaults().Queue.At
 	}
+	if !slices.Contains(UILanguages, cfg.UILanguage) {
+		cfg.UILanguage = Defaults().UILanguage
+	}
 	return cfg, nil
+}
+
+// UILanguages are the languages the interface is written in.
+var UILanguages = []string{"uk", "en"}
+
+// system is "uk" when Ukrainian is among the Mac's preferred languages, and
+// "en" otherwise.
+func system() string {
+	listed, _ := exec.Command("defaults", "read", "-g", "AppleLanguages").Output()
+	if strings.Contains(string(listed), `"uk`) {
+		return "uk"
+	}
+	return "en"
 }
 
 // Save writes the config back to disk.
@@ -235,6 +257,7 @@ func write(path string, cfg Config) error {
 #               usually a phone call or a thought said out loud.
 # me            your name. Everything the microphone hears is you, so this is
 #               applied directly rather than recognised.
+# ui_language   "uk" or "en": the language of the interface itself.
 # transcriber   "whisper" or "parakeet". Parakeet is faster and, on clean read
 #               speech, more accurate on Ukrainian — but it picks the language
 #               itself and cannot be told, and on a meeting recorded through a

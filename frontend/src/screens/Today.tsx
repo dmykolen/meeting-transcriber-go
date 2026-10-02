@@ -19,6 +19,7 @@ import {
   type Outstanding,
 } from "../api"
 import NeedsKey from "../components/NeedsKey"
+import { t } from "../i18n"
 
 const windows = [
   { days: 1, label: "Сьогодні" },
@@ -62,7 +63,7 @@ export default function Today({ onOpen }: { onOpen: (id: number) => void }) {
 
   return (
     <div className="today-screen flex h-full flex-col">
-      <Head title={windows.find((w) => w.days === days)?.label ?? "Сьогодні"}>
+      <Head title={t(windows.find((w) => w.days === days)?.label ?? "Сьогодні")}>
         <div className="flex rounded-md bg-raised p-0.5">
           {windows.map((w) => (
             <button
@@ -80,7 +81,7 @@ export default function Today({ onOpen }: { onOpen: (id: number) => void }) {
               <span
                 className={`relative z-10 ${days === w.days ? "text-text" : "text-faint"}`}
               >
-                {w.label}
+                {t(w.label)}
               </span>
             </button>
           ))}
@@ -93,7 +94,7 @@ export default function Today({ onOpen }: { onOpen: (id: number) => void }) {
             {problem}
           </p>
         ) : !brief ? (
-          <p className="reader-loading">Збираю контекст…</p>
+          <p className="reader-loading">{t("Збираю контекст…")}</p>
         ) : empty ? (
           <Quiet />
         ) : (
@@ -102,10 +103,10 @@ export default function Today({ onOpen }: { onOpen: (id: number) => void }) {
 
             {brief.overdue.length > 0 && (
               <Block
-                title="Строк минув"
+                title={t("Строк минув")}
                 Icon={AlarmClock}
                 tone="text-warn"
-                hint="Обіцяне, чий строк уже минув."
+                hint={t("Обіцяне, чий строк уже минув.")}
               >
                 {brief.overdue.map((a, i) => (
                   <Item key={i} action={a} overdue onOpen={onOpen} />
@@ -115,9 +116,11 @@ export default function Today({ onOpen }: { onOpen: (id: number) => void }) {
 
             {brief.nagging.length > 0 && (
               <Block
-                title="Повертається знову"
+                title={t("Повертається знову")}
                 Icon={RefreshCw}
-                hint="Питали не на одній нараді, і відповіді досі немає. Цього ніхто не помічає, бо кожна нарада памʼятає лише себе."
+                hint={t(
+                  "Питали не на одній нараді, і відповіді досі немає. Цього ніхто не помічає, бо кожна нарада памʼятає лише себе.",
+                )}
               >
                 {brief.nagging.map((n, i) => (
                   <button
@@ -143,9 +146,9 @@ export default function Today({ onOpen }: { onOpen: (id: number) => void }) {
 
             {brief.mine.length > 0 && (
               <Block
-                title="Досі відкрите"
+                title={t("Досі відкрите")}
                 Icon={CircleCheck}
-                hint="Усе, що хтось пообіцяв і не закрив."
+                hint={t("Усе, що хтось пообіцяв і не закрив.")}
               >
                 {brief.mine.slice(0, 12).map((a, i) => (
                   <Item key={i} action={a} onOpen={onOpen} />
@@ -155,9 +158,9 @@ export default function Today({ onOpen }: { onOpen: (id: number) => void }) {
 
             {brief.decided.length > 0 && (
               <Block
-                title="Вирішено"
+                title={t("Вирішено")}
                 Icon={Gavel}
-                hint="Вирішене за цей проміжок."
+                hint={t("Вирішене за цей проміжок.")}
               >
                 {brief.decided.map((d, i) => (
                   <button
@@ -177,7 +180,7 @@ export default function Today({ onOpen }: { onOpen: (id: number) => void }) {
             )}
 
             {brief.meetings.length > 0 && (
-              <Block title="Записано" Icon={CalendarRange} hint="">
+              <Block title={t("Записано")} Icon={CalendarRange} hint="">
                 {brief.meetings.map((m) => (
                   <button
                     key={m.id}
@@ -195,7 +198,7 @@ export default function Today({ onOpen }: { onOpen: (id: number) => void }) {
               </Block>
             )}
 
-            <NeedsKey what="Усе на цьому екрані" />
+            <NeedsKey what={t("Усе на цьому екрані")} />
           </div>
         )}
       </div>
@@ -208,22 +211,35 @@ function Numbers({ brief }: { brief: Briefing }) {
   return (
     <div className="today-context-line">
       <span>
-        <b>{brief.meetings.length}</b> зустрічей
+        <b>{brief.meetings.length}</b>{" "}
+        {many(brief.meetings.length, "зустріч", "зустрічі", "зустрічей")}
       </span>
       <span>
-        <b>{brief.minutes}</b> хв
+        <b>{brief.minutes}</b> {t("хв")}
       </span>
       <span>
-        <b>{brief.mine.length}</b> відкритих справ
+        <b>{brief.mine.length}</b>{" "}
+        {many(brief.mine.length, "відкрита справа", "відкриті справи", "відкритих справ")}
       </span>
       {brief.overdue.length > 0 && (
         <span className="text-warn">
-          <b>{brief.overdue.length}</b> прострочено
+          <b>{brief.overdue.length}</b> {t("прострочено")}
         </span>
       )}
       {brief.skipped > 0 && (
-        <span title={`${brief.spared} хвилин зайвого розпізнавання заощаджено`}>
-          <b>{brief.skipped}</b> коротких записів відкинуто
+        <span
+          title={t("{n} {word} зайвого розпізнавання заощаджено", {
+            n: brief.spared,
+            word: many(brief.spared, "хвилину", "хвилини", "хвилин"),
+          })}
+        >
+          <b>{brief.skipped}</b>{" "}
+          {many(
+            brief.skipped,
+            "короткий запис відкинуто",
+            "короткі записи відкинуто",
+            "коротких записів відкинуто",
+          )}
         </span>
       )}
     </div>
@@ -299,9 +315,9 @@ function Quiet() {
       transition={{ delay: 0.1 }}
     >
       <Users size={26} className="text-faint" />
-      <h2 className="mt-4 text-[14px] font-medium">Поки без новин</h2>
+      <h2 className="mt-4 text-[14px] font-medium">{t("Поки без новин")}</h2>
       <p className="mt-1 max-w-xs text-[12.5px] leading-relaxed text-soft">
-        За цей період немає зустрічей або відкритих справ.
+        {t("За цей період немає зустрічей або відкритих справ.")}
       </p>
     </motion.div>
   )

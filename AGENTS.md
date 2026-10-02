@@ -21,7 +21,9 @@ Stack:
 
 The owner communicates in Ukrainian. Reply in Ukrainian. Keep code, comments,
 documentation, logs, and technical identifiers in English. The product UI is
-Ukrainian, with familiar English technical terms where that is clearer.
+Ukrainian or English, chosen in Settings. Ukrainian is the source: write
+interface text in Ukrainian through `t()` and add its English to
+`frontend/src/en.ts`, which the compiler checks.
 
 ## Source of truth
 
@@ -167,9 +169,12 @@ Performance, audio quality, ASR behavior, diarization thresholds, and model
 choices are decided by experiments, not intuition.
 
 - All experimental programs live in `exp/NN_name/`.
-- Ground truth lives in `exp/truth/`.
-- Reproducible text results live in `exp/out/`.
-- Do not commit raw private meeting audio.
+- Ground truth lives in `exp/truth/`, which git ignores: it is made from
+  private meetings.
+- Reproducible text results live in `exp/out/`. Commit the measured numbers,
+  never a transcript dump; `.gitignore` names the dumps.
+- Do not commit private meeting audio, transcripts, titles, or the names of
+  the people in them. Print recording IDs and speaker labels instead.
 - Start with a baseline, vary one thing, run against a real recording and the
   edge case that broke the previous attempt, and record the numbers.
 - An experiment may print aggressively and be ugly. Production code may not.

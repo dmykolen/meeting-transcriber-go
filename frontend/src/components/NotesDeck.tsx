@@ -3,6 +3,7 @@ import { createPortal } from "react-dom"
 import { AnimatePresence, motion } from "motion/react"
 import { Check, NotebookPen, Plus, Trash2, X } from "lucide-react"
 import { Meetings, why, type Sticky } from "../api"
+import { t, tr } from "../i18n"
 const colors = ["lime", "blue", "pink", "orange"]
 export default function NotesDeck({
   recording = 0,
@@ -160,7 +161,7 @@ export default function NotesDeck({
       <button
         ref={trigger}
         className="notes-trigger"
-        aria-label={`Нотатки · ${notes.length}`}
+        aria-label={t("Нотатки · {n}", { n: notes.length })}
         aria-expanded={open}
         onPointerEnter={show}
         onPointerLeave={() => {
@@ -187,7 +188,7 @@ export default function NotesDeck({
           ))}
         </span>
         <span>
-          Нотатки <b>{notes.length || "+"}</b>
+          {t("Нотатки")} <b>{notes.length || "+"}</b>
         </span>
       </button>
       {createPortal(
@@ -209,18 +210,18 @@ export default function NotesDeck({
             >
               <header>
                 <span>
-                  <NotebookPen size={14} /> Ваші нотатки <b>{notes.length}</b>
+                  <NotebookPen size={14} /> {t("Ваші нотатки")} <b>{notes.length}</b>
                 </span>
                 <button
                   className="ui-icon"
-                  aria-label="Додати нотатку"
+                  aria-label={t("Додати нотатку")}
                   onClick={() => void add()}
                 >
                   <Plus size={15} />
                 </button>
                 <button
                   className="ui-icon"
-                  aria-label="Закрити нотатки"
+                  aria-label={t("Закрити нотатки")}
                   onClick={() => {
                     setOpen(false)
                     setEditing(null)
@@ -233,9 +234,9 @@ export default function NotesDeck({
                 <div className={`note-editor ${selected.colour}`}>
                   <textarea
                     autoFocus
-                    aria-label="Текст нотатки"
+                    aria-label={t("Текст нотатки")}
                     value={selected.text}
-                    placeholder="Запишіть думку…"
+                    placeholder={t("Запишіть думку…")}
                     onChange={(e) => change(selected.id, e.target.value)}
                     onBlur={() => {
                       clearTimeout(saveTimer.current)
@@ -248,13 +249,13 @@ export default function NotesDeck({
                         <button
                           key={c}
                           className={c}
-                          aria-label={`Колір ${c}`}
+                          aria-label={t("Колір {c}", { c })}
                           onClick={() => change(selected.id, selected.text, c)}
                         />
                       ))}
                     </div>
                     <button
-                      aria-label="Видалити нотатку"
+                      aria-label={t("Видалити нотатку")}
                       onClick={async () => {
                         try {
                           clearTimeout(saveTimer.current)
@@ -278,7 +279,7 @@ export default function NotesDeck({
                       <Trash2 size={14} />
                     </button>
                     <button onClick={() => setEditing(null)}>
-                      <Check size={14} /> До колоди
+                      <Check size={14} /> {t("До колоди")}
                     </button>
                   </footer>
                 </div>
@@ -301,7 +302,7 @@ export default function NotesDeck({
                         onFocus={() => setActive(i)}
                         onClick={() => setEditing(n.id)}
                       >
-                        <span>{n.text || "Нова думка…"}</span>
+                        <span>{n.text || t("Нова думка…")}</span>
                         <small>{String(i + 1).padStart(2, "0")}</small>
                       </button>
                     ))
@@ -309,9 +310,9 @@ export default function NotesDeck({
                     <button className="notes-empty" onClick={() => void add()}>
                       <Plus size={22} />
                       <span>
-                        Залиште власну думку
+                        {t("Залиште власну думку")}
                         <br />
-                        <small>до зустрічі або проєкту</small>
+                        <small>{t("до зустрічі або проєкту")}</small>
                       </span>
                     </button>
                   )}
@@ -319,23 +320,25 @@ export default function NotesDeck({
               )}
               {notes.length > 6 && editing === null && (
                 <select
-                  aria-label="Усі нотатки"
+                  aria-label={t("Усі нотатки")}
                   value=""
                   onChange={(e) => setEditing(+e.target.value)}
                 >
-                  <option value="">Усі {notes.length} нотаток…</option>
+                  <option value="">{t("Усі {n} нотаток…", { n: notes.length })}</option>
                   {notes.map((n) => (
                     <option value={n.id} key={n.id}>
-                      {n.text.slice(0, 55) || "Нова нотатка"}
+                      {n.text.slice(0, 55) || t("Нова нотатка")}
                     </option>
                   ))}
                 </select>
               )}
               <p className={status.startsWith("Не") ? "error" : "note-status"}>
-                {status || "Наведіть, щоб розкласти · натисніть, щоб писати"}
+                {status
+                  ? tr(status)
+                  : t("Наведіть, щоб розкласти · натисніть, щоб писати")}
                 {status.startsWith("Не збережено") && selected && (
                   <button className="ui-chip" onClick={() => save(selected)}>
-                    Повторити збереження
+                    {t("Повторити збереження")}
                   </button>
                 )}
                 {removed && (
@@ -360,7 +363,7 @@ export default function NotesDeck({
                       }
                     }}
                   >
-                    Скасувати видалення
+                    {t("Скасувати видалення")}
                   </button>
                 )}
               </p>
