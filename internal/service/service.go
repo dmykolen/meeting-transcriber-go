@@ -87,6 +87,20 @@ func (m *Meetings) Hold(on bool) {
 	}
 }
 
+// PauseFor stops the app recording anything for that many minutes, for a
+// private conversation in the room; 0 ends the pause. A recording in progress
+// is filed first.
+func (m *Meetings) PauseFor(minutes int) error {
+	if minutes < 0 || minutes > 24*60 {
+		return fmt.Errorf("a pause of %d minutes: it takes 0 to 1440", minutes)
+	}
+	if m.ears == nil {
+		return errors.New("the microphone is not open yet")
+	}
+	m.ears.Mute(time.Now().Add(time.Duration(minutes) * time.Minute))
+	return nil
+}
+
 func New(db *store.DB, lib *library.Library, dir string, cfg home.Config) *Meetings {
 	return &Meetings{db: db, lib: lib, dir: dir, config: cfg, started: time.Now()}
 }

@@ -169,6 +169,14 @@ func (d *Detector) Force(on bool) {
 	d.forced = on
 }
 
+// Reset forgets the recording in progress, a Record press, and the speech that
+// was on its way to starting the next recording.
+func (d *Detector) Reset() {
+	d.recording, d.forced, d.stopping = false, false, false
+	d.held, d.total, d.quiet = 0, 0, 0
+	d.clearWindow()
+}
+
 // Forced reports whether the current recording was asked for by a person.
 func (d *Detector) Forced() bool { return d.forced }
 

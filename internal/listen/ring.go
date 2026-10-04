@@ -37,6 +37,9 @@ func (r *Ring) Add(frame []int16, speech bool) {
 	r.written++
 }
 
+// Forget drops everything held, so that no later recording reaches back into it.
+func (r *Ring) Forget() { r.next, r.written = 0, 0 }
+
 // Held is how much audio the ring currently has.
 func (r *Ring) Held() time.Duration {
 	return time.Duration(min(r.written, len(r.frames))) * frameDuration

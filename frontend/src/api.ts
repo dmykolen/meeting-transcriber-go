@@ -81,6 +81,8 @@ export type Listening = {
   /** Started by hand rather than by the detector. */
   asked: boolean
   problem: string
+  /** When a pause asked for by hand ends. */
+  until?: string
 }
 
 /** A recording is in progress, paused by hand or not. */

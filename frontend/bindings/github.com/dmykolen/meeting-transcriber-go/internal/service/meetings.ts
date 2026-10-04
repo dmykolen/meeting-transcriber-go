@@ -291,6 +291,15 @@ export function PaintPerson(name: string, colour: string): $CancellablePromise<v
 }
 
 /**
+ * PauseFor stops the app recording anything for that many minutes, for a
+ * private conversation in the room; 0 ends the pause. A recording in progress
+ * is filed first.
+ */
+export function PauseFor(minutes: number): $CancellablePromise<void> {
+    return $Call.ByID(1461332421, minutes);
+}
+
+/**
  * People lists everybody the app can recognise by voice.
  */
 export function People(): $CancellablePromise<store$0.Person[]> {

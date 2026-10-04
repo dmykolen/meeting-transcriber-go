@@ -135,6 +135,11 @@ export class Status {
     "asked": boolean;
     "problem": string;
 
+    /**
+     * Until is when a pause asked for by hand ends; zero when there is none.
+     */
+    "until"?: string;
+
     /** Creates a new Status instance. */
     constructor($$source: Partial<Status> = {}) {
         if (!("phase" in $$source)) {

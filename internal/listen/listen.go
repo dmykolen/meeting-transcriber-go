@@ -38,6 +38,8 @@ type Status struct {
 	System  bool   `json:"system"`  // is the other side being captured at all
 	Asked   bool   `json:"asked"`   // started by hand rather than by the detector
 	Problem string `json:"problem"`
+	// Until is when a pause asked for by hand ends; zero when there is none.
+	Until time.Time `json:"until,omitzero"`
 }
 
 // Done handles a finished recording.
@@ -81,6 +83,11 @@ type Recorder struct {
 	asked  bool // somebody pressed Record, rather than the app deciding
 	held   bool // the recording in progress is paused by hand
 	paused bool
+	// Nothing is recorded before until: a private conversation in the room.
+	until time.Time
+	// The capture loop has filed what was recording and forgotten the ring for
+	// the pause in force. Only the loop touches it.
+	hushed bool
 	// Muffle suppresses the app's own playback on the system channel.
 	muffled bool
 	// Changing system capture reopens devices instead of waiting for restart.
@@ -199,6 +206,14 @@ func (r *Recorder) hear(ctx context.Context) error {
 			if r.Paused() {
 				continue
 			}
+			hushed, err := r.hush(live)
+			if err != nil {
+				r.fail(err)
+				return err
+			}
+			if hushed {
+				continue
+			}
 			for i := range audio.FrameSize {
 				left[i], right[i] = frame[2*i], frame[2*i+1]
 			}
@@ -214,6 +229,39 @@ func (r *Recorder) hear(ctx context.Context) error {
 			}
 		}
 	}
+}
+
+// hush keeps a pause asked for by hand and reports whether one is in force. Its
+// first frame files what is being recorded and forgets everything that could
+// carry into the next recording: the ring a preroll replays, the speech the
+// detector was counting, a Record press not yet applied. Nothing heard until
+// the pause ends is detected, written or kept.
+func (r *Recorder) hush(system bool) (bool, error) {
+	r.mu.Lock()
+	until := r.until
+	on := time.Now().Before(until)
+	if on {
+		r.want = nil
+	}
+	r.mu.Unlock()
+	switch {
+	case on && !r.hushed:
+		r.hushed = true
+		if err := r.finish("paused by hand"); err != nil {
+			return true, err
+		}
+		r.detector.Reset()
+		r.ring.Forget()
+	case !on && r.hushed:
+		r.hushed = false
+		slog.Info("listening again")
+	}
+	if on {
+		r.mu.Lock()
+		r.snap = Status{Phase: Paused, System: system, Until: until}
+		r.mu.Unlock()
+	}
+	return on, nil
 }
 
 // step handles one captured frame.
@@ -340,7 +388,7 @@ func (r *Recorder) begin() error {
 		}
 	}
 	r.scribe.Start()
-	slog.Info("recording started", "kind", r.kind,
+	slog.Info("recording started", "kind", r.kind, "by_hand", r.detector.Forced(),
 		"replayed", (time.Duration(len(replay)) * frameDuration).Round(time.Second),
 		"preroll_capped_by_previous", back < r.preroll)
 	return nil
@@ -501,8 +549,24 @@ func (r *Recorder) Toggle() {
 	on := !r.Recording()
 	r.mu.Lock()
 	r.want = &on
-	r.held = false // a Stop pressed while held still has to reach the detector
+	r.held = false        // a Stop pressed while held still has to reach the detector
+	r.until = time.Time{} // and Record pressed during a pause ends the pause
 	r.mu.Unlock()
+	slog.Info("recording asked for by hand", "start", on)
+}
+
+// Mute records nothing until the given time, for a private conversation in the
+// room; a time already past ends the pause. The capture loop acts on it at the
+// next frame (see hush).
+func (r *Recorder) Mute(until time.Time) {
+	r.mu.Lock()
+	r.until = until
+	r.mu.Unlock()
+	if left := time.Until(until); left > 0 {
+		slog.Info("listening paused by hand", "for", left.Round(time.Second), "until", until.Format("15:04:05"))
+	} else {
+		slog.Info("pause ended by hand")
+	}
 }
 
 // Hold pauses the recording in progress without ending it, or resumes it.

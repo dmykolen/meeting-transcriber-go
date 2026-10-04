@@ -193,6 +193,7 @@ const notes: Sticky[] = [
 let nextNote = 6
 const deleted = new Set<number>()
 let held = false
+let until = "" // a pause asked for by hand
 export const sample = {
   SearchKnowledge: async (q: string, semantic: boolean) =>
     [
@@ -582,7 +583,15 @@ export const sample = {
 
   // The strip is only there while something records.
   Listening: () => ({
-    phase: location.hash === "#strip" ? (held ? "held" : "recording") : "listening",
+    phase:
+      location.hash === "#strip"
+        ? held
+          ? "held"
+          : "recording"
+        : Date.parse(until) > Date.now()
+          ? "paused"
+          : "listening",
+    until: Date.parse(until) > Date.now() ? until : undefined,
     asked: false,
     kind: "meeting",
     elapsed: 0,
@@ -805,7 +814,12 @@ export const sample = {
       },
     ],
   }),
-  Record: () => undefined,
+  Record: () => {
+    until = ""
+  },
+  PauseFor: (minutes: number) => {
+    until = minutes ? new Date(Date.now() + minutes * 60e3).toISOString() : ""
+  },
 }
 
 // Stress fixtures are development-only, for reviewing real responsive components.
