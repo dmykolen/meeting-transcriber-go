@@ -112,6 +112,9 @@ Evidence: `exp/11_speakers`, `exp/12_community1`, `exp/13_company`, and
 - Every durable item keeps source provenance.
 - Repeated commitments update/restate one item rather than creating duplicates.
 - Rebuild replays meetings from the beginning.
+- A first summary accepted by hand (the automatic one failed or was skipped)
+  does what the automatic one would: it titles a recording nobody titled and
+  moves its project. Later editions keep the title and leave the project.
 - Human edits pin content. The model may close a pinned item but may not
   silently reword or reassign it.
 
@@ -195,7 +198,19 @@ Evidence: `exp/19_local_llm`, `exp/out/N-local-llm.jsonl`,
   without it the binary hands over to whatever newer copy the person has.
 - Sign-in is the CLI's own `copilot login`, which opens the browser. Its state
   lives in `~/MeetingTranscriber/copilot`, apart from the person's own Copilot
-  history; without it the CLI falls back to the `gh` login.
+  history. `ModeEmpty` turns the keychain off, so the token has to live in the
+  CLI's config there. The login runs with `COPILOT_DISABLE_KEYTAR=1` and
+  `"storeTokenPlaintext": true` in `settings.json`: without a keychain the CLI
+  asks before writing the token to a file, and only at a terminal, so a login
+  started by the app exited with "the token was not saved". CLI 1.0.85 keeps
+  it under `authTokens` in `config.json`, mode 0600. Kept in the keychain
+  (1.1.0–1.2.0), the token was found only through the CLI's `gh` fallback:
+  fine from a terminal, absent in an app opened from Finder or the Dock, whose
+  `PATH` is `/usr/bin:/bin:/usr/sbin:/sbin`. Every summary then failed with
+  "Session was not created with authentication info".
+- Each request first asks the CLI whether anyone is signed in (local, under
+  10 ms). If nobody is, the app says where to connect instead of passing on
+  the CLI's model-resolution error.
 - Sessions run in `ModeEmpty` with no tools, every permission refused, and a
   replaced system prompt. The SDK has no schema option, so the schema goes in
   the prompt and the JSON is taken from the reply. Each session is deleted

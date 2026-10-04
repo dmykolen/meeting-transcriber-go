@@ -116,7 +116,12 @@ func (d *DB) AcceptSummary(id int64, before, after *Summary) error {
 	if n != 1 {
 		return errors.New("Підсумок змінився. Оновіть документ перед прийняттям редакції")
 	}
-	return nil
+	// A first summary names a recording nobody has titled, as SaveSummary does
+	// when it comes on its own.
+	if title := strings.TrimSpace(after.Title); current == nil && title != "" {
+		_, err = d.sql.Exec(`UPDATE recordings SET title = ? WHERE id = ? AND titled = 0`, title, id)
+	}
+	return err
 }
 
 // EditAction changes one stored action item, or appends one when index < 0.

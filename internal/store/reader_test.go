@@ -111,6 +111,33 @@ func TestSummaryAcceptanceComparesContentAndRejectsStaleDraft(t *testing.T) {
 	}
 }
 
+// A summary written by hand after the automatic one failed names the recording
+// as the automatic one would have. A later edition, or a title somebody typed,
+// keeps the name.
+func TestAFirstAcceptedSummaryNamesAnUntitledRecording(t *testing.T) {
+	db := open(t)
+	r, typed := add(t, db, Meeting), add(t, db, Meeting)
+	if err := db.Retitle(typed.ID, "Моя назва"); err != nil {
+		t.Fatal(err)
+	}
+	first := Summary{Title: "Реліз у п’ятницю", Overview: "Домовились про реліз."}
+	for _, id := range []int64{r.ID, typed.ID} {
+		if err := db.AcceptSummary(id, nil, &first); err != nil {
+			t.Fatal(err)
+		}
+	}
+	next := first
+	next.Title = "Інша назва"
+	if err := db.AcceptSummary(r.ID, &first, &next); err != nil {
+		t.Fatal(err)
+	}
+	got, _ := db.Get(r.ID)
+	kept, _ := db.Get(typed.ID)
+	if got.Title != "Реліз у п’ятницю" || kept.Title != "Моя назва" {
+		t.Fatalf("titles %q and %q", got.Title, kept.Title)
+	}
+}
+
 func TestKnowledgeIncludesEveryOwnedKindAndExcludesDeletedContent(t *testing.T) {
 	db := open(t)
 	r := add(t, db, Meeting)

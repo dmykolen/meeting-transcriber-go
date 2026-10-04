@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"github.com/dmykolen/meeting-transcriber-go/internal/store"
+	"log/slog"
 	"time"
 )
 
@@ -20,7 +21,16 @@ func (m *Meetings) PreviewSummary(id int64) (*store.Summary, error) {
 	return m.lib.PreviewSummary(ctx, id)
 }
 func (m *Meetings) AcceptSummary(id int64, before, after *store.Summary) error {
-	return m.db.AcceptSummary(id, before, after)
+	if err := m.db.AcceptSummary(id, before, after); err != nil || before != nil {
+		return err
+	}
+	// A first summary moves its project on, as one written on its own does.
+	go func() {
+		if err := m.lib.Advance(context.Background(), id); err != nil {
+			slog.Warn("the project document did not move", "id", id, "err", err)
+		}
+	}()
+	return nil
 }
 
 type KnowledgeAnswer struct {

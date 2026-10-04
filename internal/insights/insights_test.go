@@ -63,6 +63,43 @@ func TestNoProviderMeansAIIsOffAndSaysSo(t *testing.T) {
 	}
 }
 
+// The SDK runs the CLI with the keychain off. A sign-in that kept its token
+// there signed nobody in for an app launched from the Dock, and every summary
+// failed.
+func TestTheCopilotSignInLeavesItsTokenWhereTheSDKLooks(t *testing.T) {
+	home, bin := t.TempDir(), filepath.Join(t.TempDir(), "copilot")
+	// As copilot 1.0.85 does: the keychain when it may, else the config file if
+	// the settings allow plain text, else a question only a terminal can answer.
+	fake := `#!/bin/sh
+[ "$*" = "--no-auto-update login" ] || { echo "unknown command: $*"; exit 2; }
+echo "Opening your browser to authenticate..."
+[ "$COPILOT_DISABLE_KEYTAR" = 1 ] || { echo "Signed in successfully as octocat."; exit 0; }
+grep -Eq '"storeTokenPlaintext": *true' "$COPILOT_HOME/settings.json" ||
+	{ echo "Login succeeded, but the token was not saved."; exit 1; }
+echo '{"authTokens": {"https://github.com:octocat": {"token": "gho_x"}}}' > "$COPILOT_HOME/config.json"
+echo "Signed in successfully as octocat."
+`
+	if err := os.WriteFile(bin, []byte(fake), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(home, "settings.json"), []byte(`{"theme": "dark"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	var said []string
+	if err := CopilotLogin(context.Background(), bin, home, func(s string) { said = append(said, s) }); err != nil {
+		t.Fatalf("%v; the CLI said %q", err, said)
+	}
+	if _, err := os.Stat(filepath.Join(home, "config.json")); err != nil {
+		t.Fatal("the token is not in the Copilot home")
+	}
+	if settings, _ := os.ReadFile(filepath.Join(home, "settings.json")); !strings.Contains(string(settings), `"theme":"dark"`) {
+		t.Fatalf("settings.json lost what was in it: %s", settings)
+	}
+	if len(said) != 2 || said[1] != "Signed in successfully as octocat." {
+		t.Fatalf("said %q", said)
+	}
+}
+
 // llama-server's chat endpoint is the one that honours the schema; the fake
 // refuses a structured request that arrives without it.
 func TestALocalSummaryAsksForTheSchema(t *testing.T) {

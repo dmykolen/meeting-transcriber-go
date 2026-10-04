@@ -26,6 +26,7 @@ import {
 import { Browser } from "@wailsio/runtime"
 import {
   Meetings,
+  copyText,
   many,
   why,
   type AIState,
@@ -838,7 +839,7 @@ function MCPPanel({
 
   const copy = async (value: string, key: string) => {
     try {
-      await navigator.clipboard.writeText(value)
+      await copyText(value)
       setCopied(key)
       window.setTimeout(() => setCopied(""), 1600)
     } catch {

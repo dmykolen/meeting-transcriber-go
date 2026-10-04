@@ -7,8 +7,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -71,6 +73,10 @@ func (p *pilot) ask(ctx context.Context, q prompt) (string, error) {
 	c, err := p.start(ctx)
 	if err != nil {
 		return "", err
+	}
+	// Signed out, the CLI would only say that it could not resolve a model.
+	if status, err := c.GetAuthStatus(ctx); err == nil && !status.IsAuthenticated {
+		return "", errors.New("GitHub Copilot не підключено. Підключіть його в параметрах, у розділі «AI та архів»")
 	}
 	// The SDK gives up after a minute unless told otherwise; a long meeting
 	// on a slow model takes longer.
@@ -174,8 +180,30 @@ func CopilotAccount(ctx context.Context, bin, home string) (string, []Model, err
 // the person approves access on GitHub. Each line the CLI prints goes to say,
 // since it may carry a link or a code to type in.
 func CopilotLogin(ctx context.Context, bin, home string, say func(string)) error {
+	// The SDK runs the CLI without the macOS keychain (ModeEmpty), so the token
+	// must be kept in the CLI's config under home. Stored in the keychain, it
+	// was only ever found through the gh fallback, which a Dock-launched app has
+	// no PATH to. Without a keychain the CLI asks before writing the token to
+	// its config, at a terminal only; storeTokenPlaintext is that answer.
+	path := filepath.Join(home, "settings.json")
+	settings := map[string]any{}
+	if data, err := os.ReadFile(path); err == nil {
+		if err := json.Unmarshal(data, &settings); err != nil {
+			return fmt.Errorf("the Copilot settings could not be read: %w", err)
+		}
+	} else if !errors.Is(err, fs.ErrNotExist) {
+		return err
+	}
+	settings["storeTokenPlaintext"] = true
+	data, _ := json.Marshal(settings)
+	if err := os.MkdirAll(home, 0o700); err != nil {
+		return err
+	}
+	if err := os.WriteFile(path, data, 0o600); err != nil {
+		return err
+	}
 	cmd := exec.CommandContext(ctx, bin, "--no-auto-update", "login")
-	cmd.Env = append(os.Environ(), "COPILOT_HOME="+home)
+	cmd.Env = append(os.Environ(), "COPILOT_HOME="+home, "COPILOT_DISABLE_KEYTAR=1")
 	out, err := cmd.StdoutPipe()
 	if err != nil {
 		return err

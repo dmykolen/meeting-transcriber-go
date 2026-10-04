@@ -20,6 +20,7 @@ import {
 import {
   Meetings,
   clock,
+  copyText,
   length,
   many,
   when,
@@ -281,9 +282,11 @@ export default function Transcript({
             <div className="reader-menu">
               <button
                 onClick={async () => {
-                  await navigator.clipboard.writeText(
-                    await Meetings.Markdown(id),
-                  )
+                  try {
+                    await copyText(await Meetings.Markdown(id))
+                  } catch (e) {
+                    setProblem(why(e))
+                  }
                   setMenu(false)
                 }}
               >
@@ -643,7 +646,9 @@ export default function Transcript({
                   <div className="summary-comparison">
                     <header>
                       <Sparkles size={14} />
-                      {t("Нова редакція · назва й ручні нотатки збережуться")}
+                      {s
+                        ? t("Нова редакція · назва й ручні нотатки збережуться")
+                        : t("Перший підсумок")}
                     </header>
                     <div className="comparison-columns">
                       <section>
@@ -838,7 +843,9 @@ export default function Transcript({
                     <button
                       className="context-action ui-icon"
                       aria-label={t("Копіювати репліку")}
-                      onClick={() => navigator.clipboard.writeText(turn.text)}
+                      onClick={() =>
+                        copyText(turn.text).catch((e) => setProblem(why(e)))
+                      }
                     >
                       <Copy size={12} />
                     </button>
@@ -877,7 +884,7 @@ export default function Transcript({
         <div className="selection-actions">
           <button
             onClick={() => {
-              navigator.clipboard.writeText(selected)
+              copyText(selected).catch((e) => setProblem(why(e)))
               setSelected("")
             }}
           >

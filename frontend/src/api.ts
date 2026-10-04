@@ -2,6 +2,7 @@
 // reaches into a path with a Go module name in it.
 import * as Meetings from "../bindings/github.com/dmykolen/meeting-transcriber-go/internal/service/meetings"
 import * as Status from "../bindings/github.com/dmykolen/meeting-transcriber-go/internal/service/status"
+import { Clipboard } from "@wailsio/runtime"
 import { lang, locale, t, tr, type Key } from "./i18n"
 
 // Design mode: run the screens on sample data, for working on the interface
@@ -37,6 +38,12 @@ const meetings = stub(Meetings)
 const status = stub(Status)
 
 export { meetings as Meetings, status as Status }
+
+// navigator.clipboard is unreliable in the app's web view: it wants a secure
+// context and a click still in progress, and Copy Markdown first waits on Go.
+// The app's own clipboard needs neither. Design mode has no app behind it.
+export const copyText = (text: string) =>
+  designing ? navigator.clipboard.writeText(text) : Clipboard.SetText(text)
 
 export type Stage = "downloading" | "loading" | "ready" | "broken"
 
