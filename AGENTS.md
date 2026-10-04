@@ -132,8 +132,8 @@ Nothing important fails silently.
 - Do not add broad catches, empty fallbacks, or success-shaped failure values.
 - A background worker must survive one failed job and record where it failed.
 - Long operations expose a named state and progress where available.
-- Startup, downloads, model loading, recording phases, processing phases, and
-  MCP lifecycle remain observable in logs or UI.
+- Startup, downloads, model loading, recording phases, processing phases, LLM
+  calls, and MCP lifecycle remain observable in logs or UI.
 - Invalid external/request input is rejected explicitly.
 - Persisted config is different: malformed or legacy values fall back per
   setting and must not prevent the app window from opening.
@@ -271,8 +271,8 @@ Use sample data only for visual development. Before finishing:
 ## Releases
 
 - Bump `CFBundleShortVersionString` and `CFBundleVersion` in
-  `packaging/darwin/Info.plist` and the server version in
-  `internal/service/mcp.go`, then commit.
+  `packaging/darwin/Info.plist` and `Version` in `internal/service/mcp.go`,
+  then commit.
 - Build from that commit with `make dmg` and copy the image to
   `build/MeetingTranscriber-X.Y.Z.dmg`. Check the version and
   `codesign --verify --deep`; `go version -m` must show the release commit,

@@ -247,6 +247,34 @@ Evidence: `exp/19_local_llm`, `exp/out/N-local-llm.jsonl`,
   or kept for a later preroll, and the detector stands still so a pause cannot
   end the meeting. Stop while held still stops.
 
+## Pause for a private conversation
+
+- The record button at the foot of the rail pulls out a drawer when pointed at
+  or focused: Record with its shortcut, and "don't record" for 5, 15 or 60
+  minutes. The drawer closes when the pointer leaves or the app loses focus. WKWebView reaches buttons by Option-Tab, not Tab, unless macOS
+  keyboard navigation is on.
+- The pause files a recording in progress first, then forgets everything that
+  could carry into the next one: the ring a preroll replays, the speech the
+  detector was counting, a Record press not yet applied. Until it ends nothing
+  is detected, written, transcribed or kept.
+- The capture loop does all of it on its own goroutine at the next frame
+  (`hush`); the Wails call only sets the end time.
+- Record (the menu or ⌘R) ends the pause. While paused, the button itself
+  resumes listening.
+- The pause lives in memory: quitting the app ends it.
+
+## Logging
+
+- One line per event in `~/MeetingTranscriber/logs/mt.log` and on stderr:
+  `2026-10-04T13:34:56.456 INFO file.go:34:func() - message key=value`.
+  `log.go` writes the front; slog's text handler writes the attributes.
+- Wails logs through the same writer at warning level. Its information lines
+  are build details and one line per asset served.
+- Every LLM call logs its task, provider and model when it starts, and its
+  time, status and reply size when it ends. Summaries log the recording, their
+  time and outcome; recordings log their kind and whether a person started
+  them; the first line names the version and the commit.
+
 ## Packaging
 
 - Run and distribute the `.app`, not the bare Go executable.
