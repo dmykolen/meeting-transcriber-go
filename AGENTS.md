@@ -251,6 +251,9 @@ Use sample data only for visual development. Before finishing:
 - `docs/` contains user-facing supporting artifacts.
 - Do not create new planning or status Markdown files in the repository root.
 - Update an existing canonical document instead.
+- `.spec/roadmap.md` is a set of tables. Read all of it before adding a row,
+  update a similar row instead of adding a duplicate, and strike through a row
+  once it is done.
 - Delete historical implementation plans after their durable decisions are
   captured.
 - Keep documentation factual, concise, and linked to current paths.
@@ -264,6 +267,21 @@ Use sample data only for visual development. Before finishing:
 - Preserve license notices for third-party components.
 - Do not add screenshots or binaries larger than necessary.
 - Before finishing, inspect `git status`, `git diff --check`, and the final diff.
+
+## Releases
+
+- Bump `CFBundleShortVersionString` and `CFBundleVersion` in
+  `packaging/darwin/Info.plist` and the server version in
+  `internal/service/mcp.go`, then commit.
+- Build from that commit with `make dmg` and copy the image to
+  `build/MeetingTranscriber-X.Y.Z.dmg`. Check the version and
+  `codesign --verify --deep`; `go version -m` must show the release commit,
+  not modified.
+- Tag `vX.Y.Z` on that commit, push the branch and the tag, and create the
+  release "Meeting Transcriber X.Y.Z" with the DMG attached.
+- Notes are short, plain English in three sections: New, Improved, Fixed. Add
+  "Known issue" when there is one, and end with the line that the app is not
+  notarized. No AI attribution in commits, tags, or notes.
 
 ## Definition of done
 
