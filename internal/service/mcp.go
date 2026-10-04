@@ -104,7 +104,7 @@ type peopleOutput struct {
 func NewMCP(meetings *Meetings) *server.MCPServer {
 	s := server.NewMCPServer(
 		"Meeting Transcriber",
-		"1.2.0",
+		"1.2.1",
 		server.WithToolCapabilities(false),
 		server.WithRecovery(),
 	)
