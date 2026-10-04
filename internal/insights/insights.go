@@ -9,8 +9,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
+	"path/filepath"
 	"strings"
 	"sync/atomic"
+	"time"
 
 	"github.com/openai/openai-go/v3"
 	"github.com/openai/openai-go/v3/option"
@@ -38,8 +41,10 @@ type Setup struct {
 // Client talks to whichever models the settings chose.
 type Client struct {
 	language string
-	ask      func(context.Context, prompt) (string, error)
-	embed    func(context.Context, []string) ([][]float32, error)
+	// provider and model say what answers, for the log.
+	provider, model string
+	ask             func(context.Context, prompt) (string, error)
+	embed           func(context.Context, []string) ([][]float32, error)
 	// query is what a question needs in front of it for the embedder to find
 	// the passages that answer it.
 	query string
@@ -68,11 +73,14 @@ func New(s Setup) *Client {
 	c := &Client{language: cmp.Or(Tongue[strings.ToLower(s.Language)], "the language the meeting was held in")}
 	switch {
 	case s.Provider == "openai" && s.OpenAIKey != "":
-		c.ask = openAI(s.OpenAIKey, cmp.Or(s.OpenAIModel, "gpt-5.4-mini"))
+		c.provider, c.model = "openai", cmp.Or(s.OpenAIModel, "gpt-5.4-mini")
+		c.ask = openAI(s.OpenAIKey, c.model)
 	case s.Provider == "copilot" && s.Copilot != "":
+		c.provider, c.model = "copilot", cmp.Or(s.CopilotModel, "auto")
 		p := &pilot{bin: s.Copilot, home: s.CopilotHome, model: s.CopilotModel}
 		c.ask, c.stop = p.ask, append(c.stop, p.close)
 	case s.Provider == "local" && s.Server != "" && s.Chat != "":
+		c.provider, c.model = "local", filepath.Base(s.Chat)
 		h := &helper{bin: s.Server, model: s.Chat, args: chatArgs}
 		c.ask, c.stop = h.ask, append(c.stop, h.close)
 	}
@@ -111,15 +119,23 @@ func (c *Client) Close() {
 	}
 }
 
-// generate is every model call, so that the last failure can be shown.
+// generate is every model call: the last failure is kept to be shown, and each
+// call is logged with what answered it and how long it took.
 func (c *Client) generate(ctx context.Context, p prompt) (string, error) {
 	if !c.Ready() {
 		return "", ErrNoKey
 	}
+	log := slog.With("task", cmp.Or(p.name, "answer"), "provider", c.provider, "model", c.model)
+	log.Info("LLM request started", "input_chars", len(p.input))
+	began := time.Now()
 	out, err := c.ask(ctx, p)
+	took := time.Since(began).Round(time.Millisecond)
 	problem := ""
 	if err != nil {
 		problem = err.Error()
+		log.Warn("LLM request finished", "took", took, "status", "failed", "err", err)
+	} else {
+		log.Info("LLM request finished", "took", took, "status", "ok", "reply_chars", len(out))
 	}
 	c.failed.Store(&problem)
 	return out, err

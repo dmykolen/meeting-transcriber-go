@@ -12,6 +12,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"runtime"
+	"runtime/debug"
 	"strings"
 	"syscall"
 	"time"
@@ -67,16 +68,16 @@ func main() {
 		return
 	}
 	// Open the log before run(); startup failures still need somewhere to go.
-	dir, err := home.Dir()
-	if err == nil {
+	out := io.Writer(os.Stderr)
+	if dir, err := home.Dir(); err == nil {
 		if logs, err := os.OpenFile(filepath.Join(home.Logs(dir), "mt.log"),
 			os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644); err == nil {
 			defer logs.Close()
-			slog.SetDefault(slog.New(slog.NewTextHandler(
-				io.MultiWriter(logs, os.Stderr), &slog.HandlerOptions{Level: slog.LevelInfo})))
+			out = io.MultiWriter(logs, os.Stderr)
 		}
 	}
-	if err := run(); err != nil {
+	slog.SetDefault(slog.New(newLine(out, slog.LevelInfo)))
+	if err := run(out); err != nil {
 		slog.Error("Meeting Transcriber stopped", "err", err)
 		os.Exit(1)
 	}
@@ -101,7 +102,7 @@ func runMCPStdio() error {
 	return service.ServeMCPStdio(service.New(db, lib, dir, cfg))
 }
 
-func run() error {
+func run(out io.Writer) error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
@@ -109,7 +110,14 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	slog.Info("starting", "folder", dir)
+	build := map[string]string{}
+	if info, ok := debug.ReadBuildInfo(); ok {
+		for _, s := range info.Settings {
+			build[s.Key] = s.Value
+		}
+	}
+	slog.Info("starting", "version", service.Version, "commit", build["vcs.revision"],
+		"modified", build["vcs.modified"], "folder", dir)
 	// Use app-managed decoder tools, not whatever happens to be on PATH.
 	media.Tools = models.Tools(home.Models(dir))
 
@@ -167,7 +175,7 @@ func run() error {
 			return
 		}
 		defer e.Close()
-		slog.Info("models ready")
+		slog.Info("models ready", "transcriber", cfg.Transcriber)
 		lib.Use(e)
 
 		// The listener shares loaded models and still runs beside the queue.
@@ -223,6 +231,9 @@ func run() error {
 			Middleware: sound(home.Recordings(dir), home.Cache(dir)),
 		},
 		Mac: application.MacOptions{ApplicationShouldTerminateAfterLastWindowClosed: true},
+		// Wails' warnings and errors go to the same file, in the same form. Its
+		// information is build details and a line for every asset served.
+		Logger: slog.New(newLine(out, slog.LevelWarn)),
 		// Quitting ends the process without returning here, so the local model
 		// helpers are stopped on the way out rather than left running.
 		OnShutdown: func() { lib.AI().Close() },

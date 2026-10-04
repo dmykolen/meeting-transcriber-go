@@ -322,7 +322,7 @@ func (l *Library) process(ctx context.Context, id int64) error {
 		return fmt.Errorf("could not read the audio: %w", err)
 	}
 	seconds := float64(len(samples)) / media.Rate
-	slog.Info("transcribing", "id", id, "minutes", seconds/60)
+	slog.Info("transcribing", "id", id, "length", time.Duration(seconds*float64(time.Second)).Round(time.Second))
 
 	// The microphone side is the local speaker; the system side is everybody
 	// else.
@@ -419,7 +419,7 @@ func (l *Library) process(ctx context.Context, id int64) error {
 	if err := l.db.SaveTranscript(id, "", seconds, convert(turns)); err != nil {
 		return err
 	}
-	slog.Info("transcribed", "id", id, "rows", len(turns),
+	slog.Info("transcribed", "id", id, "rows", len(turns), "took", time.Since(started).Round(time.Second),
 		"pace", fmt.Sprintf("%.1fx realtime", seconds/time.Since(started).Seconds()))
 
 	l.index(ctx, id, convert(turns))
@@ -666,15 +666,19 @@ func (l *Library) summarise(ctx context.Context, id int64, turns []engine.Turn) 
 	for i, t := range turns {
 		said[i] = insights.Turn{Start: t.Start, Speaker: t.Speaker, Text: t.Text}
 	}
+	slog.Info("summary started", "id", id, "turns", len(turns))
+	began := time.Now()
 	summary, err := l.AI().Summarise(ctx, said)
 	if err != nil {
-		slog.Warn("no summary", "id", id, "err", err)
+		slog.Warn("summary finished", "id", id, "took", time.Since(began).Round(time.Millisecond),
+			"status", "failed", "err", err)
 		return l.db.Progress(id, store.Done, 1)
 	}
 	if err := l.db.SaveSummary(id, translate(summary)); err != nil {
 		return err
 	}
-	slog.Info("summarised", "id", id, "title", summary.Title, "actions", len(summary.ActionItems))
+	slog.Info("summary finished", "id", id, "took", time.Since(began).Round(time.Millisecond),
+		"status", "ok", "title", summary.Title, "actions", len(summary.ActionItems))
 	// Advance the project document, but do not fail the recording if that step
 	// breaks.
 	if err := l.Advance(ctx, id); err != nil {

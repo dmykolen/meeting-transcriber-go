@@ -209,6 +209,7 @@ func (m *Meetings) ConnectCopilot() error {
 	m.ai.SigningIn, m.ai.Said, m.ai.Problem = true, nil, ""
 	m.aiMu.Unlock()
 
+	slog.Info("GitHub Copilot sign-in started")
 	go func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 		defer cancel()

@@ -101,10 +101,13 @@ type peopleOutput struct {
 	People []store.Person `json:"people"`
 }
 
+// Version is the app's version, as the MCP server and the log report it.
+const Version = "1.2.1"
+
 func NewMCP(meetings *Meetings) *server.MCPServer {
 	s := server.NewMCPServer(
 		"Meeting Transcriber",
-		"1.2.1",
+		Version,
 		server.WithToolCapabilities(false),
 		server.WithRecovery(),
 	)

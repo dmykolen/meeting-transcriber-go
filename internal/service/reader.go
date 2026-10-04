@@ -21,8 +21,12 @@ func (m *Meetings) PreviewSummary(id int64) (*store.Summary, error) {
 	return m.lib.PreviewSummary(ctx, id)
 }
 func (m *Meetings) AcceptSummary(id int64, before, after *store.Summary) error {
-	if err := m.db.AcceptSummary(id, before, after); err != nil || before != nil {
+	if err := m.db.AcceptSummary(id, before, after); err != nil {
 		return err
+	}
+	slog.Info("summary accepted", "id", id, "first", before == nil)
+	if before != nil {
+		return nil
 	}
 	// A first summary moves its project on, as one written on its own does.
 	go func() {
