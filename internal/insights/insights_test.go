@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -55,7 +56,7 @@ func TestNoProviderMeansAIIsOffAndSaysSo(t *testing.T) {
 	if c.Ready() || c.Searchable() {
 		t.Fatal("a provider with nothing on disk claims to be ready")
 	}
-	if _, err := c.Summarise(context.Background(), []Turn{{Text: "Привіт"}}); !errors.Is(err, ErrNoKey) {
+	if _, err := c.Summarise(context.Background(), []Turn{{Text: "Привіт"}}, nil); !errors.Is(err, ErrNoKey) {
 		t.Fatalf("err = %v, want ErrNoKey", err)
 	}
 	if _, err := c.Query(context.Background(), "VPN"); !errors.Is(err, ErrNoKey) {
@@ -127,19 +128,67 @@ func TestALocalSummaryAsksForTheSchema(t *testing.T) {
 			"id": "x", "object": "chat.completion", "model": "local",
 			"choices": []any{map[string]any{"index": 0, "finish_reason": "stop",
 				"message": map[string]any{"role": "assistant", "content": `{"title":"Доступ через VPN","overview":"","chapters":[],"topics":[],"decisions":["Лише VPN"],"action_items":[],"open_questions":[]}`}}},
+			"usage": map[string]any{"prompt_tokens": 120, "completion_tokens": 30, "total_tokens": 150},
 		})
 	}))
 	defer server.Close()
 
 	h := &helper{cmd: &exec.Cmd{}, done: make(chan struct{}),
 		api: openai.NewClient(option.WithBaseURL(server.URL+"/v1/"), option.WithAPIKey("local"))}
-	c := &Client{language: "Ukrainian", ask: h.ask}
-	summary, err := c.Summarise(context.Background(), []Turn{{Speaker: "Marta", Text: "Домовились: доступ лише через VPN."}})
+	var used []Use
+	c := &Client{language: "Ukrainian", ask: h.ask, provider: "local", model: "gemma",
+		usage: func(u Use) { used = append(used, u) }}
+	summary, err := c.Summarise(context.Background(), []Turn{{Speaker: "Marta", Text: "Домовились: доступ лише через VPN."}}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if summary.Title != "Доступ через VPN" || len(summary.Decisions) != 1 {
 		t.Fatalf("summary = %+v", summary)
+	}
+	if len(used) != 1 || used[0].Task != "meeting_summary" || used[0].Provider != "local" ||
+		used[0].Input != 120 || used[0].Output != 30 || used[0].Failed != "" {
+		t.Fatalf("the call was recorded as %+v", used)
+	}
+}
+
+func TestTopicsKeepTheArchivesSpelling(t *testing.T) {
+	got := Canon([]string{"  безпека ", "Північний вітер", "БЕЗПЕКА", "доступ  через VPN", ""},
+		[]string{"Безпека", "Доступ через VPN"})
+	want := []string{"Безпека", "Північний вітер", "Доступ через VPN"}
+	if !slices.Equal(got, want) {
+		t.Fatalf("Canon = %q, want %q", got, want)
+	}
+}
+
+func TestSummaryPromptListsTheKnownTopics(t *testing.T) {
+	var seen string
+	c := &Client{language: "Ukrainian", ask: func(_ context.Context, p prompt) (string, spent, error) {
+		seen = p.instructions
+		return `{"title":"x","overview":"","chapters":[],"topics":["безпека","Нове"],"decisions":[],"action_items":[],"open_questions":[]}`, spent{}, nil
+	}}
+	got, err := c.Summarise(context.Background(), []Turn{{Text: "x"}}, []string{"Безпека", "Northwind"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(seen, "- Безпека\n- Northwind") || !strings.Contains(seen, "reuse one of these") {
+		t.Fatalf("the prompt does not offer the topics:\n%s", seen)
+	}
+	if !slices.Equal(got.Topics, []string{"Безпека", "Нове"}) {
+		t.Fatalf("topics = %q", got.Topics)
+	}
+	if _, err := c.Summarise(context.Background(), []Turn{{Text: "x"}}, nil); err != nil || strings.Contains(seen, "reuse one of these") {
+		t.Fatalf("an archive without topics still got the topics paragraph: %v", err)
+	}
+}
+
+func TestOnlyKnownOpenAIModelsHaveACost(t *testing.T) {
+	if cost, ok := Cost("openai", "gpt-5.4-mini", 1_000_000, 1_000_000); !ok || cost != 5.25 {
+		t.Fatalf("a million tokens each way cost %v, %v", cost, ok)
+	}
+	for _, c := range [][2]string{{"openai", "gpt-unknown"}, {"local", "gpt-5.4-mini"}, {"copilot", "auto"}} {
+		if _, ok := Cost(c[0], c[1], 1, 1); ok {
+			t.Fatalf("%v was given a price", c)
+		}
 	}
 }
 
@@ -163,7 +212,7 @@ func TestLocalModelsSummariseAndFindOnThisMac(t *testing.T) {
 		{Start: 41, Speaker: "Marta", Text: "Домовились: доступ лише через VPN."},
 		{Start: 63, Speaker: "Marta", Text: "Я підготую пакет документів для Northwind до п'ятниці."},
 		{Start: 124, Speaker: "Taras", Text: "Хто погоджує фінальний перелік IP-діапазонів?"},
-	})
+	}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -40,6 +40,12 @@ type Meetings struct {
 
 	// The listener may arrive later on a first run while models download.
 	ears *listen.Recorder
+
+	updMu  sync.Mutex
+	upd    UpdateState
+	staged string // the new app, once downloaded and checked
+	// Notify, when set, shows a system notification.
+	Notify func(title, body string)
 }
 
 // Listener installs the always-on recorder once it is ready.
@@ -68,6 +74,20 @@ func (m *Meetings) Listening() listen.Status {
 		return listen.Status{Phase: listen.Off}
 	}
 	return m.ears.Status()
+}
+
+// StripAt is where the recording strip was last left, in points from the
+// primary display's top-left; false when it was never moved.
+func (m *Meetings) StripAt() (x, y int, ok bool) {
+	_, err := fmt.Sscanf(m.db.Meta("strip-at"), "%d,%d", &x, &y)
+	return x, y, err == nil
+}
+
+// MoveStrip remembers where the strip was left.
+func (m *Meetings) MoveStrip(x, y int) {
+	if err := m.db.SetMeta("strip-at", fmt.Sprintf("%d,%d", x, y)); err != nil {
+		slog.Warn("could not remember where the strip was left", "err", err)
+	}
 }
 
 // Summaries reports whether summaries and answers can be made right now.
@@ -447,6 +467,10 @@ func (m *Meetings) EmptyBin() (string, error) {
 // Brief returns the cross-meeting briefing view.
 func (m *Meetings) Brief(days int) (*store.Briefing, error) { return m.db.Brief(days) }
 
+// Rhythm measures how the meetings of the last twelve weeks were spread, and
+// who spoke over the last days.
+func (m *Meetings) Rhythm(days int) (*store.Rhythm, error) { return m.db.Rhythm(time.Now(), days) }
+
 // Live returns the current live transcript.
 func (m *Meetings) Live() []listen.Line {
 	if m.ears == nil {
@@ -550,6 +574,8 @@ type Settings struct {
 
 	KeepAudioDays int `json:"keepAudioDays"` // 0 keeps recordings for ever
 
+	Updates bool `json:"updates"` // look for a newer version every hour
+
 	AIProvider   string `json:"aiProvider"`   // "openai", "copilot" or "local"
 	CopilotModel string `json:"copilotModel"` // empty lets Copilot choose
 	LocalModel   string `json:"localModel"`   // a .gguf link; empty is the built-in model
@@ -585,6 +611,7 @@ func (m *Meetings) Settings() Settings {
 		QuietEnds:     int(m.config.Listen.QuietEnds.Seconds()),
 		Preroll:       int(m.config.Listen.Preroll.Seconds()),
 		KeepAudioDays: m.config.Keep.AudioDays,
+		Updates:       !m.config.NoUpdates,
 		Folder:        m.dir,
 	}
 }
@@ -629,6 +656,7 @@ func (m *Meetings) SaveSettings(s Settings) error {
 	m.config.Listen.Enabled = s.Listening
 	m.config.Listen.System = s.System
 	m.config.Keep.AudioDays = s.KeepAudioDays
+	m.config.NoUpdates = !s.Updates
 	// Pause rather than tear the recorder down; reopening devices would retrigger
 	// a slow permissioned path.
 	if m.ears != nil {

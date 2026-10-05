@@ -36,12 +36,14 @@ import {
   type Person,
   type Settings as Values,
   type Source,
+  type UpdateState,
 } from "../api"
 import { colourOf, picked, tone, wash } from "../colours"
 import { setLang, t, tr } from "../i18n"
 import Head from "../components/Head"
 import Paint from "../components/Paint"
 import Snippet from "../components/Snippet"
+import Usage from "../components/Usage"
 
 const SettingLabel = createContext("")
 
@@ -639,6 +641,10 @@ export default function Settings() {
             )}
           </Group>
 
+          <Group title={t("Використання AI")} Icon={Brain} wide>
+            <Usage />
+          </Group>
+
           <Group
             title="MCP Server"
             Icon={Cable}
@@ -692,6 +698,32 @@ export default function Settings() {
                 <Trash2 size={13} />{" "}
                 {busy === "tidy" ? t("Очищаю…") : t("Звільнити місце")}
               </button>
+            </Row>
+            <Row
+              label={t("Оновлення")}
+              hint={t("Раз на годину застосунок питає GitHub, чи є нова версія, і пропонує оновитися.")}
+            >
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() =>
+                    run("update", async () => {
+                      await Meetings.CheckUpdate()
+                      const s = (await Meetings.Update()) as UpdateState
+                      return s.available
+                        ? t("Є версія {version}.", { version: s.available.version })
+                        : t("Це остання версія.")
+                    })
+                  }
+                  disabled={busy !== ""}
+                  className="rounded-lg border border-line/60 bg-surface/60 px-2.5 py-1.5 text-[11.5px] text-soft transition-colors hover:border-accent/40 hover:text-text disabled:opacity-40"
+                >
+                  {busy === "update" ? t("Перевіряю…") : t("Перевірити")}
+                </button>
+                <Toggle
+                  on={values.updates}
+                  onChange={(on) => save({ ...values, updates: on })}
+                />
+              </div>
             </Row>
             <Row label={t("Папка даних")} hint={values.folder}>
               <button

@@ -114,6 +114,7 @@ func (m *Meetings) setup() insights.Setup {
 		Server:       llamaServer(),
 		Chat:         present(chat(m.config.AI)),
 		Vectors:      present(models.Vectors),
+		Usage:        m.called,
 	}
 }
 

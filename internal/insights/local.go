@@ -99,10 +99,10 @@ func (h *helper) close() {
 
 // ask uses Chat Completions: llama-server's Responses endpoint ignores the
 // JSON schema, its chat endpoint turns the schema into a grammar.
-func (h *helper) ask(ctx context.Context, p prompt) (string, error) {
+func (h *helper) ask(ctx context.Context, p prompt) (string, spent, error) {
 	api, err := h.client(ctx)
 	if err != nil {
-		return "", err
+		return "", spent{}, err
 	}
 	params := openai.ChatCompletionNewParams{
 		Model:    "local",
@@ -117,27 +117,27 @@ func (h *helper) ask(ctx context.Context, p prompt) (string, error) {
 	}
 	resp, err := api.Chat.Completions.New(ctx, params)
 	if err != nil {
-		return "", err
+		return "", spent{}, err
 	}
 	if len(resp.Choices) == 0 {
-		return "", errors.New("the local model returned no answer")
+		return "", spent{}, errors.New("the local model returned no answer")
 	}
-	return resp.Choices[0].Message.Content, nil
+	return resp.Choices[0].Message.Content, spent{input: resp.Usage.PromptTokens, output: resp.Usage.CompletionTokens}, nil
 }
 
-func (h *helper) vectors(ctx context.Context, texts []string) ([][]float32, error) {
+func (h *helper) vectors(ctx context.Context, texts []string) ([][]float32, spent, error) {
 	api, err := h.client(ctx)
 	if err != nil {
-		return nil, err
+		return nil, spent{}, err
 	}
 	resp, err := api.Embeddings.New(ctx, openai.EmbeddingNewParams{
 		Model: "local",
 		Input: openai.EmbeddingNewParamsInputUnion{OfArrayOfStrings: texts},
 	})
 	if err != nil {
-		return nil, err
+		return nil, spent{}, err
 	}
-	return shorten(resp.Data, len(texts)), nil
+	return shorten(resp.Data, len(texts)), spent{input: resp.Usage.PromptTokens}, nil
 }
 
 // healthy waits until the server has loaded its model.

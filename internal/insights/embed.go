@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"math"
+	"time"
 
 	"github.com/openai/openai-go/v3"
 	"github.com/openai/openai-go/v3/option"
@@ -31,7 +32,10 @@ func (c *Client) Embed(ctx context.Context, texts []string) ([][]float32, error)
 	if len(texts) == 0 {
 		return nil, nil
 	}
-	return c.embed(ctx, texts)
+	began := time.Now()
+	vectors, used, err := c.embed(ctx, texts)
+	c.record("embed", c.embedder[0], c.embedder[1], used, time.Since(began), err)
+	return vectors, err
 }
 
 // Query turns a question into the vector that finds the passages answering it.
@@ -49,18 +53,18 @@ func (c *Client) Query(ctx context.Context, question string) ([]float32, error) 
 	return vectors[0], nil
 }
 
-func openAIVectors(key string) func(context.Context, []string) ([][]float32, error) {
+func openAIVectors(key string) func(context.Context, []string) ([][]float32, spent, error) {
 	api := openai.NewClient(option.WithAPIKey(key))
-	return func(ctx context.Context, texts []string) ([][]float32, error) {
+	return func(ctx context.Context, texts []string) ([][]float32, spent, error) {
 		resp, err := api.Embeddings.New(ctx, openai.EmbeddingNewParams{
 			Model:      openai.EmbeddingModelTextEmbedding3Small,
 			Dimensions: openai.Int(Dimensions),
 			Input:      openai.EmbeddingNewParamsInputUnion{OfArrayOfStrings: texts},
 		})
 		if err != nil {
-			return nil, err
+			return nil, spent{}, err
 		}
-		return shorten(resp.Data, len(texts)), nil
+		return shorten(resp.Data, len(texts)), spent{input: resp.Usage.PromptTokens}, nil
 	}
 }
 

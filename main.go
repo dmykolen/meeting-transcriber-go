@@ -14,10 +14,13 @@ import (
 	"runtime"
 	"runtime/debug"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
+	"github.com/wailsapp/wails/v3/pkg/events"
+	"github.com/wailsapp/wails/v3/pkg/services/notifications"
 
 	"github.com/dmykolen/meeting-transcriber-go/internal/engine"
 	"github.com/dmykolen/meeting-transcriber-go/internal/home"
@@ -217,12 +220,30 @@ func run(out io.Writer) error {
 		lib.Run(ctx)
 	}()
 
+	notifier := notifications.New()
+	meetings.Notify = func(title, body string) {
+		// Asking is harmless once granted; the first time macOS puts up its own
+		// question. A refusal is the person's answer, not an error.
+		ok, err := notifier.CheckNotificationAuthorization()
+		if err == nil && !ok {
+			ok, err = notifier.RequestNotificationAuthorization()
+		}
+		if err == nil && ok {
+			err = notifier.SendNotification(notifications.NotificationOptions{ID: "update", Title: title, Body: body})
+		}
+		if err != nil {
+			slog.Warn("could not show a notification", "err", err)
+		}
+	}
+	go meetings.WatchUpdates(ctx)
+
 	app := application.New(application.Options{
 		Name:        "Meeting Transcriber",
 		Description: "Records meetings, writes them down, and tells you what was decided.",
 		Services: []application.Service{
 			application.NewService(meetings),
 			application.NewService(setup.Bound()),
+			application.NewService(notifier),
 		},
 		Assets: application.AssetOptions{
 			Handler: application.BundledAssetFileServer(assets),
@@ -271,7 +292,11 @@ func run(out io.Writer) error {
 // when it ends, so the main window stays the last one to close.
 func strip(ctx context.Context, app *application.App, meetings *service.Meetings) {
 	const width, height = 560, 44
-	var window *application.WebviewWindow
+	var (
+		window  *application.WebviewWindow
+		movedMu sync.Mutex // the timer is set from the window's event and stopped here
+		moved   *time.Timer
+	)
 	tick := time.NewTicker(500 * time.Millisecond)
 	defer tick.Stop()
 	for {
@@ -290,6 +315,10 @@ func strip(ctx context.Context, app *application.App, meetings *service.Meetings
 			// top-left. Not via Options.Screen: beta.16 divides those
 			// coordinates by the Retina scale a second time.
 			x, y := screen.WorkArea.X+(screen.WorkArea.Width-width)/2, screen.WorkArea.Y+8
+			// Where it was last left, if that display is still there.
+			if sx, sy, ok := meetings.StripAt(); ok && onScreen(app, sx+width/2, sy+height/2) {
+				x, y = sx, sy
+			}
 			slog.Info("recording strip shown", "x", x, "y", y)
 			window = app.Window.NewWithOptions(application.WebviewWindowOptions{
 				Name:                     "strip",
@@ -319,9 +348,40 @@ func strip(ctx context.Context, app *application.App, meetings *service.Meetings
 				},
 			})
 			untouchable(window)
+			shown, w := time.Now(), window
+			// It is dragged by its own body. Where it is let go is kept, but
+			// not the moves made while it is still being put in place.
+			w.OnWindowEvent(events.Common.WindowDidMove, func(*application.WindowEvent) {
+				if time.Since(shown) < 2*time.Second {
+					return
+				}
+				x, y := w.Position()
+				movedMu.Lock()
+				defer movedMu.Unlock()
+				if moved != nil {
+					moved.Stop()
+				}
+				moved = time.AfterFunc(400*time.Millisecond, func() { meetings.MoveStrip(x, y) })
+			})
 		case !on && window != nil:
+			movedMu.Lock()
+			if moved != nil {
+				moved.Stop()
+			}
+			movedMu.Unlock()
 			window.Close()
 			window = nil
 		}
 	}
+}
+
+// onScreen reports whether a point, in points from the primary display's
+// top-left, is on a display that is connected now.
+func onScreen(app *application.App, x, y int) bool {
+	for _, s := range app.Screen.GetAll() {
+		if a := s.WorkArea; x >= a.X && x < a.X+a.Width && y >= a.Y && y < a.Y+a.Height {
+			return true
+		}
+	}
+	return false
 }

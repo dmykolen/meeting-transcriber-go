@@ -11,6 +11,9 @@ import * as insights$0 from "../insights/models.js";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
 import * as store$0 from "../store/models.js";
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
+import * as update$0 from "../update/models.js";
 
 /**
  * AIState is what the settings screen shows about the AI in use.
@@ -401,6 +404,11 @@ export class Settings {
     "keepAudioDays": number;
 
     /**
+     * look for a newer version every hour
+     */
+    "updates": boolean;
+
+    /**
      * "openai", "copilot" or "local"
      */
     "aiProvider": string;
@@ -473,6 +481,9 @@ export class Settings {
         }
         if (!("keepAudioDays" in $$source)) {
             this["keepAudioDays"] = 0;
+        }
+        if (!("updates" in $$source)) {
+            this["updates"] = false;
         }
         if (!("aiProvider" in $$source)) {
             this["aiProvider"] = "";
@@ -615,6 +626,250 @@ export class Tidied {
     }
 }
 
+/**
+ * UpdateState is what the interface shows about updates.
+ */
+export class UpdateState {
+    "current": string;
+
+    /**
+     * a newer release, or nil
+     */
+    "available": update$0.Release | null;
+
+    /**
+     * the last successful check
+     */
+    "checked": string;
+
+    /**
+     * "", "downloading" or "ready"
+     */
+    "stage": string;
+    "fraction": number;
+    "problem": string;
+
+    /**
+     * Installable says the app runs from an .app it can replace itself; when it
+     * does not, the interface offers the release page instead.
+     */
+    "installable": boolean;
+
+    /** Creates a new UpdateState instance. */
+    constructor($$source: Partial<UpdateState> = {}) {
+        if (!("current" in $$source)) {
+            this["current"] = "";
+        }
+        if (!("available" in $$source)) {
+            this["available"] = null;
+        }
+        if (!("checked" in $$source)) {
+            this["checked"] = "0001-01-01T00:00:00.000Z";
+        }
+        if (!("stage" in $$source)) {
+            this["stage"] = "";
+        }
+        if (!("fraction" in $$source)) {
+            this["fraction"] = 0;
+        }
+        if (!("problem" in $$source)) {
+            this["problem"] = "";
+        }
+        if (!("installable" in $$source)) {
+            this["installable"] = false;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new UpdateState instance from a string or object.
+     */
+    static createFrom($$source: any = {}): UpdateState {
+        const $$createField1_0 = $$createType12;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("available" in $$parsedSource) {
+            $$parsedSource["available"] = $$createField1_0($$parsedSource["available"]);
+        }
+        return new UpdateState($$parsedSource as Partial<UpdateState>);
+    }
+}
+
+/**
+ * UsageDay is one day of the chart.
+ */
+export class UsageDay {
+    "day": string;
+    "calls": number;
+    "tokens": number;
+    "cost": number;
+    "credits": number;
+
+    /** Creates a new UsageDay instance. */
+    constructor($$source: Partial<UsageDay> = {}) {
+        if (!("day" in $$source)) {
+            this["day"] = "";
+        }
+        if (!("calls" in $$source)) {
+            this["calls"] = 0;
+        }
+        if (!("tokens" in $$source)) {
+            this["tokens"] = 0;
+        }
+        if (!("cost" in $$source)) {
+            this["cost"] = 0;
+        }
+        if (!("credits" in $$source)) {
+            this["credits"] = 0;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new UsageDay instance from a string or object.
+     */
+    static createFrom($$source: any = {}): UsageDay {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new UsageDay($$parsedSource as Partial<UsageDay>);
+    }
+}
+
+/**
+ * UsageReport is the model usage over the last days, for the settings screen.
+ */
+export class UsageReport {
+    "days": number;
+
+    /**
+     * most used first, a row per model
+     */
+    "models": UsageRow[];
+
+    /**
+     * every day of the period, oldest first
+     */
+    "daily": UsageDay[];
+
+    /**
+     * priced models only
+     */
+    "cost": number;
+
+    /**
+     * GitHub AI Credits
+     */
+    "credits": number;
+
+    /** Creates a new UsageReport instance. */
+    constructor($$source: Partial<UsageReport> = {}) {
+        if (!("days" in $$source)) {
+            this["days"] = 0;
+        }
+        if (!("models" in $$source)) {
+            this["models"] = [];
+        }
+        if (!("daily" in $$source)) {
+            this["daily"] = [];
+        }
+        if (!("cost" in $$source)) {
+            this["cost"] = 0;
+        }
+        if (!("credits" in $$source)) {
+            this["credits"] = 0;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new UsageReport instance from a string or object.
+     */
+    static createFrom($$source: any = {}): UsageReport {
+        const $$createField1_0 = $$createType14;
+        const $$createField2_0 = $$createType16;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("models" in $$parsedSource) {
+            $$parsedSource["models"] = $$createField1_0($$parsedSource["models"]);
+        }
+        if ("daily" in $$parsedSource) {
+            $$parsedSource["daily"] = $$createField2_0($$parsedSource["daily"]);
+        }
+        return new UsageReport($$parsedSource as Partial<UsageReport>);
+    }
+}
+
+/**
+ * UsageRow is what one model used over the period.
+ */
+export class UsageRow {
+    /**
+     * local, 2026-10-05
+     */
+    "day": string;
+    "provider": string;
+    "model": string;
+    "calls": number;
+    "failed": number;
+    "input": number;
+    "output": number;
+    "credits": number;
+    "seconds": number;
+
+    /**
+     * Cost is in US dollars; Priced says whether it is known for this model.
+     */
+    "cost": number;
+    "priced": boolean;
+
+    /** Creates a new UsageRow instance. */
+    constructor($$source: Partial<UsageRow> = {}) {
+        if (!("day" in $$source)) {
+            this["day"] = "";
+        }
+        if (!("provider" in $$source)) {
+            this["provider"] = "";
+        }
+        if (!("model" in $$source)) {
+            this["model"] = "";
+        }
+        if (!("calls" in $$source)) {
+            this["calls"] = 0;
+        }
+        if (!("failed" in $$source)) {
+            this["failed"] = 0;
+        }
+        if (!("input" in $$source)) {
+            this["input"] = 0;
+        }
+        if (!("output" in $$source)) {
+            this["output"] = 0;
+        }
+        if (!("credits" in $$source)) {
+            this["credits"] = 0;
+        }
+        if (!("seconds" in $$source)) {
+            this["seconds"] = 0;
+        }
+        if (!("cost" in $$source)) {
+            this["cost"] = 0;
+        }
+        if (!("priced" in $$source)) {
+            this["priced"] = false;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new UsageRow instance from a string or object.
+     */
+    static createFrom($$source: any = {}): UsageRow {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new UsageRow($$parsedSource as Partial<UsageRow>);
+    }
+}
+
 // Private type creation functions
 const $$createType0 = $Create.Array($Create.Any);
 const $$createType1 = store$0.Hit.createFrom;
@@ -627,3 +882,9 @@ const $$createType7 = store$0.Summary.createFrom;
 const $$createType8 = $Create.Nullable($$createType7);
 const $$createType9 = store$0.Turn.createFrom;
 const $$createType10 = $Create.Array($$createType9);
+const $$createType11 = update$0.Release.createFrom;
+const $$createType12 = $Create.Nullable($$createType11);
+const $$createType13 = UsageRow.createFrom;
+const $$createType14 = $Create.Array($$createType13);
+const $$createType15 = UsageDay.createFrom;
+const $$createType16 = $Create.Array($$createType15);

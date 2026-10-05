@@ -75,6 +75,8 @@ export default function Workspace({
   const [live, setLive] = useState<Listening | null>(null)
 
   const [range, setRange] = useState<[string, string] | null>(null)
+  /** A topic the list is narrowed to, as the summaries spell it. */
+  const [topic, setTopic] = useState<string | null>(null)
   const [open, setOpen] = useState<number | null>(null)
   /** A second to open the meeting at, when it was reached from a line of a
       project document rather than from the list. */
@@ -126,17 +128,26 @@ export default function Workspace({
     return () => clearInterval(timer)
   }, [load])
 
-  // The three instruments compose: a project, a stretch of time, and the bin.
+  // The instruments compose: a project, a stretch of time, a topic, and the bin.
   const shown = useMemo(
     () =>
       (rows ?? []).filter(
         (r) =>
           (project === null || r.group === project) &&
+          (!topic || r.summary?.topics?.some((x) => same(x, topic))) &&
           (!range ||
             (day(r.started) >= range[0] && day(r.started) <= range[1])),
       ),
-    [rows, project, range],
+    [rows, project, range, topic],
   )
+  // How many meetings each topic is in, for the chips in the reader.
+  const topics = useMemo(() => {
+    const count = new Map<string, number>()
+    for (const r of rows ?? [])
+      for (const x of new Set(r.summary?.topics?.map(norm) ?? []))
+        count.set(x, (count.get(x) ?? 0) + 1)
+    return count
+  }, [rows])
 
   const file = useCallback(
     async (recording: number, group: number) => {
@@ -181,7 +192,7 @@ export default function Workspace({
 
   const list = (
     <motion.div
-      key={`${project}-${range?.join("") ?? ""}-${binned}`}
+      key={`${project}-${range?.join("") ?? ""}-${binned}-${topic}`}
       initial={{ opacity: 0.45 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.18 }}
@@ -196,7 +207,9 @@ export default function Workspace({
         <p className="px-4 py-10 text-center text-[11.5px] leading-relaxed text-faint">
           {binned
             ? t("У кошику порожньо.")
-            : project !== null
+            : topic
+              ? t("Немає нарад із цією темою.")
+              : project !== null
               ? t(
                   "У цьому проєкті ще нічого немає. Перетягніть нараду на його плитку внизу.",
                 )
@@ -253,6 +266,15 @@ export default function Workspace({
         {onReturn && open === null && (
           <button className="ui-chip" onClick={onReturn}>
             ← {returnLabel || t("Назад")}
+          </button>
+        )}
+        {topic && (
+          <button
+            onClick={() => setTopic(null)}
+            title={t("Прибрати фільтр за темою")}
+            className="mr-1 max-w-48 truncate rounded-md bg-raised px-2 py-0.5 text-[10px] text-soft transition-colors hover:text-text"
+          >
+            # {topic} ✕
           </button>
         )}
         {range && (
@@ -350,6 +372,12 @@ export default function Workspace({
               onList={narrow ? () => setListOpen(true) : undefined}
               onReturn={onReturn}
               returnLabel={returnLabel}
+              topic={topic}
+              topics={topics}
+              onTopic={(x) => {
+                setTopic(topic && same(topic, x) ? null : x)
+                setListOpen(narrow)
+              }}
               onBack={() => setOpen(null)}
               onChanged={load}
             />
@@ -451,6 +479,10 @@ export default function Workspace({
 }
 
 /** Recordings by calendar day, newest first, as the list is grouped. */
+/** Topics are the same when they differ only in case or spacing. */
+const norm = (topic: string) => topic.trim().replace(/\s+/g, " ").toLowerCase()
+const same = (a: string, b: string) => norm(a) === norm(b)
+
 function group(rows: Recording[]) {
   const by = new Map<string, Recording[]>()
   for (const r of rows) {

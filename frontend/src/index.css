@@ -454,9 +454,15 @@ button:active:not([role="checkbox"]) {
 }
 .reader-columns {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 225px;
+  grid-template-columns: minmax(0, 1fr) clamp(290px, 23vw, 380px);
   min-height: 0;
   flex: 1;
+}
+.reader-main {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
 }
 .reader-columns.single {
   grid-template-columns: minmax(0, 1fr);
@@ -521,6 +527,56 @@ button:active:not([role="checkbox"]) {
   max-width: 78ch;
   color: #d7dfea;
   margin: 0 0 18px;
+}
+.summary-overview:has(+ .topic-list) {
+  margin-bottom: 10px;
+}
+.topic-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 0 18px;
+  padding: 0;
+  list-style: none;
+}
+.topic-list button {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  border: 1px solid color-mix(in oklch, var(--color-line) 70%, transparent);
+  border-radius: 999px;
+  padding: 1px 9px;
+  font-size: 11px;
+  color: var(--color-soft);
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+.topic-list button small {
+  color: var(--color-faint);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+}
+.topic-list button:hover {
+  border-color: color-mix(in oklch, var(--color-accent) 45%, transparent);
+  color: var(--color-text);
+}
+.topic-list button[aria-pressed="true"] {
+  border-color: var(--color-accent);
+  background: var(--color-accent-soft);
+  color: var(--color-text);
+}
+/* The summary uses the width it has: one column up to about 70rem, then as
+   many columns of 34rem as fit. The overview and topics span all of them. */
+.summary-body {
+  columns: 34rem;
+  column-gap: 44px;
+}
+.summary-body > .summary-overview,
+.summary-body > .topic-list {
+  column-span: all;
+}
+.summary-body > .doc-block {
+  break-inside: avoid;
+  max-width: none;
 }
 .doc-block {
   max-width: 82ch;
@@ -621,28 +677,38 @@ button:active:not([role="checkbox"]) {
   background: #9aff1d16;
 }
 .reader-inspector {
-  border-left: 1px solid #ffffff0a;
   overflow-y: auto;
-  padding: 0 11px 80px;
-  background: #11172360;
+  padding: 16px 20px 80px;
+  border-left: 1px solid #ffffff0a;
+  background: linear-gradient(180deg, #16192622, #0d0f1700 60%), #11172340;
 }
-.reader-inspector section,
-.drawer-panel section {
-  margin-top: 12px !important;
+.drawer-panel section.inspector {
+  margin-top: 4px !important;
 }
-.reader-inspector section > div,
-.drawer-panel section > div {
-  padding: 10px !important;
-  border-radius: 8px;
+.inspector-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px 16px;
+  margin: 14px 0 0;
 }
-.reader-inspector h2 {
-  font-size: 9px !important;
+.inspector-stats dt {
+  font-size: 10px;
+  color: var(--color-faint);
+}
+.inspector-stats dd {
+  margin: 1px 0 0;
+  font-size: 19px;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
 }
 .speaker-editor {
   display: flex;
   flex-wrap: wrap;
   gap: 5px;
-  margin-top: 12px;
+  margin-top: 22px;
+  padding-top: 14px;
+  border-top: 1px solid #ffffff0a;
 }
 .speaker-editor > span {
   width: 100%;
@@ -2029,7 +2095,6 @@ main .px-5 {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 22px 20px;
-  max-width: 1280px;
   padding-top: 12px;
   align-items: start;
 }
@@ -2102,7 +2167,6 @@ main .px-5 {
 @media (max-width: 1100px) {
   .settings-grid {
     grid-template-columns: 1fr;
-    max-width: 800px;
     gap: 18px;
   }
   .settings-row {
@@ -2118,7 +2182,9 @@ main .px-5 {
 }
 .settings-grid {
   display: block;
-  columns: 2;
+  /* As many columns as the width holds at 30rem each, so a wide window fills
+     and a narrow one stacks. */
+  columns: 30rem;
   column-gap: 20px;
 }
 .settings-grid > section {
@@ -2230,6 +2296,13 @@ html.strip-window body {
   font-size: 12px;
   -webkit-user-select: none;
   user-select: none;
+  /* The strip is moved by its own body; the buttons stay buttons. */
+  --wails-draggable: drag;
+  cursor: grab;
+}
+.strip button {
+  --wails-draggable: no-drag;
+  cursor: default;
 }
 .strip-say {
   display: flex;

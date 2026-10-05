@@ -103,6 +103,38 @@ export type AIState = {
   problem: string
 }
 
+/** What the interface shows about updates. */
+export type UpdateState = {
+  current: string
+  available: { version: string; notes: string; page: string } | null
+  checked: string
+  stage: "" | "downloading" | "ready"
+  fraction: number
+  problem: string
+  /** The app can replace itself; otherwise only the release page is offered. */
+  installable: boolean
+}
+
+/** Model usage over a period, as the settings screen charts it. */
+export type UsageReport = {
+  days: number
+  models: {
+    provider: string
+    model: string
+    calls: number
+    failed: number
+    input: number
+    output: number
+    credits: number
+    seconds: number
+    cost: number
+    priced: boolean
+  }[]
+  daily: { day: string; calls: number; tokens: number; cost: number; credits: number }[]
+  cost: number
+  credits: number
+}
+
 export type CopilotAccount = {
   login: string
   models: { id: string; name: string }[]
@@ -296,6 +328,20 @@ export type Briefing = {
   spared: number
 }
 
+/** How the archive's time was spent; see store.Rhythm. */
+export type Rhythm = {
+  weeks: {
+    start: string
+    hours: number
+    meetings: number
+    decisions: number
+    commitments: number
+  }[]
+  /** Minutes of meetings by weekday (Monday first) and hour of the day. */
+  clock: number[][]
+  voices: { speaker: string; seconds: number }[]
+}
+
 export type Density = "compact" | "comfortable"
 
 export type Settings = {
@@ -313,6 +359,7 @@ export type Settings = {
   quietEnds: number
   preroll: number
   keepAudioDays: number
+  updates: boolean
   aiProvider: "openai" | "copilot" | "local"
   copilotModel: string
   localModel: string

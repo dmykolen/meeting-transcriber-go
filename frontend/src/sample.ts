@@ -514,6 +514,7 @@ export const sample = {
     openaiModel: "gpt-5.4-mini",
     summarise: "meetings" as const,
     keepNotes: false,
+    updates: true,
     density: "compact",
     listening: true,
     system: true,
@@ -573,6 +574,71 @@ export const sample = {
   },
   Markdown: async () => "# " + summary.title + "\n\n" + summary.overview,
   SaveSettings: async () => {},
+  Rhythm: async (days: number) => {
+    const monday = new Date()
+    monday.setHours(0, 0, 0, 0)
+    monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7))
+    const hours = [3.2, 5.5, 4.1, 6.8, 2.0, 0.6, 5.2, 7.4, 6.1, 4.8, 5.9, 3.7]
+    return {
+      weeks: hours.map((h, i) => ({
+        start: new Date(monday.getTime() - (11 - i) * 7 * 864e5).toISOString(),
+        hours: h,
+        meetings: Math.round(h * 1.6),
+        decisions: Math.round(h * 1.3),
+        commitments: Math.round(h * 2),
+      })),
+      clock: Array.from({ length: 7 }, (_, d) =>
+        Array.from({ length: 24 }, (_, h) =>
+          d < 5 && h >= 9 && h <= 17 ? ((d * 7 + h * 13) % 5 === 0 ? 0 : ((d + h) % 4) * 25) : 0,
+        ),
+      ),
+      voices: [
+        { speaker: "Marta", seconds: 4200 * days },
+        { speaker: "Taras Petrenko", seconds: 2900 * days },
+        { speaker: "Sofia", seconds: 1500 * days },
+        { speaker: "", seconds: 900 * days },
+      ],
+    }
+  },
+  Update: async () => ({
+    current: "1.3.0",
+    available: {
+      version: "1.4.0",
+      notes: "## New\n\n- Update from inside the app.\n- AI usage and cost in Settings.\n\n## Fixed\n\n- Topics show in the reader.",
+      page: "https://example.test/release",
+    },
+    checked: new Date().toISOString(),
+    stage: "",
+    fraction: 0,
+    problem: "",
+    installable: true,
+  }),
+  CheckUpdate: async () => {},
+  InstallUpdate: async () => {},
+  RestartToUpdate: async () => {},
+  Usage: async (days: number) => {
+    const daily = Array.from({ length: days }, (_, i) => {
+      const calls = i % 5 === 0 ? 0 : (i * 7) % 11
+      return {
+        day: new Date(Date.now() - (days - 1 - i) * 864e5).toISOString().slice(0, 10),
+        calls,
+        tokens: calls * 9000,
+        cost: calls * 0.008,
+        credits: 0,
+      }
+    })
+    return {
+      days,
+      daily,
+      cost: 1.42,
+      credits: 36.5,
+      models: [
+        { provider: "openai", model: "gpt-5.4-mini", calls: 84, failed: 2, input: 910000, output: 62000, credits: 0, seconds: 412, cost: 0.96, priced: true },
+        { provider: "copilot", model: "claude-sonnet-4.5", calls: 21, failed: 0, input: 240000, output: 18000, credits: 36.5, seconds: 190, cost: 0, priced: false },
+        { provider: "local", model: "chat.gguf", calls: 9, failed: 0, input: 51000, output: 4000, credits: 0, seconds: 300, cost: 0, priced: false },
+      ],
+    }
+  },
   State: async () => ({
     stage: "ready" as const,
     what: "",

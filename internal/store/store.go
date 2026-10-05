@@ -223,6 +223,21 @@ CREATE TABLE IF NOT EXISTS discarded (
 );
 CREATE INDEX IF NOT EXISTS discarded_at ON discarded(at DESC);
 
+-- Every request to a model, for the usage report. Nothing in it is content:
+-- only what asked, what answered, and what it consumed.
+CREATE TABLE IF NOT EXISTS usage (
+  at       INTEGER NOT NULL,
+  task     TEXT    NOT NULL,
+  provider TEXT    NOT NULL,
+  model    TEXT    NOT NULL,
+  input    INTEGER NOT NULL DEFAULT 0,
+  output   INTEGER NOT NULL DEFAULT 0,
+  credits  REAL    NOT NULL DEFAULT 0,
+  seconds  REAL    NOT NULL DEFAULT 0,
+  failed   TEXT    NOT NULL DEFAULT ''
+);
+CREATE INDEX IF NOT EXISTS usage_at ON usage(at DESC);
+
 CREATE TABLE IF NOT EXISTS groups (
   id     INTEGER PRIMARY KEY AUTOINCREMENT,
   name   TEXT    NOT NULL UNIQUE,
@@ -577,4 +592,17 @@ func (d *DB) Actions(includeDone bool) ([]Outstanding, error) {
 		}
 	}
 	return out, nil
+}
+
+// Meta reads a small value the app keeps about itself; empty when never set.
+func (d *DB) Meta(key string) string {
+	var value string
+	_ = d.sql.QueryRow(`SELECT value FROM meta WHERE key = ?`, key).Scan(&value)
+	return value
+}
+
+// SetMeta keeps a small value the app remembers about itself.
+func (d *DB) SetMeta(key, value string) error {
+	_, err := d.sql.Exec(`INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)`, key, value)
+	return err
 }

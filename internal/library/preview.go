@@ -28,7 +28,7 @@ func (l *Library) PreviewSummary(ctx context.Context, id int64) (*store.Summary,
 	}
 	slog.Info("summary draft started", "id", id, "turns", len(turns))
 	began := time.Now()
-	summary, err := l.AI().Summarise(ctx, turns)
+	summary, err := l.AI().Summarise(ctx, turns, l.known())
 	if err != nil {
 		slog.Warn("summary draft finished", "id", id, "took", time.Since(began).Round(time.Millisecond),
 			"status", "failed", "err", err)

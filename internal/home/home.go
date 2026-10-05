@@ -55,6 +55,9 @@ type Config struct {
 	Keep   Keep   `toml:"keep"`
 	AI     AI     `toml:"ai"`
 	Queue  Queue  `toml:"queue"`
+	// NoUpdates stops the hourly look for a newer version. Inverted so that a
+	// config written before this setting existed keeps checking.
+	NoUpdates bool `toml:"no_updates"`
 }
 
 // Queue says when recordings are transcribed: "after" each one, "at" a time of

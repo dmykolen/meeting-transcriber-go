@@ -9,6 +9,7 @@ import Search from "./screens/Search"
 import Todo from "./screens/Todo"
 import Ask from "./screens/Ask"
 import Rail, { type Screen } from "./components/Rail"
+import { UpdateCard, useUpdate } from "./components/Update"
 import { t } from "./i18n"
 
 const SettingsScreen = lazy(() => import("./screens/Settings"))
@@ -20,6 +21,7 @@ export default function App() {
   const [pickAt, setPickAt] = useState<number | undefined>()
   const [origin, setOrigin] = useState<Screen | null>(null)
   const [project, setProject] = useState<number | null>(null)
+  const update = useUpdate()
 
   // Polled rather than pushed: one small object once a second, and an event
   // channel for it would be more machinery than the thing it carries.
@@ -119,6 +121,7 @@ export default function App() {
           transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
         >
           <Rail
+            update={update}
             screen={screen}
             onChange={(s) => {
               setOpen(null)
@@ -184,6 +187,7 @@ export default function App() {
           </main>
         </motion.div>
       )}
+      <UpdateCard update={update} />
     </div>
   )
 }

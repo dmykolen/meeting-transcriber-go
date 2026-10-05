@@ -8,6 +8,7 @@ import {
   Sunrise,
 } from "lucide-react"
 import Ear from "./Ear"
+import { Version, type useUpdate } from "./Update"
 import { t, type Key } from "../i18n"
 
 export type Screen =
@@ -41,9 +42,11 @@ const screens = [
 export default function Rail({
   screen,
   onChange,
+  update,
 }: {
   screen: Screen
   onChange: (s: Screen) => void
+  update: ReturnType<typeof useUpdate>
 }) {
   return (
     <nav className="app-rail no-drag flex w-[58px] shrink-0 flex-col items-center gap-0.5 border-r border-line/60 px-2 pt-2">
@@ -84,6 +87,7 @@ export default function Rail({
       })}
 
       <Ear />
+      <Version update={update} />
     </nav>
   )
 }

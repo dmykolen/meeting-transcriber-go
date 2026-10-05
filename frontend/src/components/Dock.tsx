@@ -32,10 +32,10 @@ import { t } from "../i18n"
  * six buttons that each happen to have a tooltip: the label is a single object
  * being handed from tile to tile.
  *
- * Everything moves on a critically damped spring — stiffness 420, damping 41,
+ * Everything moves on a critically damped spring — stiffness 900, damping 60,
  * so it arrives without a wobble and without a bounce to sit through. Hover is
- * deliberately not instant: 55 ms of intent before the first name appears, 40 ms
- * between tiles, 150 ms before it leaves, and a 4 px dead band at the midpoint
+ * deliberately not instant: 25 ms of intent before the first name appears, none
+ * between tiles, 110 ms before it leaves, and a 4 px dead band at the midpoint
  * between two tiles so that trackpad noise cannot make the label flicker.
  *
  * It is also where a meeting is filed: drag a card onto a tile. While a card is
@@ -98,7 +98,7 @@ export default function Dock({
       })),
   ]
 
-  const spring = { stiffness: 420, damping: 41, mass: 1, restDelta: 0.001 }
+  const spring = { stiffness: 900, damping: 60, mass: 1, restDelta: 0.001 }
   const x = useSpring(useMotionValue(0), spring)
   const width = useSpring(useMotionValue(120), spring)
   const shown = useSpring(useMotionValue(0), spring)
@@ -167,11 +167,14 @@ export default function Dock({
     window.clearTimeout(leaving.current)
     if (next === at) return
     window.clearTimeout(intent.current)
-    intent.current = window.setTimeout(() => setAt(next), at < 0 ? 55 : 40)
+    // Moving along the row follows the pointer at once; only the first name
+    // waits a moment, so that crossing the dock does not flash one.
+    if (at >= 0) return setAt(next)
+    intent.current = window.setTimeout(() => setAt(next), 25)
   }
   const gone = () => {
     window.clearTimeout(intent.current)
-    leaving.current = window.setTimeout(() => setAt(-1), 150)
+    leaving.current = window.setTimeout(() => setAt(-1), 110)
   }
 
   const keys = (e: React.KeyboardEvent, i: number) => {
@@ -399,7 +402,7 @@ function Tile({
           transition={
             still
               ? { duration: 0 }
-              : { type: "spring", stiffness: 420, damping: 41 }
+              : { type: "spring", stiffness: 900, damping: 60 }
           }
           style={{ background: colour, transformOrigin: "center bottom" }}
           className={`absolute inset-0 grid place-items-center overflow-hidden rounded-[9px] border border-text/10 shadow-[0_2px_3px_rgba(0,0,0,0.15)] ${

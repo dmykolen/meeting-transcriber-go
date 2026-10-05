@@ -40,6 +40,9 @@ import NotesDeck from "../components/NotesDeck"
 import ActionEditor from "../components/ActionEditor"
 import { locale, t, tr } from "../i18n"
 
+const norm = (topic: string) =>
+  topic.trim().replace(/\s+/g, " ").toLowerCase()
+
 export default function Transcript({
   id,
   groups,
@@ -51,6 +54,9 @@ export default function Transcript({
   onList,
   onReturn,
   returnLabel,
+  topic,
+  topics,
+  onTopic,
 }: {
   id: number
   groups: Group[]
@@ -62,6 +68,11 @@ export default function Transcript({
   onList?: () => void
   onReturn?: () => void
   returnLabel?: string
+  /** The topic the list is narrowed to, how many meetings each topic is in,
+      and what pressing a topic does. */
+  topic?: string | null
+  topics?: Map<string, number>
+  onTopic?: (topic: string) => void
 }) {
   const [meeting, setMeeting] = useState<Meeting | null>(null),
     [people, setPeople] = useState<Person[]>([]),
@@ -163,6 +174,16 @@ export default function Transcript({
     window.addEventListener("keydown", key)
     return () => window.removeEventListener("keydown", key)
   }, [onFocus])
+  // A click anywhere else closes the menu, as Escape does.
+  const menuBox = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!menu) return
+    const away = (e: PointerEvent) => {
+      if (!menuBox.current?.contains(e.target as Node)) setMenu(false)
+    }
+    document.addEventListener("pointerdown", away)
+    return () => document.removeEventListener("pointerdown", away)
+  }, [menu])
   const colours = useMemo(
     () =>
       palette(
@@ -270,7 +291,7 @@ export default function Transcript({
             <PanelRight size={16} />
           </button>
         )}
-        <div className="relative">
+        <div className="relative" ref={menuBox}>
           <button
             className="ui-icon"
             aria-label={t("Дії зустрічі")}
@@ -321,6 +342,10 @@ export default function Transcript({
           )}
         </div>
       </header>
+      {/* The inspector is a column of its own beside everything under the
+          toolbar, so it starts at the level of the title. */}
+      <div className={`reader-columns ${narrow || focused ? "single" : ""}`}>
+      <div className="reader-main">
       <div className="reader-heading">
         <input
           aria-label={t("Назва зустрічі")}
@@ -581,7 +606,6 @@ export default function Transcript({
           </button>
         </p>
       )}
-      <div className={`reader-columns ${narrow || focused ? "single" : ""}`}>
         <section className="document-column">
           <div className="document-tabs">
             <button
@@ -701,8 +725,33 @@ export default function Transcript({
                   </div>
                 )}
                 {s ? (
-                  <>
+                  <div className="summary-body">
                     <p className="summary-overview">{s.overview}</p>
+                    {!!s.topics?.length && (
+                      <ul className="topic-list" aria-label={t("Теми")}>
+                        {s.topics.map((x, i) => {
+                          const n = topics?.get(norm(x)) ?? 0
+                          const on =
+                            !!topic && norm(topic) === norm(x)
+                          return (
+                            <li key={i}>
+                              <button
+                                aria-pressed={on}
+                                onClick={() => onTopic?.(x)}
+                                title={
+                                  on
+                                    ? t("Прибрати фільтр за темою")
+                                    : t("Показати наради з цією темою")
+                                }
+                              >
+                                {x}
+                                {n > 1 && <small>{n}</small>}
+                              </button>
+                            </li>
+                          )
+                        })}
+                      </ul>
+                    )}
                     {!!s.decisions?.length && (
                       <section className="doc-block">
                         <h3>
@@ -792,7 +841,7 @@ export default function Transcript({
                         </ul>
                       </section>
                     )}
-                  </>
+                  </div>
                 ) : meeting.status !== "done" &&
                   meeting.transcript.length === 0 ? (
                   <div className="empty-reader">
@@ -858,6 +907,7 @@ export default function Transcript({
             )}
           </div>
         </section>
+      </div>
         {!narrow && !focused && (
           <aside className="reader-inspector">{analytics}</aside>
         )}

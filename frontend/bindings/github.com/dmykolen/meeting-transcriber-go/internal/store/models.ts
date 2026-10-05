@@ -760,6 +760,59 @@ export class Recording {
 }
 
 /**
+ * Rhythm is what the archive says about how the time goes: measured from the
+ * recordings and their turns, with nothing scored or estimated.
+ */
+export class Rhythm {
+    /**
+     * oldest first, the current week last
+     */
+    "weeks": Week[];
+
+    /**
+     * Clock is minutes of meetings by weekday (Monday first) and hour of the
+     * day, over the same weeks.
+     */
+    "clock": number[][];
+
+    /**
+     * Voices is who spoke over the last days asked for, most speech first.
+     */
+    "voices": Share[];
+
+    /** Creates a new Rhythm instance. */
+    constructor($$source: Partial<Rhythm> = {}) {
+        if (!("weeks" in $$source)) {
+            this["weeks"] = [];
+        }
+        if (!("clock" in $$source)) {
+            this["clock"] = Array.from({ length: 7 }, () => Array.from({ length: 24 }, () => 0));
+        }
+        if (!("voices" in $$source)) {
+            this["voices"] = [];
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new Rhythm instance from a string or object.
+     */
+    static createFrom($$source: any = {}): Rhythm {
+        const $$createField0_0 = $$createType18;
+        const $$createField2_0 = $$createType20;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("weeks" in $$parsedSource) {
+            $$parsedSource["weeks"] = $$createField0_0($$parsedSource["weeks"]);
+        }
+        if ("voices" in $$parsedSource) {
+            $$parsedSource["voices"] = $$createField2_0($$parsedSource["voices"]);
+        }
+        return new Rhythm($$parsedSource as Partial<Rhythm>);
+    }
+}
+
+/**
  * Said is one line from a summary, with its source meeting.
  */
 export class Said {
@@ -792,6 +845,37 @@ export class Said {
     static createFrom($$source: any = {}): Said {
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         return new Said($$parsedSource as Partial<Said>);
+    }
+}
+
+/**
+ * Share is how long one person spoke.
+ */
+export class Share {
+    /**
+     * empty for voices nobody has named
+     */
+    "speaker": string;
+    "seconds": number;
+
+    /** Creates a new Share instance. */
+    constructor($$source: Partial<Share> = {}) {
+        if (!("speaker" in $$source)) {
+            this["speaker"] = "";
+        }
+        if (!("seconds" in $$source)) {
+            this["seconds"] = 0;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new Share instance from a string or object.
+     */
+    static createFrom($$source: any = {}): Share {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new Share($$parsedSource as Partial<Share>);
     }
 }
 
@@ -906,10 +990,10 @@ export class Standing {
      * Creates a new Standing instance from a string or object.
      */
     static createFrom($$source: any = {}): Standing {
-        const $$createField4_0 = $$createType18;
-        const $$createField5_0 = $$createType18;
-        const $$createField6_0 = $$createType18;
-        const $$createField7_0 = $$createType20;
+        const $$createField4_0 = $$createType22;
+        const $$createField5_0 = $$createType22;
+        const $$createField6_0 = $$createType22;
+        const $$createField7_0 = $$createType24;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("work" in $$parsedSource) {
             $$parsedSource["work"] = $$createField4_0($$parsedSource["work"]);
@@ -1030,10 +1114,10 @@ export class Summary {
      * Creates a new Summary instance from a string or object.
      */
     static createFrom($$source: any = {}): Summary {
-        const $$createField2_0 = $$createType22;
+        const $$createField2_0 = $$createType26;
         const $$createField3_0 = $$createType12;
         const $$createField4_0 = $$createType12;
-        const $$createField5_0 = $$createType24;
+        const $$createField5_0 = $$createType28;
         const $$createField6_0 = $$createType12;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("chapters" in $$parsedSource) {
@@ -1231,6 +1315,61 @@ export class Voice {
     }
 }
 
+/**
+ * Week is one Monday-to-Sunday stretch of meetings.
+ */
+export class Week {
+    /**
+     * its Monday, local midnight
+     */
+    "start": string;
+
+    /**
+     * recorded in meetings
+     */
+    "hours": number;
+    "meetings": number;
+
+    /**
+     * written in those meetings' summaries
+     */
+    "decisions": number;
+
+    /**
+     * the same, for action items
+     */
+    "commitments": number;
+
+    /** Creates a new Week instance. */
+    constructor($$source: Partial<Week> = {}) {
+        if (!("start" in $$source)) {
+            this["start"] = "0001-01-01T00:00:00.000Z";
+        }
+        if (!("hours" in $$source)) {
+            this["hours"] = 0;
+        }
+        if (!("meetings" in $$source)) {
+            this["meetings"] = 0;
+        }
+        if (!("decisions" in $$source)) {
+            this["decisions"] = 0;
+        }
+        if (!("commitments" in $$source)) {
+            this["commitments"] = 0;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new Week instance from a string or object.
+     */
+    static createFrom($$source: any = {}): Week {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new Week($$parsedSource as Partial<Week>);
+    }
+}
+
 // Private type creation functions
 const $$createType0 = Voice.createFrom;
 const $$createType1 = $Create.Array($$createType0);
@@ -1249,11 +1388,15 @@ const $$createType13 = Source.createFrom;
 const $$createType14 = $Create.Array($$createType13);
 const $$createType15 = Summary.createFrom;
 const $$createType16 = $Create.Nullable($$createType15);
-const $$createType17 = Thread.createFrom;
+const $$createType17 = Week.createFrom;
 const $$createType18 = $Create.Array($$createType17);
-const $$createType19 = Face.createFrom;
+const $$createType19 = Share.createFrom;
 const $$createType20 = $Create.Array($$createType19);
-const $$createType21 = Chapter.createFrom;
+const $$createType21 = Thread.createFrom;
 const $$createType22 = $Create.Array($$createType21);
-const $$createType23 = Action.createFrom;
+const $$createType23 = Face.createFrom;
 const $$createType24 = $Create.Array($$createType23);
+const $$createType25 = Chapter.createFrom;
+const $$createType26 = $Create.Array($$createType25);
+const $$createType27 = Action.createFrom;
+const $$createType28 = $Create.Array($$createType27);

@@ -652,6 +652,15 @@ func values(m map[string]string) []string {
 	return out
 }
 
+// known is the vocabulary of topics a new summary reuses.
+func (l *Library) known() []string {
+	topics, err := l.db.Topics(80)
+	if err != nil {
+		slog.Warn("could not list the topics already used", "err", err)
+	}
+	return topics
+}
+
 // summarise adds summary artifacts without failing an otherwise usable
 // recording.
 func (l *Library) summarise(ctx context.Context, id int64, turns []engine.Turn) error {
@@ -668,7 +677,7 @@ func (l *Library) summarise(ctx context.Context, id int64, turns []engine.Turn) 
 	}
 	slog.Info("summary started", "id", id, "turns", len(turns))
 	began := time.Now()
-	summary, err := l.AI().Summarise(ctx, said)
+	summary, err := l.AI().Summarise(ctx, said, l.known())
 	if err != nil {
 		slog.Warn("summary finished", "id", id, "took", time.Since(began).Round(time.Millisecond),
 			"status", "failed", "err", err)

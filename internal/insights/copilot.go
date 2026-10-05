@@ -69,14 +69,14 @@ func (p *pilot) close() {
 	}
 }
 
-func (p *pilot) ask(ctx context.Context, q prompt) (string, error) {
+func (p *pilot) ask(ctx context.Context, q prompt) (string, spent, error) {
 	c, err := p.start(ctx)
 	if err != nil {
-		return "", err
+		return "", spent{}, err
 	}
 	// Signed out, the CLI would only say that it could not resolve a model.
 	if status, err := c.GetAuthStatus(ctx); err == nil && !status.IsAuthenticated {
-		return "", errors.New("GitHub Copilot не підключено. Підключіть його в параметрах, у розділі «AI та архів»")
+		return "", spent{}, errors.New("GitHub Copilot не підключено. Підключіть його в параметрах, у розділі «AI та архів»")
 	}
 	// The SDK gives up after a minute unless told otherwise; a long meeting
 	// on a slow model takes longer.
@@ -103,7 +103,7 @@ func (p *pilot) ask(ctx context.Context, q prompt) (string, error) {
 	})
 	if err != nil {
 		p.close() // the next call starts a fresh CLI
-		return "", fmt.Errorf("GitHub Copilot: %w", err)
+		return "", spent{}, fmt.Errorf("GitHub Copilot: %w", err)
 	}
 	// A transcript is not left behind in Copilot's session history.
 	defer func() {
@@ -114,30 +114,54 @@ func (p *pilot) ask(ctx context.Context, q prompt) (string, error) {
 	}()
 	// SendAndWait keeps only the English text of a failure; its kind comes with
 	// the event, to this handler first because it is registered first.
-	var quota atomic.Bool
+	var (
+		quota atomic.Bool
+		mu    sync.Mutex
+		used  spent
+	)
 	defer session.On(func(e copilot.SessionEvent) {
-		if d, ok := e.Data.(*copilot.SessionErrorData); ok && d.ErrorType == "quota" {
-			quota.Store(true)
+		switch d := e.Data.(type) {
+		case *copilot.SessionErrorData:
+			if d.ErrorType == "quota" {
+				quota.Store(true)
+			}
+		case *copilot.AssistantUsageData:
+			mu.Lock()
+			defer mu.Unlock()
+			used.model = d.Model
+			if d.InputTokens != nil {
+				used.input += *d.InputTokens
+			}
+			if d.OutputTokens != nil {
+				used.output += *d.OutputTokens
+			}
+			if d.CopilotUsage != nil {
+				used.credits += d.CopilotUsage.TotalNanoAiu / 1e9
+			}
 		}
 	})()
 	reply, err := session.SendAndWait(ctx, copilot.MessageOptions{Prompt: q.input})
+	mu.Lock()
+	tokens := used
+	mu.Unlock()
 	if quota.Load() {
-		return "", errors.New("Квоту GitHub Copilot вичерпано. Оберіть інший AI у параметрах або дочекайтеся, поки квота оновиться")
+		return "", tokens, errors.New("Квоту GitHub Copilot вичерпано. Оберіть інший AI у параметрах або дочекайтеся, поки квота оновиться")
 	}
 	if err != nil {
-		return "", fmt.Errorf("GitHub Copilot: %w", err)
+		return "", tokens, fmt.Errorf("GitHub Copilot: %w", err)
 	}
 	var said *copilot.AssistantMessageData
 	if reply != nil {
 		said, _ = reply.Data.(*copilot.AssistantMessageData)
 	}
 	if said == nil {
-		return "", errors.New("GitHub Copilot returned no answer")
+		return "", spent{}, errors.New("GitHub Copilot returned no answer")
 	}
 	if q.schema == nil {
-		return said.Content, nil
+		return said.Content, tokens, nil
 	}
-	return unfence(said.Content)
+	object, err := unfence(said.Content)
+	return object, tokens, err
 }
 
 // unfence finds the JSON object in a reply: asked for JSON alone, models still

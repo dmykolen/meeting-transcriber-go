@@ -36,6 +36,26 @@ type Setup struct {
 	Copilot, CopilotHome   string // the copilot executable and its own state folder
 	Server                 string // the llama-server executable
 	Chat, Vectors          string // the local model files
+
+	// Usage, when set, hears of every model call as it finishes.
+	Usage func(Use)
+}
+
+// Use is what one model call consumed.
+type Use struct {
+	Task, Provider, Model string
+	Input, Output         int64
+	Credits               float64 // GitHub AI Credits, as Copilot reports them
+	Took                  time.Duration
+	Failed                string // why, empty when it worked
+}
+
+// spent is what a provider says one call used; the model is only set when it
+// differs from the one asked for (Copilot's Auto picks one).
+type spent struct {
+	input, output int64
+	credits       float64
+	model         string
 }
 
 // Client talks to whichever models the settings chose.
@@ -43,11 +63,14 @@ type Client struct {
 	language string
 	// provider and model say what answers, for the log.
 	provider, model string
-	ask             func(context.Context, prompt) (string, error)
-	embed           func(context.Context, []string) ([][]float32, error)
+	ask             func(context.Context, prompt) (string, spent, error)
+	embed           func(context.Context, []string) ([][]float32, spent, error)
+	usage           func(Use)
 	// query is what a question needs in front of it for the embedder to find
 	// the passages that answer it.
 	query string
+	// embedder is what makes the vectors, for the usage record: provider, model.
+	embedder [2]string
 	// Vectors names what made the vectors, so that vectors from a different
 	// embedder are never compared with these. Empty without an embedder.
 	Vectors string
@@ -70,7 +93,7 @@ var Tongue = map[string]string{
 
 // New creates the client the settings describe.
 func New(s Setup) *Client {
-	c := &Client{language: cmp.Or(Tongue[strings.ToLower(s.Language)], "the language the meeting was held in")}
+	c := &Client{usage: s.Usage, language: cmp.Or(Tongue[strings.ToLower(s.Language)], "the language the meeting was held in")}
 	switch {
 	case s.Provider == "openai" && s.OpenAIKey != "":
 		c.provider, c.model = "openai", cmp.Or(s.OpenAIModel, "gpt-5.4-mini")
@@ -86,10 +109,10 @@ func New(s Setup) *Client {
 	}
 	switch {
 	case s.Embeddings == "openai" && s.OpenAIKey != "":
-		c.embed, c.Vectors = openAIVectors(s.OpenAIKey), OpenAIVectors
+		c.embed, c.Vectors, c.embedder = openAIVectors(s.OpenAIKey), OpenAIVectors, [2]string{"openai", string(openai.EmbeddingModelTextEmbedding3Small)}
 	case s.Embeddings == "local" && s.Server != "" && s.Vectors != "":
 		h := &helper{bin: s.Server, model: s.Vectors, args: vectorArgs}
-		c.embed, c.query, c.Vectors = h.vectors, localQuery, localVectors
+		c.embed, c.query, c.Vectors, c.embedder = h.vectors, localQuery, localVectors, [2]string{"local", filepath.Base(s.Vectors)}
 		c.stop = append(c.stop, h.close)
 	}
 	return c
@@ -125,26 +148,42 @@ func (c *Client) generate(ctx context.Context, p prompt) (string, error) {
 	if !c.Ready() {
 		return "", ErrNoKey
 	}
-	log := slog.With("task", cmp.Or(p.name, "answer"), "provider", c.provider, "model", c.model)
+	task := cmp.Or(p.name, "answer")
+	log := slog.With("task", task, "provider", c.provider, "model", c.model)
 	log.Info("LLM request started", "input_chars", len(p.input))
 	began := time.Now()
-	out, err := c.ask(ctx, p)
+	out, used, err := c.ask(ctx, p)
 	took := time.Since(began).Round(time.Millisecond)
 	problem := ""
 	if err != nil {
 		problem = err.Error()
 		log.Warn("LLM request finished", "took", took, "status", "failed", "err", err)
 	} else {
-		log.Info("LLM request finished", "took", took, "status", "ok", "reply_chars", len(out))
+		log.Info("LLM request finished", "took", took, "status", "ok", "reply_chars", len(out),
+			"tokens_in", used.input, "tokens_out", used.output)
 	}
 	c.failed.Store(&problem)
+	c.record(task, c.provider, c.model, used, took, err)
 	return out, err
 }
 
+// record tells the usage hook what a call consumed, failed or not.
+func (c *Client) record(task, provider, model string, used spent, took time.Duration, err error) {
+	if c.usage == nil {
+		return
+	}
+	u := Use{Task: task, Provider: provider, Model: cmp.Or(used.model, model), Input: used.input,
+		Output: used.output, Credits: used.credits, Took: took}
+	if err != nil {
+		u.Failed = err.Error()
+	}
+	c.usage(u)
+}
+
 // openAI asks through the Responses API.
-func openAI(key, model string) func(context.Context, prompt) (string, error) {
+func openAI(key, model string) func(context.Context, prompt) (string, spent, error) {
 	api := openai.NewClient(option.WithAPIKey(key))
-	return func(ctx context.Context, p prompt) (string, error) {
+	return func(ctx context.Context, p prompt) (string, spent, error) {
 		params := responses.ResponseNewParams{
 			Model:        model,
 			Instructions: openai.String(p.instructions),
@@ -163,9 +202,9 @@ func openAI(key, model string) func(context.Context, prompt) (string, error) {
 		}
 		resp, err := api.Responses.New(ctx, params)
 		if err != nil {
-			return "", err
+			return "", spent{}, err
 		}
-		return resp.OutputText(), nil
+		return resp.OutputText(), spent{input: resp.Usage.InputTokens, output: resp.Usage.OutputTokens}, nil
 	}
 }
 
@@ -224,16 +263,56 @@ Write in %s. This holds even when the transcript itself contains other
 languages, borrowed words or whole sentences in another language — those are
 what people say, and they do not change what you answer in.`
 
-// Summarise turns a transcript into a structured summary.
-func (c *Client) Summarise(ctx context.Context, turns []Turn) (*Summary, error) {
+// topicsPrompt follows the summary prompt when the archive already has topics.
+// Without it every meeting words the same subject a little differently, and
+// the topics stop meaning anything.
+const topicsPrompt = `
+
+Topics already used in earlier meetings, most used first:
+%s
+
+For "topics", reuse one of these exactly as written whenever it genuinely
+covers a subject of this meeting. Add a new topic only when none of them fits;
+never reword, translate or pluralise an existing one into a variant of it.`
+
+// Summarise turns a transcript into a structured summary. known are the topics
+// the archive already has: the summary reuses them where they fit.
+func (c *Client) Summarise(ctx context.Context, turns []Turn, known []string) (*Summary, error) {
 	if !c.Ready() {
 		return nil, ErrNoKey
 	}
+	instructions := fmt.Sprintf(summaryPrompt, c.language)
+	if len(known) > 0 {
+		instructions += fmt.Sprintf(topicsPrompt, "- "+strings.Join(known, "\n- "))
+	}
 	var out Summary
-	if err := c.Structured(ctx, fmt.Sprintf(summaryPrompt, c.language), Transcript(turns), "meeting_summary", schema, &out); err != nil {
+	if err := c.Structured(ctx, instructions, Transcript(turns), "meeting_summary", schema, &out); err != nil {
 		return nil, err
 	}
+	out.Topics = Canon(out.Topics, known)
 	return &out, nil
+}
+
+// Canon spells each topic as the archive already does when it differs only in
+// case or spacing, and drops repeats. A model told to reuse topics still
+// retypes them now and then.
+func Canon(topics, known []string) []string {
+	key := func(t string) string { return strings.ToLower(strings.Join(strings.Fields(t), " ")) }
+	spelling := map[string]string{}
+	for _, k := range known {
+		spelling[key(k)] = k
+	}
+	out := make([]string, 0, len(topics))
+	seen := map[string]bool{}
+	for _, t := range topics {
+		k := key(t)
+		if k == "" || seen[k] {
+			continue
+		}
+		seen[k] = true
+		out = append(out, cmp.Or(spelling[k], strings.Join(strings.Fields(t), " ")))
+	}
+	return out
 }
 
 const askPrompt = `Answer using only the supplied archive sources: transcripts,

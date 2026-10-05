@@ -19,5 +19,9 @@ export {
     Settings,
     Stage,
     State,
-    Tidied
+    Tidied,
+    UpdateState,
+    UsageDay,
+    UsageReport,
+    UsageRow
 } from "./models.js";

@@ -17,7 +17,9 @@ export {
     Outstanding,
     Person,
     Recording,
+    Rhythm,
     Said,
+    Share,
     Source,
     Standing,
     Status,
@@ -25,5 +27,6 @@ export {
     Summary,
     Thread,
     Turn,
-    Voice
+    Voice,
+    Week
 } from "./models.js";

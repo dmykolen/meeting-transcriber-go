@@ -18,6 +18,7 @@ import {
   type Briefing,
   type Outstanding,
 } from "../api"
+import Rhythm from "../components/Rhythm"
 import NeedsKey from "../components/NeedsKey"
 import { t } from "../i18n"
 
@@ -98,8 +99,15 @@ export default function Today({ onOpen }: { onOpen: (id: number) => void }) {
         ) : empty ? (
           <Quiet />
         ) : (
-          <div className="flex max-w-3xl flex-col gap-6">
+          // The screen answers to its own width: one column while it is
+          // narrow, charts beside the lists once there is room for both.
+          <div className="@container/today mx-auto flex w-full max-w-[1500px] flex-col gap-6">
             <Numbers brief={brief} />
+            <div className="grid items-start gap-6 @[1000px]/today:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
+              <div className="min-w-0">
+                <Rhythm days={days} />
+              </div>
+              <div className="flex min-w-0 flex-col gap-6">
 
             {brief.overdue.length > 0 && (
               <Block
@@ -197,6 +205,9 @@ export default function Today({ onOpen }: { onOpen: (id: number) => void }) {
                 ))}
               </Block>
             )}
+
+              </div>
+            </div>
 
             <NeedsKey what={t("Усе на цьому екрані")} />
           </div>

@@ -106,6 +106,13 @@ export function Brief(days: number): $CancellablePromise<store$0.Briefing | null
 }
 
 /**
+ * CheckUpdate asks for a newer release now, for the button in the settings.
+ */
+export function CheckUpdate(): $CancellablePromise<void> {
+    return $Call.ByID(190121965);
+}
+
+/**
  * ConnectCopilot signs in to GitHub Copilot in the browser. It returns at once;
  * AIStatus follows the sign-in.
  */
@@ -198,6 +205,14 @@ export function InGroup(group: number): $CancellablePromise<store$0.Recording[]>
 }
 
 /**
+ * InstallUpdate downloads and prepares the newer release behind the window;
+ * Update follows it, and RestartToUpdate finishes it.
+ */
+export function InstallUpdate(): $CancellablePromise<void> {
+    return $Call.ByID(2723163598);
+}
+
+/**
  * Listener installs the always-on recorder once it is ready.
  */
 export function Listener(r: listen$0.Recorder | null): $CancellablePromise<void> {
@@ -250,6 +265,13 @@ export function Markdown(id: number): $CancellablePromise<string> {
  */
 export function Moment(recording: number, text: string): $CancellablePromise<number> {
     return $Call.ByID(2116253744, recording, text);
+}
+
+/**
+ * MoveStrip remembers where the strip was left.
+ */
+export function MoveStrip(x: number, y: number): $CancellablePromise<void> {
+    return $Call.ByID(4144228317, x, y);
 }
 
 /**
@@ -395,6 +417,14 @@ export function RenameGroup(id: number, name: string): $CancellablePromise<void>
 }
 
 /**
+ * RestartToUpdate quits the app and opens the new version in its place. It
+ * refuses while a recording is in progress.
+ */
+export function RestartToUpdate(): $CancellablePromise<void> {
+    return $Call.ByID(1636821395);
+}
+
+/**
  * Restore takes a recording back out of the bin.
  */
 export function Restore(id: number): $CancellablePromise<void> {
@@ -416,6 +446,16 @@ export function RevealFolder(): $CancellablePromise<void> {
 }
 
 /**
+ * Rhythm measures how the meetings of the last twelve weeks were spread, and
+ * who spoke over the last days.
+ */
+export function Rhythm(days: number): $CancellablePromise<store$0.Rhythm | null> {
+    return $Call.ByID(1909494132, days).then(($result: any) => {
+        return $$createType31($result);
+    });
+}
+
+/**
  * Rush transcribes one queued recording next, whatever the schedule says.
  */
 export function Rush(id: number): $CancellablePromise<void> {
@@ -427,7 +467,7 @@ export function Rush(id: number): $CancellablePromise<void> {
  */
 export function Samples(name: string): $CancellablePromise<store$0.Source[]> {
     return $Call.ByID(3779078695, name).then(($result: any) => {
-        return $$createType31($result);
+        return $$createType33($result);
     });
 }
 
@@ -450,19 +490,19 @@ export function SaveSettings(s: $models.Settings): $CancellablePromise<void> {
  */
 export function Search(query: string): $CancellablePromise<store$0.Hit[]> {
     return $Call.ByID(3261299832, query).then(($result: any) => {
-        return $$createType33($result);
+        return $$createType35($result);
     });
 }
 
 export function SearchKnowledge(query: string, semantic: boolean): $CancellablePromise<store$0.KnowledgeHit[]> {
     return $Call.ByID(4128673916, query, semantic).then(($result: any) => {
-        return $$createType35($result);
+        return $$createType37($result);
     });
 }
 
 export function Settings(): $CancellablePromise<$models.Settings> {
     return $Call.ByID(912023337).then(($result: any) => {
-        return $$createType36($result);
+        return $$createType38($result);
     });
 }
 
@@ -471,7 +511,7 @@ export function Settings(): $CancellablePromise<$models.Settings> {
  */
 export function Span(days: number): $CancellablePromise<store$0.Mark[]> {
     return $Call.ByID(613994076, days).then(($result: any) => {
-        return $$createType38($result);
+        return $$createType40($result);
     });
 }
 
@@ -480,8 +520,16 @@ export function Span(days: number): $CancellablePromise<store$0.Mark[]> {
  */
 export function Standing(group: number): $CancellablePromise<store$0.Standing | null> {
     return $Call.ByID(1867745684, group).then(($result: any) => {
-        return $$createType40($result);
+        return $$createType42($result);
     });
+}
+
+/**
+ * StripAt is where the recording strip was last left, in points from the
+ * primary display's top-left; false when it was never moved.
+ */
+export function StripAt(): $CancellablePromise<[number, number, boolean]> {
+    return $Call.ByID(2203587151);
 }
 
 /**
@@ -525,8 +573,34 @@ export function TickItem(group: number, id: number, done: boolean): $Cancellable
  */
 export function Tidy(): $CancellablePromise<$models.Tidied> {
     return $Call.ByID(2734074620).then(($result: any) => {
-        return $$createType41($result);
+        return $$createType43($result);
     });
+}
+
+/**
+ * Update is polled by the interface.
+ */
+export function Update(): $CancellablePromise<$models.UpdateState> {
+    return $Call.ByID(774779877).then(($result: any) => {
+        return $$createType44($result);
+    });
+}
+
+/**
+ * Usage reports what the models were asked and what it cost over the last days.
+ */
+export function Usage(days: number): $CancellablePromise<$models.UsageReport> {
+    return $Call.ByID(1054112523, days).then(($result: any) => {
+        return $$createType45($result);
+    });
+}
+
+/**
+ * WatchUpdates asks for a newer release now and then every hour, until ctx ends.
+ * Switched off in the settings, it asks nothing.
+ */
+export function WatchUpdates(): $CancellablePromise<void> {
+    return $Call.ByID(4033382319);
 }
 
 /**
@@ -534,7 +608,7 @@ export function Tidy(): $CancellablePromise<$models.Tidied> {
  */
 export function Waveform(id: number): $CancellablePromise<number[]> {
     return $Call.ByID(1827314399, id).then(($result: any) => {
-        return $$createType42($result);
+        return $$createType46($result);
     });
 }
 
@@ -569,16 +643,20 @@ const $$createType26 = $Create.Array($$createType25);
 const $$createType27 = store$0.Summary.createFrom;
 const $$createType28 = $Create.Nullable($$createType27);
 const $$createType29 = $models.Indexed.createFrom;
-const $$createType30 = store$0.Source.createFrom;
-const $$createType31 = $Create.Array($$createType30);
-const $$createType32 = store$0.Hit.createFrom;
+const $$createType30 = store$0.Rhythm.createFrom;
+const $$createType31 = $Create.Nullable($$createType30);
+const $$createType32 = store$0.Source.createFrom;
 const $$createType33 = $Create.Array($$createType32);
-const $$createType34 = store$0.KnowledgeHit.createFrom;
+const $$createType34 = store$0.Hit.createFrom;
 const $$createType35 = $Create.Array($$createType34);
-const $$createType36 = $models.Settings.createFrom;
-const $$createType37 = store$0.Mark.createFrom;
-const $$createType38 = $Create.Array($$createType37);
-const $$createType39 = store$0.Standing.createFrom;
-const $$createType40 = $Create.Nullable($$createType39);
-const $$createType41 = $models.Tidied.createFrom;
-const $$createType42 = $Create.Array($Create.Any);
+const $$createType36 = store$0.KnowledgeHit.createFrom;
+const $$createType37 = $Create.Array($$createType36);
+const $$createType38 = $models.Settings.createFrom;
+const $$createType39 = store$0.Mark.createFrom;
+const $$createType40 = $Create.Array($$createType39);
+const $$createType41 = store$0.Standing.createFrom;
+const $$createType42 = $Create.Nullable($$createType41);
+const $$createType43 = $models.Tidied.createFrom;
+const $$createType44 = $models.UpdateState.createFrom;
+const $$createType45 = $models.UsageReport.createFrom;
+const $$createType46 = $Create.Array($Create.Any);
