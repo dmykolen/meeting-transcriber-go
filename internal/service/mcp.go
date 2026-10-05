@@ -102,7 +102,7 @@ type peopleOutput struct {
 }
 
 // Version is the app's version, as the MCP server and the log report it.
-const Version = "1.3.0"
+const Version = "1.4.0"
 
 func NewMCP(meetings *Meetings) *server.MCPServer {
 	s := server.NewMCPServer(
