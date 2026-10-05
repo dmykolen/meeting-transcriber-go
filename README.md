@@ -115,7 +115,9 @@ search all work. With the local option, summaries and answers come from a model
 that runs on the Mac, so nothing leaves it.
 
 The MCP server only listens on `127.0.0.1` and never returns API keys or raw
-voiceprints.
+voiceprints. The app asks GitHub once an hour whether a newer version exists
+(Settings → Storage turns that off) and offers to install it; nothing else
+leaves the Mac without your choice.
 
 ## Install
 

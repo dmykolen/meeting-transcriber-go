@@ -243,6 +243,11 @@ Evidence: `exp/19_local_llm`, `exp/out/N-local-llm.jsonl`,
   divides `Options.Screen` coordinates by the Retina scale a second time.
 - It is created when the recording starts and closed when it ends, so the main
   window stays the last one to close.
+- It is dragged by its own body (`--wails-draggable`; buttons opt out) and the
+  place it is let go is kept in `meta.strip-at`, in the same points from the
+  primary display's top-left as the placement above. The next strip opens there
+  if a connected display's work area still holds that point, else centred as
+  before. Moves in the first two seconds are placement, not the person's.
 - Pause holds the file open. Nothing heard while held is written, transcribed
   or kept for a later preroll, and the detector stands still so a pause cannot
   end the meeting. Stop while held still stops.
@@ -274,6 +279,65 @@ Evidence: `exp/19_local_llm`, `exp/out/N-local-llm.jsonl`,
   time, status and reply size when it ends. Summaries log the recording, their
   time and outcome; recordings log their kind and whether a person started
   them; the first line names the version and the commit.
+
+## Topics
+
+- A summary's `topics` are one vocabulary, not free text. `store.Topics` lists
+  those the archive uses (grouped in Go, case-insensitively: SQLite's `lower()`
+  skips Cyrillic) and `Summarise` puts the first 80 into the prompt with the
+  rule: reuse one exactly when it fits, add one only when none does.
+  `insights.Canon` then fixes spelling that differs only in case or spacing.
+- Existing summaries are not rewritten. Merging synonyms across the archive is a
+  separate, measured job.
+- In the reader a topic narrows the Library list (`topic` state in
+  `Meetings.tsx`, composing with project and time range); it never navigates.
+
+## Today's rhythm
+
+- `store.Rhythm` measures meetings only (not notes): hours per Monday-start
+  week over 12 weeks, minutes by weekday and hour (a meeting is spread over the
+  hours it spans), and speech seconds per person over the chosen window, with
+  every `SPEAKER_xx` voice pooled as one unnamed share.
+- Nothing is scored or projected. Closed commitments over time are not charted:
+  `done` has no timestamp.
+
+## AI usage and cost
+
+- `insights.Client` reports every model call (chat and embeddings) to a hook
+  the service sets in `Setup.Usage`; the `usage` table keeps task, provider,
+  model, tokens, seconds and failure, never content. A failed call is kept too,
+  with whatever tokens the provider reported.
+- OpenAI and llama-server report tokens in the response. Copilot reports them
+  per model call in `AssistantUsage` session events (`inputTokens`,
+  `outputTokens`, `copilotUsage.totalNanoAiu`), summed per request; the model
+  the event names replaces "auto".
+- OpenAI cost is tokens times the list price in `insights/price.go`, a
+  snapshot (gpt-5.4-mini $0.75/$4.50 and text-embedding-3-small $0.02 per
+  million). A model not in the table shows tokens only, never an invented
+  price. Copilot is shown as AI Credits, taking 1 AIU = 1 AI Credit
+  ($0.01 each, per GitHub's billing page); that conversion is not yet checked
+  against a real billed call. A local model costs nothing but time.
+
+## Updates
+
+- The app asks GitHub's `releases/latest` at launch and every hour
+  (`MT_UPDATE_URL` replaces the address, for tests); a setting turns it off.
+  No library: Sparkle needs its own signing keys and framework, and
+  go-selfupdate replaces a single binary, not a bundle.
+- Installing downloads the release's `.dmg`, checks it against the asset's
+  sha256 digest, copies the `.app` out of the mounted image next to the
+  installed one (the same volume, so the swap is a rename), and checks
+  `codesign --verify --deep --strict` and the bundle version. Nothing is
+  swapped until a person presses Restart, which is refused during a recording.
+  A detached shell then waits for the app to quit, exchanges the bundles,
+  puts the old one back if that fails, and opens the new one.
+- A download made by the app carries no quarantine flag, so the unnotarized
+  update opens without the Gatekeeper dialog. Every release is signed by the
+  same local identity, which is what keeps the microphone grants. A copy that
+  is not an `.app`, or sits where the user cannot write, offers the release
+  page instead.
+- A system notification announces a version once (`meta.update-notified`);
+  the card in the window is the offer, and "Later" is remembered per version.
 
 ## Packaging
 

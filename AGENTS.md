@@ -237,7 +237,10 @@ VITE_DESIGN=1 npm run dev
 Use sample data only for visual development. Before finishing:
 
 1. Build the production frontend.
-2. Exercise the affected flow at desktop and narrow widths.
+2. Exercise the affected flow at 900, 1400 and 2000 px wide. A screen answers to
+   the width it has: no column capped at a reading width that leaves the rest of
+   a wide window empty, and nothing that breaks at the 900 px minimum. Prefer
+   container queries (`@container`) over fixed `max-w-*` on a whole screen.
 3. Check hover, focus, keyboard, loading, empty, success, and error states.
 4. Record console errors.
 5. Run the packaged app when the change depends on Wails, permissions, audio,
