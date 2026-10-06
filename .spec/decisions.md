@@ -280,6 +280,33 @@ Evidence: `exp/19_local_llm`, `exp/out/N-local-llm.jsonl`,
   time and outcome; recordings log their kind and whether a person started
   them; the first line names the version and the commit.
 
+## Summary prompts and the project picture
+
+- Three prompts, three scenarios: a meeting, a note (nobody else in the
+  recording: `Summarise(..., note=true)`), and the project fold. A new prompt
+  is compared on the owner's own recordings first (`exp/22_summaries`, with
+  the summaries kept out of the repository). Measured on 10 meetings and the 3
+  notes with enough speech: owners as `SPEAKER_nn` 3 to 0 (the name is taken
+  from the talk), topics 3.7 to 3.3 a recording, and a television drama no
+  longer yields tasks owned by the speaker. The note sample is small.
+- A project is a ledger of lines with provenance plus a written picture. The
+  fold sees only the open lines, grouped by stream, with finished ones counted
+  (`insights.Held`); it puts each line in a stream (reusing a name, never a
+  heap: about fifteen open lines, then a narrower stream), keeps only what a
+  reader would want in a month, and closes what the meeting finished. Every
+  eighth meeting a pass over the whole document merges repeats, retires
+  finished work and splits oversize streams (`Kept.Tidy`: a pinned line keeps
+  its words and is never merged away, a decision is never retired). After each
+  meeting `Brief` writes the picture from the open lines; it can point only at
+  ids that exist (`Kept.Known`). A rebuild writes it once, at the end.
+- Measured on a 30-meeting project (`exp/21_project`, same model): the ledger
+  improved little (307 to 250 lines, 97% to 94% open, repeats about the same),
+  so the ledger is not what is shown first; the picture is. A speaker label is
+  never an owner (`Kept.Apply`). `do` and `kind` are enums in the schema, and
+  the log counts operations the document could not use.
+- Documents made before this have no streams or picture until rebuilt; the
+  project page says so.
+
 ## Topics
 
 - A summary's `topics` are one vocabulary, not free text. `store.Topics` lists

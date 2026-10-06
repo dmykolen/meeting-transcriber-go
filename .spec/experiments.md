@@ -78,7 +78,10 @@ The current experiment set covers:
 - row reconstruction and timestamp accuracy;
 - glossary prompting;
 - local LLM structured summaries and grounded Q&A;
-- recurring unnamed voices across meetings (`exp/20_voices`).
+- recurring unnamed voices across meetings (`exp/20_voices`);
+- project documents from summaries (`exp/21_project`) and summary prompts
+  (`exp/22_summaries`), both needing a COPY of the owner's database and the
+  configured model.
 
 The durable conclusions are in `.spec/decisions.md`; detailed outputs remain in
 `exp/out/`.
