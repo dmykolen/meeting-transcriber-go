@@ -130,6 +130,95 @@ export class Analytics {
 }
 
 /**
+ * Attention is a line that needs somebody, and why.
+ */
+export class Attention {
+    "id": number;
+    "why": string;
+
+    /** Creates a new Attention instance. */
+    constructor($$source: Partial<Attention> = {}) {
+        if (!("id" in $$source)) {
+            this["id"] = 0;
+        }
+        if (!("why" in $$source)) {
+            this["why"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new Attention instance from a string or object.
+     */
+    static createFrom($$source: any = {}): Attention {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new Attention($$parsedSource as Partial<Attention>);
+    }
+}
+
+/**
+ * Brief is the project as one reads it in a minute, written from the lines.
+ * It points at lines by id, so what it says can always be traced back.
+ */
+export class Brief {
+    "headline": string;
+    "streams": StreamBrief[];
+
+    /**
+     * the standing decisions that shape the work most
+     */
+    "decisions": number[];
+
+    /**
+     * open lines that are late, blocked or at risk
+     */
+    "attention": Attention[];
+    "made": string;
+
+    /** Creates a new Brief instance. */
+    constructor($$source: Partial<Brief> = {}) {
+        if (!("headline" in $$source)) {
+            this["headline"] = "";
+        }
+        if (!("streams" in $$source)) {
+            this["streams"] = [];
+        }
+        if (!("decisions" in $$source)) {
+            this["decisions"] = [];
+        }
+        if (!("attention" in $$source)) {
+            this["attention"] = [];
+        }
+        if (!("made" in $$source)) {
+            this["made"] = "0001-01-01T00:00:00.000Z";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new Brief instance from a string or object.
+     */
+    static createFrom($$source: any = {}): Brief {
+        const $$createField1_0 = $$createType5;
+        const $$createField2_0 = $$createType6;
+        const $$createField3_0 = $$createType8;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("streams" in $$parsedSource) {
+            $$parsedSource["streams"] = $$createField1_0($$parsedSource["streams"]);
+        }
+        if ("decisions" in $$parsedSource) {
+            $$parsedSource["decisions"] = $$createField2_0($$parsedSource["decisions"]);
+        }
+        if ("attention" in $$parsedSource) {
+            $$parsedSource["attention"] = $$createField3_0($$parsedSource["attention"]);
+        }
+        return new Brief($$parsedSource as Partial<Brief>);
+    }
+}
+
+/**
  * Briefing is the cross-meeting dashboard view.
  */
 export class Briefing {
@@ -220,12 +309,12 @@ export class Briefing {
      * Creates a new Briefing instance from a string or object.
      */
     static createFrom($$source: any = {}): Briefing {
-        const $$createField1_0 = $$createType5;
-        const $$createField3_0 = $$createType7;
-        const $$createField4_0 = $$createType9;
-        const $$createField5_0 = $$createType9;
-        const $$createField6_0 = $$createType11;
-        const $$createField7_0 = $$createType12;
+        const $$createField1_0 = $$createType10;
+        const $$createField3_0 = $$createType12;
+        const $$createField4_0 = $$createType14;
+        const $$createField5_0 = $$createType14;
+        const $$createField6_0 = $$createType16;
+        const $$createField7_0 = $$createType17;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("meetings" in $$parsedSource) {
             $$parsedSource["meetings"] = $$createField1_0($$parsedSource["meetings"]);
@@ -558,7 +647,7 @@ export class Nagging {
      * Creates a new Nagging instance from a string or object.
      */
     static createFrom($$source: any = {}): Nagging {
-        const $$createField2_0 = $$createType7;
+        const $$createField2_0 = $$createType12;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("said" in $$parsedSource) {
             $$parsedSource["said"] = $$createField2_0($$parsedSource["said"]);
@@ -662,7 +751,7 @@ export class Person {
      * Creates a new Person instance from a string or object.
      */
     static createFrom($$source: any = {}): Person {
-        const $$createField5_0 = $$createType14;
+        const $$createField5_0 = $$createType19;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("sources" in $$parsedSource) {
             $$parsedSource["sources"] = $$createField5_0($$parsedSource["sources"]);
@@ -746,8 +835,8 @@ export class Recording {
      * Creates a new Recording instance from a string or object.
      */
     static createFrom($$source: any = {}): Recording {
-        const $$createField11_0 = $$createType16;
-        const $$createField12_0 = $$createType12;
+        const $$createField11_0 = $$createType21;
+        const $$createField12_0 = $$createType17;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("summary" in $$parsedSource) {
             $$parsedSource["summary"] = $$createField11_0($$parsedSource["summary"]);
@@ -799,8 +888,8 @@ export class Rhythm {
      * Creates a new Rhythm instance from a string or object.
      */
     static createFrom($$source: any = {}): Rhythm {
-        const $$createField0_0 = $$createType18;
-        const $$createField2_0 = $$createType20;
+        const $$createField0_0 = $$createType23;
+        const $$createField2_0 = $$createType25;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("weeks" in $$parsedSource) {
             $$parsedSource["weeks"] = $$createField0_0($$parsedSource["weeks"]);
@@ -947,6 +1036,22 @@ export class Standing {
      */
     "folded": number;
 
+    /**
+     * The picture the model wrote from the document; nil for a document made
+     * before pictures existed, until it is rebuilt.
+     */
+    "brief": Brief | null;
+
+    /**
+     * What the meetings were about, by how many of them said it.
+     */
+    "topics": Topic[];
+
+    /**
+     * Which of those topics shared meetings, strongest first.
+     */
+    "links": TopicLink[];
+
     /** Creates a new Standing instance. */
     constructor($$source: Partial<Standing> = {}) {
         if (!("meetings" in $$source)) {
@@ -982,6 +1087,15 @@ export class Standing {
         if (!("folded" in $$source)) {
             this["folded"] = 0;
         }
+        if (!("brief" in $$source)) {
+            this["brief"] = null;
+        }
+        if (!("topics" in $$source)) {
+            this["topics"] = [];
+        }
+        if (!("links" in $$source)) {
+            this["links"] = [];
+        }
 
         Object.assign(this, $$source);
     }
@@ -990,10 +1104,13 @@ export class Standing {
      * Creates a new Standing instance from a string or object.
      */
     static createFrom($$source: any = {}): Standing {
-        const $$createField4_0 = $$createType22;
-        const $$createField5_0 = $$createType22;
-        const $$createField6_0 = $$createType22;
-        const $$createField7_0 = $$createType24;
+        const $$createField4_0 = $$createType27;
+        const $$createField5_0 = $$createType27;
+        const $$createField6_0 = $$createType27;
+        const $$createField7_0 = $$createType29;
+        const $$createField11_0 = $$createType31;
+        const $$createField12_0 = $$createType33;
+        const $$createField13_0 = $$createType35;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("work" in $$parsedSource) {
             $$parsedSource["work"] = $$createField4_0($$parsedSource["work"]);
@@ -1006,6 +1123,15 @@ export class Standing {
         }
         if ("people" in $$parsedSource) {
             $$parsedSource["people"] = $$createField7_0($$parsedSource["people"]);
+        }
+        if ("brief" in $$parsedSource) {
+            $$parsedSource["brief"] = $$createField11_0($$parsedSource["brief"]);
+        }
+        if ("topics" in $$parsedSource) {
+            $$parsedSource["topics"] = $$createField12_0($$parsedSource["topics"]);
+        }
+        if ("links" in $$parsedSource) {
+            $$parsedSource["links"] = $$createField13_0($$parsedSource["links"]);
         }
         return new Standing($$parsedSource as Partial<Standing>);
     }
@@ -1072,6 +1198,46 @@ export class Sticky {
 }
 
 /**
+ * StreamBrief is where one line of work stands.
+ */
+export class StreamBrief {
+    "name": string;
+    "state": string;
+
+    /**
+     * the open lines that matter most
+     */
+    "lines": number[];
+
+    /** Creates a new StreamBrief instance. */
+    constructor($$source: Partial<StreamBrief> = {}) {
+        if (!("name" in $$source)) {
+            this["name"] = "";
+        }
+        if (!("state" in $$source)) {
+            this["state"] = "";
+        }
+        if (!("lines" in $$source)) {
+            this["lines"] = [];
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new StreamBrief instance from a string or object.
+     */
+    static createFrom($$source: any = {}): StreamBrief {
+        const $$createField2_0 = $$createType6;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("lines" in $$parsedSource) {
+            $$parsedSource["lines"] = $$createField2_0($$parsedSource["lines"]);
+        }
+        return new StreamBrief($$parsedSource as Partial<StreamBrief>);
+    }
+}
+
+/**
  * Summary is the stored JSON summary payload.
  */
 export class Summary {
@@ -1114,11 +1280,11 @@ export class Summary {
      * Creates a new Summary instance from a string or object.
      */
     static createFrom($$source: any = {}): Summary {
-        const $$createField2_0 = $$createType26;
-        const $$createField3_0 = $$createType12;
-        const $$createField4_0 = $$createType12;
-        const $$createField5_0 = $$createType28;
-        const $$createField6_0 = $$createType12;
+        const $$createField2_0 = $$createType37;
+        const $$createField3_0 = $$createType17;
+        const $$createField4_0 = $$createType17;
+        const $$createField5_0 = $$createType39;
+        const $$createField6_0 = $$createType17;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("chapters" in $$parsedSource) {
             $$parsedSource["chapters"] = $$createField2_0($$parsedSource["chapters"]);
@@ -1150,6 +1316,11 @@ export class Thread {
     "state": string;
     "by": string;
     "pinned": boolean;
+
+    /**
+     * the line of work it belongs to
+     */
+    "stream": string;
     "text": string;
     "owner": string;
     "due": string;
@@ -1180,6 +1351,9 @@ export class Thread {
         }
         if (!("pinned" in $$source)) {
             this["pinned"] = false;
+        }
+        if (!("stream" in $$source)) {
+            this["stream"] = "";
         }
         if (!("text" in $$source)) {
             this["text"] = "";
@@ -1215,6 +1389,78 @@ export class Thread {
     static createFrom($$source: any = {}): Thread {
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         return new Thread($$parsedSource as Partial<Thread>);
+    }
+}
+
+/**
+ * Topic is a subject of the project's meetings.
+ */
+export class Topic {
+    "topic": string;
+
+    /**
+     * meetings that had it
+     */
+    "count": number;
+
+    /**
+     * the latest of them
+     */
+    "last": string;
+
+    /** Creates a new Topic instance. */
+    constructor($$source: Partial<Topic> = {}) {
+        if (!("topic" in $$source)) {
+            this["topic"] = "";
+        }
+        if (!("count" in $$source)) {
+            this["count"] = 0;
+        }
+        if (!("last" in $$source)) {
+            this["last"] = "0001-01-01T00:00:00.000Z";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new Topic instance from a string or object.
+     */
+    static createFrom($$source: any = {}): Topic {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new Topic($$parsedSource as Partial<Topic>);
+    }
+}
+
+/**
+ * TopicLink says two topics were had by the same meetings, N of them.
+ */
+export class TopicLink {
+    "a": string;
+    "b": string;
+    "n": number;
+
+    /** Creates a new TopicLink instance. */
+    constructor($$source: Partial<TopicLink> = {}) {
+        if (!("a" in $$source)) {
+            this["a"] = "";
+        }
+        if (!("b" in $$source)) {
+            this["b"] = "";
+        }
+        if (!("n" in $$source)) {
+            this["n"] = 0;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new TopicLink instance from a string or object.
+     */
+    static createFrom($$source: any = {}): TopicLink {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new TopicLink($$parsedSource as Partial<TopicLink>);
     }
 }
 
@@ -1375,28 +1621,39 @@ const $$createType0 = Voice.createFrom;
 const $$createType1 = $Create.Array($$createType0);
 const $$createType2 = Moment.createFrom;
 const $$createType3 = $Create.Array($$createType2);
-const $$createType4 = Recording.createFrom;
+const $$createType4 = StreamBrief.createFrom;
 const $$createType5 = $Create.Array($$createType4);
-const $$createType6 = Said.createFrom;
-const $$createType7 = $Create.Array($$createType6);
-const $$createType8 = Outstanding.createFrom;
-const $$createType9 = $Create.Array($$createType8);
-const $$createType10 = Nagging.createFrom;
-const $$createType11 = $Create.Array($$createType10);
-const $$createType12 = $Create.Array($Create.Any);
-const $$createType13 = Source.createFrom;
+const $$createType6 = $Create.Array($Create.Any);
+const $$createType7 = Attention.createFrom;
+const $$createType8 = $Create.Array($$createType7);
+const $$createType9 = Recording.createFrom;
+const $$createType10 = $Create.Array($$createType9);
+const $$createType11 = Said.createFrom;
+const $$createType12 = $Create.Array($$createType11);
+const $$createType13 = Outstanding.createFrom;
 const $$createType14 = $Create.Array($$createType13);
-const $$createType15 = Summary.createFrom;
-const $$createType16 = $Create.Nullable($$createType15);
-const $$createType17 = Week.createFrom;
-const $$createType18 = $Create.Array($$createType17);
-const $$createType19 = Share.createFrom;
-const $$createType20 = $Create.Array($$createType19);
-const $$createType21 = Thread.createFrom;
-const $$createType22 = $Create.Array($$createType21);
-const $$createType23 = Face.createFrom;
-const $$createType24 = $Create.Array($$createType23);
-const $$createType25 = Chapter.createFrom;
-const $$createType26 = $Create.Array($$createType25);
-const $$createType27 = Action.createFrom;
-const $$createType28 = $Create.Array($$createType27);
+const $$createType15 = Nagging.createFrom;
+const $$createType16 = $Create.Array($$createType15);
+const $$createType17 = $Create.Array($Create.Any);
+const $$createType18 = Source.createFrom;
+const $$createType19 = $Create.Array($$createType18);
+const $$createType20 = Summary.createFrom;
+const $$createType21 = $Create.Nullable($$createType20);
+const $$createType22 = Week.createFrom;
+const $$createType23 = $Create.Array($$createType22);
+const $$createType24 = Share.createFrom;
+const $$createType25 = $Create.Array($$createType24);
+const $$createType26 = Thread.createFrom;
+const $$createType27 = $Create.Array($$createType26);
+const $$createType28 = Face.createFrom;
+const $$createType29 = $Create.Array($$createType28);
+const $$createType30 = Brief.createFrom;
+const $$createType31 = $Create.Nullable($$createType30);
+const $$createType32 = Topic.createFrom;
+const $$createType33 = $Create.Array($$createType32);
+const $$createType34 = TopicLink.createFrom;
+const $$createType35 = $Create.Array($$createType34);
+const $$createType36 = Chapter.createFrom;
+const $$createType37 = $Create.Array($$createType36);
+const $$createType38 = Action.createFrom;
+const $$createType39 = $Create.Array($$createType38);

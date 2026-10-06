@@ -670,6 +670,11 @@ func (l *Library) summarise(ctx context.Context, id int64, turns []engine.Turn) 
 	if err := l.db.Progress(id, store.Summarising, 0.9); err != nil {
 		return err
 	}
+	rec, err := l.db.Get(id)
+	if err != nil {
+		return err
+	}
+	kind := rec.Kind
 
 	said := make([]insights.Turn, len(turns))
 	for i, t := range turns {
@@ -677,7 +682,7 @@ func (l *Library) summarise(ctx context.Context, id int64, turns []engine.Turn) 
 	}
 	slog.Info("summary started", "id", id, "turns", len(turns))
 	began := time.Now()
-	summary, err := l.AI().Summarise(ctx, said, l.known())
+	summary, err := l.AI().Summarise(ctx, said, l.known(), kind == store.Note)
 	if err != nil {
 		slog.Warn("summary finished", "id", id, "took", time.Since(began).Round(time.Millisecond),
 			"status", "failed", "err", err)

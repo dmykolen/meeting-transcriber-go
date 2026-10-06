@@ -2349,3 +2349,88 @@ html.strip-window body {
   outline: 2px solid var(--color-accent);
   outline-offset: 1px;
 }
+
+/* The constellation of a project's topics. */
+.topic-map {
+  margin: 0;
+  padding: 10px 6px 8px;
+  border: 1px solid color-mix(in oklch, var(--color-line) 55%, transparent);
+  border-radius: var(--radius-panel);
+  background:
+    radial-gradient(ellipse at 50% 45%, color-mix(in oklch, white 3%, transparent), transparent 70%),
+    color-mix(in oklch, var(--color-surface) 45%, transparent);
+}
+.topic-map {
+  position: relative;
+}
+.topic-palettes {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  z-index: 1;
+  display: flex;
+  gap: 6px;
+}
+.topic-palettes button {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 1.5px solid transparent;
+  box-shadow: 0 0 0 1px #ffffff1f;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+.topic-palettes button:hover {
+  transform: scale(1.18);
+}
+.topic-palettes button[aria-checked="true"] {
+  box-shadow: 0 0 0 2px var(--color-ink), 0 0 0 3.5px #ffffffd0;
+}
+.topic-map figcaption {
+  margin-top: 2px;
+  text-align: center;
+  font-size: 10px;
+  color: var(--color-faint);
+}
+.topic-map .orb:focus-visible {
+  outline: none;
+}
+.topic-map .orb:focus-visible circle:nth-of-type(2) {
+  stroke: white;
+  stroke-opacity: 0.9;
+  stroke-width: 2.4;
+}
+.orb-label {
+  fill: var(--color-text);
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  pointer-events: none;
+  paint-order: stroke;
+  stroke: color-mix(in oklch, var(--color-ink) 60%, transparent);
+  stroke-width: 3px;
+  stroke-linejoin: round;
+}
+.orb-out {
+  font-weight: 400;
+  fill: var(--color-soft);
+}
+.orb-count {
+  fill: var(--color-soft);
+  font-size: 10px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+@media (prefers-reduced-motion: no-preference) {
+  /* A slow breath, in transform only; each orb on its own rhythm. */
+  .topic-map .orb {
+    animation: orb-breathe var(--float, 7s) ease-in-out var(--lag, 0s) infinite alternate;
+  }
+}
+@keyframes orb-breathe {
+  from {
+    transform: translate(-2.5px, -2px);
+  }
+  to {
+    transform: translate(2.5px, 2px);
+  }
+}

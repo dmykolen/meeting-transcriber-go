@@ -383,6 +383,7 @@ export const sample = {
         state: "open",
         by: "",
         pinned: false,
+        stream: "Ролі",
         text: "Узгодити перелік ролей із безпекою",
         owner: "Taras",
         due: "",
@@ -397,6 +398,7 @@ export const sample = {
         state: "done",
         by: "",
         pinned: true,
+        stream: "Доступ",
         text: "Закрити доступ ззовні",
         owner: "Sofia",
         due: "",
@@ -413,6 +415,7 @@ export const sample = {
         state: "standing",
         by: "",
         pinned: false,
+        stream: "Доступ",
         text: "Доступ лишається через VPN",
         owner: "",
         due: "",
@@ -427,6 +430,7 @@ export const sample = {
         state: "overturned",
         by: "Доступ лишається через VPN",
         pinned: false,
+        stream: "Доступ",
         text: "Відкрити продукт назовні",
         owner: "",
         due: "",
@@ -443,6 +447,7 @@ export const sample = {
         state: "open",
         by: "",
         pinned: false,
+        stream: "Доступ",
         text: "Які IP-діапазони віддаємо назовні",
         owner: "",
         due: "",
@@ -452,6 +457,50 @@ export const sample = {
         index: -1,
         when: recordings[1].started,
       },
+    ],
+    brief:
+      folded > 0
+        ? {
+            headline:
+              "Міграцію узгоджено і вона чекає на ревʼю безпеки. Доступ лишається лише через VPN; дві речі на боці безпеки прострочені.",
+            streams: [
+              {
+                name: "Доступ",
+                state: "Публічного доступу не буде: лише VPN. Лишилось визначити, які IP-діапазони віддаємо назовні.",
+                lines: [5],
+              },
+              {
+                name: "Ролі",
+                state: "Перелік ролей чекає на погодження з безпекою; тричі згадували, досі без відповіді.",
+                lines: [1],
+              },
+            ],
+            decisions: [3],
+            attention: [{ id: 1, why: "тричі згадано, ніхто не закрив" }],
+            made: recordings[0].started,
+          }
+        : null,
+    topics: [
+      { topic: "безпека", count: 9, last: recordings[0].started },
+      { topic: "Northwind", count: 6, last: recordings[0].started },
+      { topic: "рольова модель", count: 5, last: recordings[1].started },
+      { topic: "VPN", count: 4, last: recordings[0].started },
+      { topic: "скрипти", count: 3, last: recordings[2].started },
+      { topic: "міграція", count: 3, last: recordings[1].started },
+      { topic: "IP-діапазони", count: 2, last: recordings[0].started },
+      { topic: "документи", count: 2, last: "2026-06-01T10:00:00Z" },
+      { topic: "бюджет", count: 1, last: "2026-05-01T10:00:00Z" },
+      { topic: "найм", count: 1, last: recordings[2].started },
+    ],
+    links: [
+      { a: "безпека", b: "VPN", n: 4 },
+      { a: "безпека", b: "Northwind", n: 3 },
+      { a: "рольова модель", b: "безпека", n: 3 },
+      { a: "Northwind", b: "документи", n: 2 },
+      { a: "скрипти", b: "міграція", n: 2 },
+      { a: "VPN", b: "IP-діапазони", n: 2 },
+      { a: "рольова модель", b: "міграція", n: 1 },
+      { a: "бюджет", b: "найм", n: 1 },
     ],
     people: [
       {

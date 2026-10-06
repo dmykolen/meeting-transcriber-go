@@ -80,3 +80,27 @@ func TestDoneAnywhereIsDone(t *testing.T) {
 		t.Fatalf("a commitment ticked off in one meeting is still open: %+v", got.Work)
 	}
 }
+
+func TestTopicsOfAProjectCountMeetingsNotMentions(t *testing.T) {
+	db := open(t)
+	g, err := db.NewGroup("P")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i, topics := range [][]string{{"Безпека", "безпека", "Northwind"}, {"БЕЗПЕКА"}, {"Скрипти"}} {
+		r, _ := db.Add(Recording{Kind: Meeting, Audio: "a.wav", Started: time.Now().Add(time.Duration(i) * time.Hour)})
+		db.SaveSummary(r.ID, &Summary{Topics: topics})
+		db.Assign(r.ID, g.ID)
+	}
+	st, err := db.Standing(g.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(st.Topics) != 3 || st.Topics[0].Topic != "Безпека" || st.Topics[0].Count != 2 {
+		t.Fatalf("topics = %+v", st.Topics)
+	}
+	// Only the first meeting had two different topics: Безпека with Northwind.
+	if len(st.Links) != 1 || st.Links[0].N != 1 || st.Links[0].A+st.Links[0].B != "БезпекаNorthwind" && st.Links[0].A+st.Links[0].B != "NorthwindБезпека" {
+		t.Fatalf("links = %+v", st.Links)
+	}
+}

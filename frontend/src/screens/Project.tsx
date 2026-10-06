@@ -1,8 +1,11 @@
 import { useEffect, useState } from "react"
 import {
   Check,
+  CircleAlert,
   CircleHelp,
   Gavel,
+  Hash,
+  Layers,
   ListChecks,
   RefreshCw,
   Sparkles,
@@ -19,6 +22,7 @@ import {
   type Standing,
 } from "../api"
 import NotesDeck from "../components/NotesDeck"
+import TopicCloud from "../components/TopicCloud"
 import Paint from "../components/Paint"
 import { colourOf, picked, tone } from "../colours"
 import { locale, t, tr } from "../i18n"
@@ -29,11 +33,16 @@ export default function Project({
   groups,
   onChanged,
   onOpen,
+  topic,
+  onTopic,
 }: {
   id: number
   groups: Group[]
   onChanged: () => void
   onOpen: (recording: number, at?: number) => void
+  /** The topic the meetings list is narrowed to, and what pressing one does. */
+  topic: string | null
+  onTopic: (topic: string) => void
 }) {
   const [state, setState] = useState<Standing | null>(null)
   const [rows, setRows] = useState<
@@ -88,6 +97,51 @@ export default function Project({
       <p className="reader-loading">{problem ? tr(problem) : t("Відкриваю проєкт…")}</p>
     )
   const quiet = new Date(Date.now() - 21 * 86400000)
+  const refresh = () => Api.Standing(id).then((s) => setState(s as Standing))
+
+  const task = (w: Thread) => (
+    <Task
+      key={`${w.item}-${w.text}`}
+      line={w}
+      onOpen={async () =>
+        onOpen(w.from, (await Api.Moment(w.from, w.text)) as number)
+      }
+      onTick={async () => {
+        // The document owns the line once the model keeps one; before that the
+        // tick belongs to the meeting it came from.
+        if (w.item > 0) await Api.TickItem(id, w.item, !w.done)
+        else if (w.index >= 0) await Api.Tick(w.from, w.index, !w.done)
+        refresh()
+      }}
+      onEdit={
+        w.item > 0
+          ? async (text) => {
+              await Api.PinItem(id, w.item, text, w.owner, w.due)
+              refresh()
+            }
+          : undefined
+      }
+    />
+  )
+  const said = (d: Thread) => (
+    <Said
+      key={`${d.item}-${d.text}`}
+      line={d}
+      onOpen={async () =>
+        onOpen(d.from, (await Api.Moment(d.from, d.text)) as number)
+      }
+    />
+  )
+  // What the picture points at, by the id the document gave each line.
+  const line = new Map<number, { t: Thread; kind: "work" | "decision" | "question" }>()
+  state.work.forEach((t) => t.item > 0 && line.set(t.item, { t, kind: "work" }))
+  state.decisions.forEach((t) => t.item > 0 && line.set(t.item, { t, kind: "decision" }))
+  state.questions.forEach((t) => t.item > 0 && line.set(t.item, { t, kind: "question" }))
+  const brief = state.brief
+  const open = (name: string) =>
+    [...state.work, ...state.questions].filter(
+      (x) => !x.done && x.item > 0 && (x.stream || "General") === name,
+    )
 
   return (
     <div
@@ -208,7 +262,7 @@ export default function Project({
           {state.meetings > 0 && (
             <section className="mt-5">
               <h3 className="mb-2 flex items-center gap-2 text-[10px] uppercase tracking-[0.14em] text-faint">
-                <Sparkles size={11} /> {t("Де воно стоїть")}
+                <Sparkles size={11} /> {t("Стан проєкту")}
                 {/* The line saying how this paragraph was written is also the
                     button that writes it again. Nothing that says where
                     something came from should need a second control beside it
@@ -242,13 +296,13 @@ export default function Project({
               </h3>
               {/* The largest thing on the page. Somebody opening a project wants
                   a sentence they can repeat to their manager, not a metric grid. */}
-              {state.status ? (
+              {brief?.headline || state.status ? (
                 <p
                   className={`max-w-[70ch] text-[14.5px] font-light leading-[1.75] text-soft transition-opacity duration-500 ${
                     busy ? "opacity-40" : ""
                   }`}
                 >
-                  {state.status}
+                  {brief?.headline || state.status}
                 </p>
               ) : (
                 busy && (
@@ -263,35 +317,104 @@ export default function Project({
                   </div>
                 )
               )}
+              {state.written && !brief && !busy && (
+                <p className="mt-2 max-w-[70ch] text-[11.5px] leading-relaxed text-faint">
+                  {t("Цей документ зібрано в старому форматі. Натисніть «зібрано моделлю», щоб отримати зведення за потоками.")}
+                </p>
+              )}
             </section>
           )}
 
+          {state.topics.length > 0 && (
+            <section className="mt-6">
+              <h3 className="mb-2 flex items-center gap-2 text-[10px] uppercase tracking-[0.14em] text-faint">
+                <Hash size={11} /> {t("Теми")}
+                <span className="ml-auto tabular-nums normal-case tracking-normal">
+                  {state.topics.length}
+                </span>
+              </h3>
+              <TopicCloud topics={state.topics} links={state.links} picked={topic} onPick={onTopic} />
+            </section>
+          )}
+
+          {brief && brief.streams.length > 0 && (
+            <section className="mt-6">
+              <h3 className="mb-2 flex items-center gap-2 text-[10px] uppercase tracking-[0.14em] text-faint">
+                <Layers size={11} /> {t("Потоки")}
+                <span className="ml-auto tabular-nums normal-case tracking-normal">
+                  {brief.streams.length}
+                </span>
+              </h3>
+              <div className="grid items-start gap-3 @min-[820px]/proj:grid-cols-2">
+                {brief.streams.map((s) => {
+                  const key = s.lines.map((i) => line.get(i)).filter((x) => !!x)
+                  const rest = open(s.name).filter((x) => !s.lines.includes(x.item))
+                  return (
+                    <article
+                      key={s.name}
+                      className="rounded-panel border border-line/60 bg-surface/40 px-3.5 py-3"
+                    >
+                      <h4 className="flex items-baseline justify-between gap-3 text-[12.5px] font-medium">
+                        <span className="min-w-0 truncate">{s.name}</span>
+                        <span className="shrink-0 text-[10px] font-normal tabular-nums text-faint">
+                          {t("{n} відкритих", { n: key.length + rest.length })}
+                        </span>
+                      </h4>
+                      <p className="mt-1 text-[12px] leading-relaxed text-soft">{s.state}</p>
+                      <div className="mt-2">
+                        {key.map((x) => (x.kind === "work" ? task(x.t) : said(x.t)))}
+                      </div>
+                      {rest.length > 0 && (
+                        <details className="mt-1 group/rest">
+                          <summary className="cursor-pointer select-none px-1.5 py-1 text-[10.5px] text-faint transition-colors hover:text-soft">
+                            {t("ще {n}", { n: rest.length })}
+                          </summary>
+                          {rest.map((x) =>
+                            state.work.includes(x) ? task(x) : said(x),
+                          )}
+                        </details>
+                      )}
+                    </article>
+                  )
+                })}
+              </div>
+            </section>
+          )}
+
+          {brief && brief.attention.length > 0 && (
+            <Block title={t("Потребує уваги")} Icon={CircleAlert} note={`${brief.attention.length}`}>
+              {brief.attention.flatMap((a) => {
+                const x = line.get(a.id)
+                return x
+                  ? [
+                      <div key={a.id}>
+                        {x.kind === "work" ? task(x.t) : said(x.t)}
+                        <p className="-mt-0.5 mb-1 pl-7 text-[10.5px] text-warn">{a.why}</p>
+                      </div>,
+                    ]
+                  : []
+              })}
+            </Block>
+          )}
+
+          {brief && brief.decisions.length > 0 && (
+            <Block title={t("Рішення, що визначають роботу")} Icon={Gavel} note={`${brief.decisions.length}`}>
+              {brief.decisions.flatMap((i) => {
+                const x = line.get(i)
+                return x ? [said(x.t)] : []
+              })}
+            </Block>
+          )}
+
+          <details className="group mt-6 border-t border-line/50 pt-3.5" open={!brief}>
+            <summary className="flex cursor-pointer select-none items-center gap-2 text-[10px] uppercase tracking-[0.14em] text-faint transition-colors hover:text-soft">
+              <ListChecks size={11} /> {t("Усі пункти")}
+              <span className="ml-auto tabular-nums normal-case tracking-normal">
+                {state.work.length + state.decisions.length + state.questions.length}
+              </span>
+            </summary>
           <Block title={t("Робота")} Icon={ListChecks} note={`${state.work.length}`}>
-            {state.work.map((w) => (
-              <Task
-                key={w.text}
-                line={w}
-                onOpen={async () =>
-                  onOpen(w.from, (await Api.Moment(w.from, w.text)) as number)
-                }
-                onTick={async () => {
-                  // The document owns the line once the model keeps one; before
-                  // that the tick belongs to the meeting it came from.
-                  if (w.item > 0) await Api.TickItem(id, w.item, !w.done)
-                  else if (w.index >= 0)
-                    await Api.Tick(w.from, w.index, !w.done)
-                  Api.Standing(id).then((s) => setState(s as Standing))
-                }}
-                onEdit={
-                  w.item > 0
-                    ? async (text) => {
-                        await Api.PinItem(id, w.item, text, w.owner, w.due)
-                        Api.Standing(id).then((s) => setState(s as Standing))
-                      }
-                    : undefined
-                }
-              />
-            ))}
+            {state.work.map(task)}
           </Block>
 
           <Block
@@ -299,15 +422,7 @@ export default function Project({
             Icon={Gavel}
             note={`${state.decisions.length}`}
           >
-            {state.decisions.map((d) => (
-              <Said
-                key={d.text}
-                line={d}
-                onOpen={async () =>
-                  onOpen(d.from, (await Api.Moment(d.from, d.text)) as number)
-                }
-              />
-            ))}
+            {state.decisions.map(said)}
           </Block>
 
           <Block
@@ -315,16 +430,9 @@ export default function Project({
             Icon={CircleHelp}
             note={`${state.questions.length}`}
           >
-            {state.questions.map((q) => (
-              <Said
-                key={q.text}
-                line={q}
-                onOpen={async () =>
-                  onOpen(q.from, (await Api.Moment(q.from, q.text)) as number)
-                }
-              />
-            ))}
+            {state.questions.map(said)}
           </Block>
+          </details>
 
           <Block title={t("Наради")} Icon={Sparkles} note={`${rows.length}`}>
             {rows.map((r) => (

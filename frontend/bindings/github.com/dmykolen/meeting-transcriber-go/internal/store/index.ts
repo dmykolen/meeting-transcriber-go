@@ -4,6 +4,8 @@
 export {
     Action,
     Analytics,
+    Attention,
+    Brief,
     Briefing,
     Chapter,
     Face,
@@ -24,8 +26,11 @@ export {
     Standing,
     Status,
     Sticky,
+    StreamBrief,
     Summary,
     Thread,
+    Topic,
+    TopicLink,
     Turn,
     Voice,
     Week

@@ -56,7 +56,7 @@ func TestNoProviderMeansAIIsOffAndSaysSo(t *testing.T) {
 	if c.Ready() || c.Searchable() {
 		t.Fatal("a provider with nothing on disk claims to be ready")
 	}
-	if _, err := c.Summarise(context.Background(), []Turn{{Text: "Привіт"}}, nil); !errors.Is(err, ErrNoKey) {
+	if _, err := c.Summarise(context.Background(), []Turn{{Text: "Привіт"}}, nil, false); !errors.Is(err, ErrNoKey) {
 		t.Fatalf("err = %v, want ErrNoKey", err)
 	}
 	if _, err := c.Query(context.Background(), "VPN"); !errors.Is(err, ErrNoKey) {
@@ -138,7 +138,7 @@ func TestALocalSummaryAsksForTheSchema(t *testing.T) {
 	var used []Use
 	c := &Client{language: "Ukrainian", ask: h.ask, provider: "local", model: "gemma",
 		usage: func(u Use) { used = append(used, u) }}
-	summary, err := c.Summarise(context.Background(), []Turn{{Speaker: "Marta", Text: "Домовились: доступ лише через VPN."}}, nil)
+	summary, err := c.Summarise(context.Background(), []Turn{{Speaker: "Marta", Text: "Домовились: доступ лише через VPN."}}, nil, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -166,7 +166,7 @@ func TestSummaryPromptListsTheKnownTopics(t *testing.T) {
 		seen = p.instructions
 		return `{"title":"x","overview":"","chapters":[],"topics":["безпека","Нове"],"decisions":[],"action_items":[],"open_questions":[]}`, spent{}, nil
 	}}
-	got, err := c.Summarise(context.Background(), []Turn{{Text: "x"}}, []string{"Безпека", "Northwind"})
+	got, err := c.Summarise(context.Background(), []Turn{{Text: "x"}}, []string{"Безпека", "Northwind"}, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -176,7 +176,7 @@ func TestSummaryPromptListsTheKnownTopics(t *testing.T) {
 	if !slices.Equal(got.Topics, []string{"Безпека", "Нове"}) {
 		t.Fatalf("topics = %q", got.Topics)
 	}
-	if _, err := c.Summarise(context.Background(), []Turn{{Text: "x"}}, nil); err != nil || strings.Contains(seen, "reuse one of these") {
+	if _, err := c.Summarise(context.Background(), []Turn{{Text: "x"}}, nil, false); err != nil || strings.Contains(seen, "reuse one of these") {
 		t.Fatalf("an archive without topics still got the topics paragraph: %v", err)
 	}
 }
@@ -212,7 +212,7 @@ func TestLocalModelsSummariseAndFindOnThisMac(t *testing.T) {
 		{Start: 41, Speaker: "Marta", Text: "Домовились: доступ лише через VPN."},
 		{Start: 63, Speaker: "Marta", Text: "Я підготую пакет документів для Northwind до п'ятниці."},
 		{Start: 124, Speaker: "Taras", Text: "Хто погоджує фінальний перелік IP-діапазонів?"},
-	}, nil)
+	}, nil, false)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -88,3 +88,55 @@ func TestAnInventedIdIsIgnored(t *testing.T) {
 		t.Fatal("an invented id created a line")
 	}
 }
+
+func TestTidyMergesRetiresAndMovesButSparesWhatAPersonPinned(t *testing.T) {
+	k := fresh()
+	now := time.Now()
+	k.Apply([]Word{
+		{Do: "add", Kind: "work", Text: "Підготувати схему", Stream: "Архітектура", Owner: "SPEAKER_03"},
+		{Do: "add", Kind: "work", Text: "Підготувати архітектурну схему", Stream: "Архітектура"},
+		{Do: "add", Kind: "work", Text: "Подзвонити провайдеру"},
+		{Do: "add", Kind: "decision", Text: "Лише VPN"},
+		{Do: "add", Kind: "decision", Text: "Лише VPN, без публічного доступу"},
+	}, "", 1, now)
+	if k.Work[0].Owner != "" || k.Work[2].Stream != General {
+		t.Fatalf("a speaker label stayed as an owner, or a line has no stream: %+v", k.Work)
+	}
+	k.Work[1].Pinned = true // wording set by a person
+	changed := k.Tidy(Tidying{
+		Merges:  []Merge{{Keep: 2, Drop: []int{1}, Text: "нове формулювання"}, {Keep: 4, Drop: []int{5}, Text: "Лише VPN, без публічного доступу"}, {Keep: 99, Drop: []int{3}}},
+		Retire:  []Retirement{{ID: 3, State: "dropped"}, {ID: 4, State: "dropped"}},
+		Moves:   []Move{{ID: 2, Stream: "  Безпека "}},
+		Renames: []Rename{{From: General, To: "Різне"}},
+	})
+	if len(k.Work) != 2 || k.Work[0].ID != 2 || k.Work[0].Text != "Підготувати архітектурну схему" || k.Work[0].Times != 2 {
+		t.Fatalf("the pinned line was kept as it was and took the repeat's count: %+v", k.Work)
+	}
+	if k.Work[0].Stream != "Безпека" || k.Work[1].State != "dropped" || k.Work[1].Stream != "Різне" {
+		t.Fatalf("move, retire or rename did not take: %+v", k.Work)
+	}
+	if len(k.Decisions) != 1 || k.Decisions[0].State != "standing" || k.Decisions[0].Times != 2 {
+		t.Fatalf("a decision was retired or not merged: %+v", k.Decisions)
+	}
+	if changed == 0 {
+		t.Fatal("nothing counted as changed")
+	}
+	if got := k.Known([]int{2, 2, 77, 4}); len(got) != 2 {
+		t.Fatalf("Known = %v", got)
+	}
+}
+
+func TestApplyCountsWhatItCouldNotUse(t *testing.T) {
+	k := fresh()
+	ignored := k.Apply([]Word{
+		{Do: "add", Kind: "work", Text: "ok"},
+		{Do: "Add", Kind: "work", ID: 7, Text: "wrong case and no such id"},
+		{Do: "add", Kind: "task", Text: "wrong kind"},
+		{Do: "add", Kind: "work", Text: ""},
+		{Do: "restate", Kind: "work", ID: 99},
+		{Do: "frobnicate", Kind: "work", ID: 1},
+	}, "", 1, time.Now())
+	if ignored != 5 || len(k.Work) != 1 {
+		t.Fatalf("ignored %d, kept %d lines", ignored, len(k.Work))
+	}
+}

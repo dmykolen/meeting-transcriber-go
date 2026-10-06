@@ -274,6 +274,8 @@ export type Thread = {
   state: string
   by: string
   pinned: boolean
+  /** The line of work it belongs to; empty in a document written before streams. */
+  stream: string
   text: string
   owner: string
   due: string
@@ -305,6 +307,21 @@ export type Standing = {
   written: boolean
   /** How many of these meetings the model has folded in; climbs on a rebuild. */
   folded: number
+  /** The picture written from the document; null until a rebuild makes one. */
+  brief: Brief | null
+  /** What the meetings were about, by how many of them had it. */
+  topics: { topic: string; count: number; last: string }[]
+  /** Topics that shared meetings, and how many. */
+  links: { a: string; b: string; n: number }[]
+}
+
+/** The project in a minute: where each stream stands, by ids of Thread.item. */
+export type Brief = {
+  headline: string
+  streams: { name: string; state: string; lines: number[] }[]
+  decisions: number[]
+  attention: { id: number; why: string }[]
+  made: string
 }
 
 export type Said = {

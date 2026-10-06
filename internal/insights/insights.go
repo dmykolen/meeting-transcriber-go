@@ -240,53 +240,69 @@ type Turn struct {
 	Text    string
 }
 
+// summaryPrompt is for a recording somebody else was in. Measured against the
+// earlier prompt on the owner's own meetings (exp/22_summaries): owners come out
+// as names rather than SPEAKER labels, and a decision is something that binds.
 const summaryPrompt = `You are given the transcript of one meeting, with timestamps and speakers.
 
-Write it up for somebody who was not there and will not read the transcript.
-- title: four to eight words naming what this meeting was actually about. Not "Team Meeting".
-- overview: two or three sentences. What was this about, and what came of it.
-- topics: the handful of subjects covered, a few words each.
-- decisions: only things actually settled. If nothing was decided, say nothing.
-- action_items: only things somebody committed to. Attribute each one to the
-  speaker who committed to it, using the name exactly as the transcript spells
-  it. Leave the owner or the deadline empty rather than inventing either, and
-  copy a deadline in the words it was said in.
-- chapters: cover the meeting in order, starting at 00:00, coarse enough that
-  each one is worth jumping to — a handful for an hour, not one per minute.
-- open_questions: raised and left unresolved. Phrase each as the question it
-  was, so that the same question asked again next week is recognisable.
+Write it up for somebody who was not there, will not read the transcript, and will later come looking for what was decided and who owes what.
 
-Transcripts of real meetings are imperfect and words are sometimes misheard.
-Where a passage is garbled, leave it out rather than guessing what it meant.
+- title: four to eight words naming what the meeting was actually about: the subject, not the format. "Team meeting" and "Sync" are wrong.
+- overview: two or three plain sentences: what the meeting dealt with and what came of it. State facts; no "the team discussed".
+- topics: two to five broad subjects, two to four words each, the labels you would file this meeting under. Not every sentence is a topic, and side talk (food, schedules, greetings) is not one.
+- decisions: only what was settled and will bind later work: a choice between options, an agreed approach, a rule. A plan for this week, a priority for now, a suggestion nobody accepted and a task are not decisions. If nothing was decided, return nothing.
+- action_items: only what somebody took on: an accepted request ("ok, I'll check"), or an assignment nobody objected to. Phrase each as an instruction that starts with a verb. Not action items: something done in the past, a wish, "we should think about", a question. owner is the person who took it on, by the name the transcript gives. When the transcript has only a label such as SPEAKER_05 but the person is addressed or introduced by name somewhere, use that name; otherwise keep the label. due is the deadline in the words it was said. Leave an owner or a deadline empty rather than guess.
+- chapters: cover the meeting in order, starting at 00:00, coarse enough that each one is worth jumping to: a handful for an hour, not one per minute.
+- open_questions: questions the meeting raised and left unanswered that somebody will have to answer. Phrase each as the question it was, so that the same question asked next week is recognisable. Not rhetorical questions, and not ones answered later in the same meeting.
 
-Write in %s. This holds even when the transcript itself contains other
-languages, borrowed words or whole sentences in another language — those are
-what people say, and they do not change what you answer in.`
+Transcripts of real meetings are imperfect and words are sometimes misheard. Where a passage is garbled, or is background noise or somebody else's media, leave it out rather than guess. If the whole transcript is unusable, say so in one sentence in the overview and leave every list empty.
+
+Write in %s. This holds even when the transcript itself contains other languages, borrowed words or whole sentences in another language: those are what people say, and they do not change what you answer in.`
+
+// notePrompt is for a recording of one person's microphone alone: a voice
+// note, one side of a call, thinking aloud, or something playing in the room.
+// The meeting prompt gave a television drama's lines to its owner as tasks.
+const notePrompt = `You are given the transcript of a recording made by one person's microphone, with timestamps. Nobody else was in the conversation. It is a voice note, thinking aloud, one side of a phone call, a dictated message, or a talk to nobody. Sometimes the microphone only picked up something playing in the room (a video, a call on speakers, a lecture); then it is not the person's own speech.
+
+Write a short record for the person who made it, who will want to find the thought again.
+
+- title: four to eight words naming the subject.
+- overview: two or three plain sentences: what the person was thinking about, working out or doing, and where they got to. If what you read is clearly other people's content (a video, a lecture, a call on the speakers), say so first in one sentence and keep everything else minimal.
+- topics: one to four broad subjects, two to four words each. Not side talk.
+- decisions: only what the speaker decided for themselves.
+- action_items: the speaker's own to-dos and intentions ("I need to", "remind me to", "tomorrow I will"), phrased as instructions that start with a verb. Leave owner empty: it is the speaker. due is the deadline in the words it was said, or empty.
+- chapters: only when the recording runs past ten minutes and really changes subject; otherwise at most one.
+- open_questions: what the speaker is still unsure of or means to find out. Phrase each as the question it was.
+
+Where a passage is garbled or is background noise, leave it out rather than guess. If the whole transcript is unusable, say so in one sentence in the overview and leave every list empty.
+
+Write in %s. This holds even when the transcript contains other languages, borrowed words or whole sentences in another language.`
 
 // topicsPrompt follows the summary prompt when the archive already has topics.
 // Without it every meeting words the same subject a little differently, and
 // the topics stop meaning anything.
 const topicsPrompt = `
 
-Topics already used in earlier meetings, most used first:
+Topics already used in earlier recordings, most used first:
 %s
 
 For "topics", reuse one of these exactly as written whenever it genuinely
-covers a subject of this meeting. Add a new topic only when none of them fits;
+covers a subject here. Add a new topic only when none of them fits;
 never reword, translate or pluralise an existing one into a variant of it.`
 
-// Summarise turns a transcript into a structured summary. known are the topics
-// the archive already has: the summary reuses them where they fit.
-func (c *Client) Summarise(ctx context.Context, turns []Turn, known []string) (*Summary, error) {
+// Summarise turns a transcript into a structured summary. A note is a
+// recording nobody else was in. known are the topics the archive already has:
+// the summary reuses them where they fit.
+func (c *Client) Summarise(ctx context.Context, turns []Turn, known []string, note bool) (*Summary, error) {
 	if !c.Ready() {
 		return nil, ErrNoKey
 	}
-	instructions := fmt.Sprintf(summaryPrompt, c.language)
+	instructions := fmt.Sprintf(cmp.Or(map[bool]string{true: notePrompt}[note], summaryPrompt), c.language)
 	if len(known) > 0 {
 		instructions += fmt.Sprintf(topicsPrompt, "- "+strings.Join(known, "\n- "))
 	}
 	var out Summary
-	if err := c.Structured(ctx, instructions, Transcript(turns), "meeting_summary", schema, &out); err != nil {
+	if err := c.Structured(ctx, instructions, Transcript(turns), "meeting_summary", Schema, &out); err != nil {
 		return nil, err
 	}
 	out.Topics = Canon(out.Topics, known)

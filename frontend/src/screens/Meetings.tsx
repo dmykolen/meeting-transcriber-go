@@ -385,6 +385,11 @@ export default function Workspace({
             <Project
               id={project}
               groups={groups}
+              topic={topic}
+              onTopic={(x) => {
+                setTopic(topic && same(topic, x) ? null : x)
+                setListOpen(narrow)
+              }}
               onChanged={load}
               onOpen={(id, at = 0) => {
                 setMoment(at)

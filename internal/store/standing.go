@@ -21,6 +21,27 @@ type Standing struct {
 	Written bool   `json:"written"`
 	// How many meetings the model-authored document has folded in so far.
 	Folded int `json:"folded"`
+	// The picture the model wrote from the document; nil for a document made
+	// before pictures existed, until it is rebuilt.
+	Brief *Brief `json:"brief"`
+	// What the meetings were about, by how many of them said it.
+	Topics []Topic `json:"topics"`
+	// Which of those topics shared meetings, strongest first.
+	Links []TopicLink `json:"links"`
+}
+
+// TopicLink says two topics were had by the same meetings, N of them.
+type TopicLink struct {
+	A string `json:"a"`
+	B string `json:"b"`
+	N int    `json:"n"`
+}
+
+// Topic is a subject of the project's meetings.
+type Topic struct {
+	Topic string    `json:"topic"`
+	Count int       `json:"count"` // meetings that had it
+	Last  time.Time `json:"last"`  // the latest of them
 }
 
 // Thread is one recurring line of work, one decision, or one open question.
@@ -30,6 +51,7 @@ type Thread struct {
 	State  string    `json:"state"`
 	By     string    `json:"by"`
 	Pinned bool      `json:"pinned"`
+	Stream string    `json:"stream"` // the line of work it belongs to
 	Text   string    `json:"text"`
 	Owner  string    `json:"owner"`
 	Due    string    `json:"due"`
@@ -54,8 +76,11 @@ func (d *DB) Standing(group int64) (*Standing, error) {
 	if err != nil {
 		return nil, err
 	}
-	out := &Standing{Work: []Thread{}, Decisions: []Thread{}, Questions: []Thread{}, People: []Face{}}
+	out := &Standing{Work: []Thread{}, Decisions: []Thread{}, Questions: []Thread{}, People: []Face{}, Topics: []Topic{}, Links: []TopicLink{}}
 	work, decided, asked := folder{}, folder{}, folder{}
+	topics := map[string]*Topic{}
+	spellings := map[string]map[string]int{}
+	together := map[[2]string]int{}
 
 	for _, r := range rows {
 		out.Meetings++
@@ -68,6 +93,28 @@ func (d *DB) Standing(group int64) (*Standing, error) {
 		}
 		if r.Summary == nil {
 			continue
+		}
+		had := uniqueTopics(r.Summary.Topics)
+		for i, a := range had {
+			for _, b := range had[i+1:] {
+				pair := [2]string{strings.ToLower(a), strings.ToLower(b)}
+				if pair[0] > pair[1] {
+					pair[0], pair[1] = pair[1], pair[0]
+				}
+				together[pair]++
+			}
+		}
+		for _, name := range had {
+			key := strings.ToLower(name)
+			if topics[key] == nil {
+				topics[key] = &Topic{}
+				spellings[key] = map[string]int{}
+			}
+			topics[key].Count++
+			spellings[key][name]++
+			if r.Started.After(topics[key].Last) {
+				topics[key].Last = r.Started
+			}
 		}
 		for i, a := range r.Summary.ActionItems {
 			work.add(a.Task, r, i, a)
@@ -98,6 +145,34 @@ func (d *DB) Standing(group int64) (*Standing, error) {
 		return a.When.After(b.When)
 	})
 
+	for key, t := range topics {
+		for name, n := range spellings[key] { // the spelling most meetings used
+			if t.Topic == "" || n > spellings[key][t.Topic] || n == spellings[key][t.Topic] && prettier(name, t.Topic) {
+				t.Topic = name
+			}
+		}
+		out.Topics = append(out.Topics, *t)
+	}
+	sort.Slice(out.Topics, func(i, j int) bool {
+		a, b := out.Topics[i], out.Topics[j]
+		return a.Count > b.Count || a.Count == b.Count && (a.Last.After(b.Last) || a.Last.Equal(b.Last) && a.Topic < b.Topic)
+	})
+
+	spelled := map[string]string{}
+	for key, t := range topics {
+		spelled[key] = t.Topic
+	}
+	for pair, n := range together {
+		out.Links = append(out.Links, TopicLink{A: spelled[pair[0]], B: spelled[pair[1]], N: n})
+	}
+	sort.Slice(out.Links, func(i, j int) bool {
+		a, b := out.Links[i], out.Links[j]
+		return a.N > b.N || a.N == b.N && (a.A < b.A || a.A == b.A && a.B < b.B)
+	})
+	if len(out.Links) > 120 {
+		out.Links = out.Links[:120]
+	}
+
 	out.People, err = d.faces(group)
 	if err != nil {
 		return nil, err
@@ -112,6 +187,7 @@ func (d *DB) Standing(group int64) (*Standing, error) {
 	out.Status = kept.Status
 	out.Written = true
 	out.Folded = len(kept.Seen)
+	out.Brief = kept.Brief
 	out.Work = threads(kept.Work)
 	out.Decisions = threads(kept.Decisions)
 	out.Questions = threads(kept.Questions)
@@ -123,7 +199,7 @@ func threads(items []Item) []Thread {
 	out := make([]Thread, 0, len(items))
 	for _, it := range items {
 		out = append(out, Thread{
-			Item: it.ID, Text: it.Text, Owner: it.Owner, Due: it.Due,
+			Item: it.ID, Stream: it.Stream, Text: it.Text, Owner: it.Owner, Due: it.Due,
 			Done:  it.State == "done" || it.State == "answered" || it.State == "overturned",
 			State: it.State, By: it.By, Pinned: it.Pinned,
 			Times: it.Times, From: it.From, Index: -1, When: it.When,
@@ -218,4 +294,26 @@ func (d *DB) Moment(recording int64, text string) float64 {
 		WHERE recording = ? AND transcript MATCH ?
 		ORDER BY rank LIMIT 1`, recording, strings.Join(words, " OR ")).Scan(&at)
 	return at
+}
+
+// uniqueTopics spaces out and drops repeats, ignoring case.
+func uniqueTopics(topics []string) []string {
+	seen := map[string]bool{}
+	var out []string
+	for _, t := range topics {
+		t = strings.Join(strings.Fields(t), " ")
+		if k := strings.ToLower(t); t != "" && !seen[k] {
+			seen[k] = true
+			out = append(out, t)
+		}
+	}
+	return out
+}
+
+// prettier breaks a tie between spellings: shouting loses, then the alphabet.
+func prettier(a, b string) bool {
+	if shouted := func(s string) bool { return s == strings.ToUpper(s) }; shouted(a) != shouted(b) {
+		return shouted(b)
+	}
+	return a < b
 }

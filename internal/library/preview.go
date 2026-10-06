@@ -15,6 +15,10 @@ func (l *Library) PreviewSummary(ctx context.Context, id int64) (*store.Summary,
 	if !l.AI().Ready() {
 		return nil, errors.New("Підсумки вимкнено: оберіть AI у параметрах")
 	}
+	r, err := l.db.Get(id)
+	if err != nil {
+		return nil, err
+	}
 	rows, err := l.db.Turns(id)
 	if err != nil {
 		return nil, err
@@ -28,7 +32,7 @@ func (l *Library) PreviewSummary(ctx context.Context, id int64) (*store.Summary,
 	}
 	slog.Info("summary draft started", "id", id, "turns", len(turns))
 	began := time.Now()
-	summary, err := l.AI().Summarise(ctx, turns, l.known())
+	summary, err := l.AI().Summarise(ctx, turns, l.known(), r.Kind == store.Note)
 	if err != nil {
 		slog.Warn("summary draft finished", "id", id, "took", time.Since(began).Round(time.Millisecond),
 			"status", "failed", "err", err)
