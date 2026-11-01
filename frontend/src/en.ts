@@ -588,6 +588,7 @@ export default {
   "Переписати текст": "Write the text again",
   "Написати текст": "Write the text",
   "Копіювати текст": "Copy the text",
+  "Відкрити сторінку запису": "Open the recording's page",
   "Повністю": "Show all",
   "Згорнути": "Show less",
   "Текст замінено": "Text replaced",

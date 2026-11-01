@@ -186,7 +186,7 @@ export default function App() {
                 <Search onOpen={show} onProject={showProject} />
               )}
               {screen === "notes" && (
-                <Notes pick={note} onPicked={() => setNote(null)} />
+                <Notes pick={note} onPicked={() => setNote(null)} onOpen={(id) => show(id)} />
               )}
               {screen === "todo" && (
                 <Todo onOpen={(id, kind) => (kind === "note" ? showNote(id) : show(id))} />

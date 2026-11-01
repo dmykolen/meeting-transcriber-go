@@ -2,6 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import {
   Check,
   Copy,
+  FileText,
   MoreHorizontal,
   Play,
   RotateCcw,
@@ -42,7 +43,16 @@ import { locale, t, tr } from "../i18n"
  * Newest first, as many columns as the window holds: grouped by day, a wide
  * window held two cards a row and showed the rest of itself empty.
  */
-export default function Notes({ pick, onPicked }: { pick: number | null; onPicked: () => void }) {
+export default function Notes({
+  pick,
+  onPicked,
+  onOpen,
+}: {
+  pick: number | null
+  onPicked: () => void
+  /** The recording's full page in Library: chapters, decisions, its notes. */
+  onOpen: (id: number) => void
+}) {
   const [notes, setNotes] = useState<VoiceNote[] | null>(null)
   const [groups, setGroups] = useState<Group[]>([])
   const [live, setLive] = useState<Listening | null>(null)
@@ -188,6 +198,7 @@ export default function Notes({ pick, onPicked }: { pick: number | null; onPicke
               ai={ai}
               draft={drafts.find((d) => d.id === n.id)}
               onPlay={(at) => n.audio && setPlaying({ id: n.id, file: n.audio, at })}
+              onOpen={() => onOpen(n.id)}
               onChanged={load}
               onProblem={setProblem}
               onAccept={(d) => accept(n, d)}
@@ -249,6 +260,7 @@ function Card({
   ai,
   draft: d,
   onPlay,
+  onOpen,
   onChanged,
   onProblem,
   onAccept,
@@ -260,6 +272,7 @@ function Card({
   ai: boolean
   draft?: Draft
   onPlay: (at: number) => void
+  onOpen: () => void
   onChanged: () => void
   onProblem: (why: string) => void
   onAccept: (d: Draft) => void
@@ -448,6 +461,15 @@ function Card({
                 {n.summary ? t("Переписати текст") : t("Написати текст")}
               </button>
             )}
+            <button
+              onClick={(e) => {
+                shut(e)
+                onOpen()
+              }}
+            >
+              <FileText size={13} />
+              {t("Відкрити сторінку запису")}
+            </button>
             {!!(s?.overview || n.said) && (
               <button
                 onClick={(e) => {
