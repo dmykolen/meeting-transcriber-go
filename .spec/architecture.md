@@ -92,7 +92,7 @@ The queue is single-worker. Active recording prevents the queue from starting a
 new historical job; a job already in flight is not preempted. The settings
 decide when queued recordings run — after each one, at a time of day, or when
 the Mac is free (`internal/library/idle_darwin.go`) — and a recording asked for
-by hand goes next regardless.
+by hand, or a note dictated with the Note button, goes next regardless.
 
 ## Storage
 
@@ -144,7 +144,11 @@ Tools are read-only and never return secrets or raw voiceprint vectors.
 
 ## Frontend
 
-The main rail owns Today, Meetings, Search, To do, Ask, and Settings. The
+The main rail owns Today, Meetings, Notes, Search, To do, Ask, and Settings,
+with the Note and Record buttons at its foot. Notes (`screens/Notes.tsx`)
+shows the recordings nobody else was in as cards; the Note button
+(`components/Dictate.tsx`) dictates one, or types a line into the recording in
+progress. The
 title bar holds the command palette and, while anything runs behind the
 screen, the list of that work: summary drafts asked for by hand
 (`frontend/src/drafts.ts`, kept for as long as the window is open) and the

@@ -98,6 +98,11 @@ Evidence: `exp/11_speakers`, `exp/12_community1`, `exp/13_company`, and
   whatever the schedule, but still after a job in flight and after a live
   recording. The request lives in memory; after a restart the recording follows
   the schedule again.
+- A note dictated with the Note button is asked for by hand too: it goes next
+  the moment it is filed. While a recording runs, the worker looks again every
+  second instead of every 30: the wake a finished recording sends arrived while
+  the recorder still said it was recording, and the note waited up to half a
+  minute (`TestADictatedNoteIsTakenWithinSecondsOfStopping`).
 - Every queued recording shows why it waits: models, a recording, the hour,
   somebody at the Mac, other work, or its turn.
 - Silence or a meeting with no words is a valid finished result.
@@ -132,6 +137,10 @@ Evidence: `exp/11_speakers`, `exp/12_community1`, `exp/13_company`, and
   the button looked as if it had never been pressed. Back in the meeting it
   shows as being written, then as the comparison to accept. A second press
   while one is being written does nothing.
+- Accepting a summary compares the one the reader saw with the stored one list
+  by list (`filled` in `store/notes.go`). The generated bindings turn a list
+  stored as null into an empty one, so compared byte for byte a summary with no
+  action items could never be replaced: "the summary has changed" (1.6.0).
 - Work behind the screen shows in the title bar's corner on every screen, only
   while there is some: those drafts, and the recording the queue is
   transcribing or summarising (`Meetings.Working`, polled every 2 s). Each line
@@ -303,6 +312,125 @@ Evidence: `exp/19_local_llm`, `exp/out/N-local-llm.jsonl`,
   resumes listening.
 - The pause lives in memory: quitting the app ends it.
 
+## Voice notes
+
+- A voice note is a recording in which nobody but the owner was heard:
+  `recordings.kind = note`; the only other kind is `meeting`. The detector
+  decides when a recording starts: a note unless the system channel carried
+  3 s of speech in the minute before. While it records, speech on the system
+  channel (any at all), or the company detector's second voice, turns it into a
+  meeting; a meeting never turns back. The company detector is asked only when
+  system audio capture is off in Settings, since with it the call side already
+  answers, so with system audio on a conversation in the room, heard only by
+  the microphone, is a note too. A recording's kind carries into its next
+  hourly file; a file already handed over keeps the kind it had, and the kind
+  never changes after that. Notes come from the
+  Note button, from Record pressed while only the owner speaks, and from
+  recordings the app starts itself, which are deleted when they stop unless
+  `keep_notes` is on (a Settings switch, off by default). Notes existed before
+  1.7.0, mixed into the Library list; 1.7.0 gave them the button, a screen and a
+  prompt of their own. No data was migrated.
+- A meeting view is one whose list or numbers would read wrong with a voice note
+  in them, as "time in meetings" would: today the Library list and its timeline,
+  the topic vocabulary, and Today's recent meetings and minutes in meetings. A
+  project's recordings, a person's history and search are not. Each meeting view
+  leaves notes out with `kind = meeting`: in SQL in `store.Span`, `store.Topics`
+  and `store.Brief`, and in `Meetings.tsx` for the Library list, because
+  `store.Recent` also feeds the queue, To do, MCP and audio retention, which
+  must see notes. A new meeting view adds the same condition and a case to
+  `internal/store/voicenotes_test.go`. Everything about the archive as a whole
+  keeps notes: search, Ask, MCP, projects, To do (a note's to-do opens its card)
+  and retention.
+- The Note button sits above Record at the foot of the rail. A press starts a
+  dictated note (`Recorder.Dictate`), the one kind of note that the button
+  makes; the button then reads Done, and a second press, or Record's Stop, ends
+  it. Silence does not: like any recording started by hand, it runs until it is
+  stopped. A dictated note is the microphone's alone, whatever else happens: the
+  detector's speech history is cleared at the press, so system-channel speech
+  from before cannot make it a meeting; the system channel is zeroed before
+  detection and before writing, as already done while the app plays audio
+  itself; no preroll is poured in; the company detector is not asked; when the
+  recording is cut into the next hourly file, that file is dictated too; the
+  strip under the menu bar, there to remind the owner to tell the others, is
+  not shown.
+- When a recording stops, its file is deleted if it is under five seconds of
+  audio and not dictated; if it is dictated and holds not one frame the speech
+  detector judged speech; or if the app started it, it is still a note, system
+  audio is on, `keep_notes` is off and nobody asked for it (`asked`, set when
+  Record or Note started it, or when a line was typed into it). A meeting is
+  never deleted otherwise. A room conversation the app started is therefore
+  lost on the default settings: a known limit, see "Rescue a recording the app
+  discarded" in the roadmap. A dropped dictation sets `Status.Missed`, so the
+  button says "Silence" and the Notes screen says nothing was heard, for five
+  seconds. The recorder
+  hands it to the processing queue (`internal/library`) with `Filed.Dictated`,
+  and the queue takes it next whatever the schedule says, as "Transcribe now"
+  does: still after a job in flight and after a recording in progress has
+  stopped. The flag lives in memory, so after a restart before transcription the
+  note waits for the schedule like any recording; that is accepted.
+- While any other recording runs, the button does not start a second one,
+  since there is one microphone. It opens a field beside the button
+  (`Recorder.Jot`); the line typed becomes one of that recording's sticky notes
+  (`store.Sticky`, the notes shown in a meeting's page), at the seconds since
+  its file began, preroll included. Typing also sets the in-memory flag that
+  Record sets (`asked`), so a recording the app started itself is no longer
+  deleted as unwanted. Only the five-second minimum can still drop it, and the
+  typed lines go with it (logged as `typed_lines_lost`). The seconds count from
+  the start of the current hourly file.
+- A note is written out by its own prompt (`insights.Polish`), in the summary
+  language from the settings: the speaker's own words in the first person,
+  fillers and corrections resolved ("tomorrow, no, Friday" is Friday), and
+  to-dos with a due date `YYYY-MM-DD` whenever the day follows from what was
+  said. Above the transcript the prompt lists the recording's day and the seven
+  days after it, so that "on Friday" needs no counting; a date further off ("by
+  the 15th") is still a date, and only a vague time ("next week") stays as
+  words. Everything is dated from the recording's start, not from when the
+  prompt runs, so a note rewritten months later keeps its dates. There are no
+  decisions, chapters, topics or to-do owners, and the prompt asks for about
+  400 words at most; neither the length nor the date format is checked in code,
+  and the interface shows a due that is not a date as it is. A note is written
+  out automatically only when Automatic summaries is on Everything; on
+  Meetings, the default, a note goes to no model until "Write the text" in its
+  card's menu. Without AI, or when the call fails, the card shows the raw
+  transcript.
+- Measured (`exp/out/24-notes.md`) with Copilot `gpt-6.1-sol` writing, the model
+  in the owner's settings, and `gpt-5.6-terra` judging which of two unlabelled
+  texts is better; users get whichever model they choose. Six made-up dictations
+  (`exp/24_notes/cases.json`) are checked by code for each to-do's date, the
+  number of to-dos and the words that must stay or go: 12 of 12 over two runs.
+  On 29 archive notes the new text was judged better than the 1.6.0 prompt's
+  overview, decisions and questions 21 times, worse 7, tie 1, with 4 unsupported
+  statements in all against 5. The old format is still preferred for hour-long
+  room conversations kept as notes (5 of 7); that is accepted, since dictation
+  is what the screen is for. A change to the prompt is checked with `go run
+  ./exp/24_notes -out <dir>`, which runs the made-up cases alone and needs only
+  Copilot; with `-db` on a copy of an archive it also compares the change with
+  the prompt kept in the program as `previousNote` (1.6.0's; put the current
+  wording there first). Every made-up check must pass, and the change must be
+  judged better at least as often as worse. Nothing checks the dates themselves:
+  a day Whisper turns into a non-word stays undated because the prompt forbids
+  guessing, and one misheard as another day gets that day.
+- An older note keeps its text until "Write the text again" in its card's
+  menu. That makes a draft, kept by the window (`drafts.ts`) until the app
+  quits; the card shows it with Accept and Keep it as it was. Accept replaces
+  the whole summary, so the note's to-dos, with their ticks and edits, become
+  the draft's; the undo it offers for ten seconds puts the old summary back,
+  ticks included. Keep drops the draft.
+- A card's menu also opens the recording's full page in Library (chapters,
+  decisions, its sticky notes, speakers): an older note, or a room conversation
+  kept as one, has more there than the card shows. The cards flow newest
+  first, the day and time on each, in `display: grid-lanes` where WebKit has it
+  (macOS 27) and a plain grid elsewhere. Day groups were tried first and
+  dropped: with a few notes a day, a wide window showed two cards a row and the
+  rest of itself empty.
+
+Evidence: `exp/24_notes`, `internal/listen/dictate_test.go`,
+`internal/store/voicenotes_test.go`, and a sandbox copy of the packaged app
+whose microphone played a synthesized dictation. The Mac was in use, so the
+"when the Mac is free" schedule would have kept a meeting waiting, yet the
+queue took the note 11 ms after it stopped; it was transcribed in 1 s and
+written in about 9 s.
+
 ## Logging
 
 - One line per event in `~/MeetingTranscriber/logs/mt.log` and on stderr:
@@ -317,13 +445,13 @@ Evidence: `exp/19_local_llm`, `exp/out/N-local-llm.jsonl`,
 
 ## Summary prompts and the project picture
 
-- Three prompts, three scenarios: a meeting, a note (nobody else in the
-  recording: `Summarise(..., note=true)`), and the project fold. A new prompt
-  is compared on the owner's own recordings first (`exp/22_summaries`, with
-  the summaries kept out of the repository). Measured on 10 meetings and the 3
-  notes with enough speech: owners as `SPEAKER_nn` 3 to 0 (the name is taken
-  from the talk), topics 3.7 to 3.3 a recording, and a television drama no
-  longer yields tasks owned by the speaker. The note sample is small.
+- Three prompts, three scenarios: a meeting (`Summarise`), a note (nobody else
+  in the recording: `Polish`, see Voice notes), and the project fold. A new
+  prompt is compared on the owner's own recordings first (`exp/22_summaries`,
+  with the summaries kept out of the repository). Measured on 10 meetings and
+  the 3 notes with enough speech: owners as `SPEAKER_nn` 3 to 0 (the name is
+  taken from the talk), topics 3.7 to 3.3 a recording, and a television drama
+  no longer yields tasks owned by the speaker. The note sample is small.
 - A project is a ledger of lines with provenance plus a written picture. The
   fold sees only the open lines, grouped by stream, with finished ones counted
   (`insights.Held`); it puts each line in a stream (reusing a name, never a
@@ -373,9 +501,10 @@ Evidence: `exp/19_local_llm`, `exp/out/N-local-llm.jsonl`,
 ## Topics
 
 - A summary's `topics` are one vocabulary, not free text. `store.Topics` lists
-  those the archive uses (grouped in Go, case-insensitively: SQLite's `lower()`
-  skips Cyrillic) and `Summarise` puts the first 80 into the prompt with the
-  rule: reuse one exactly when it fits, add one only when none does.
+  those the archive's meetings use, a note having none (grouped in Go,
+  case-insensitively: SQLite's `lower()` skips Cyrillic), and `Summarise` puts
+  the first 80 into the prompt with the rule: reuse one exactly when it fits,
+  add one only when none does.
   `insights.Canon` then fixes spelling that differs only in case or spacing.
 - Existing summaries are not rewritten. Merging synonyms across the archive is a
   separate, measured job.

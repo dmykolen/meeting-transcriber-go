@@ -61,6 +61,15 @@ still open; **Tasks** lists every promise across meetings.
   <img src="docs/images/today.webp" width="920" alt="Today: open tasks with owners and the meetings they came from">
 </p>
 
+### Takes voice notes
+
+Press **Note**, say what you must not forget, and press it again. Only your
+microphone is recorded, and the note is transcribed straight away. With AI on,
+the note can come back as you would have typed it, with what you mean to do as
+tasks dated from the day you said it: on its own when automatic summaries are
+on for everything, or when you ask. **Notes** keeps them as cards, apart from
+your meetings.
+
 ### Follows a project across meetings
 
 File meetings into a project and it keeps a living document: where things
@@ -89,6 +98,7 @@ project state. See [MCP access](#mcp-access).
 | Area | What you get |
 |---|---|
 | Recording | Automatic or manual, microphone and system audio on separate channels, live transcript, pause and stop from the strip |
+| Voice notes | A Note button, transcription straight away, the text in your own words, tasks with dates, a screen of their own |
 | Import | Audio and video files from the native file picker |
 | Transcript | Timestamps, speaker names, click to play, waveform, notes, retranscription |
 | People | Learned voice names; the person at the Mac is identified once in Settings |
