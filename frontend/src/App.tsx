@@ -10,6 +10,7 @@ import Todo from "./screens/Todo"
 import Ask from "./screens/Ask"
 import Rail, { type Screen } from "./components/Rail"
 import { UpdateCard, useUpdate } from "./components/Update"
+import Jobs from "./components/Jobs"
 import { t } from "./i18n"
 
 const SettingsScreen = lazy(() => import("./screens/Settings"))
@@ -102,6 +103,7 @@ export default function App() {
             setScreen(s)
           }}
         />
+        <Jobs onOpen={show} />
       </div>
 
       {/* No AnimatePresence around this one. It switches once per launch, and

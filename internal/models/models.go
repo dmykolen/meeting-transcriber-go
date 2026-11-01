@@ -96,13 +96,13 @@ var (
 // keeps working.
 var (
 	// Copilot is the GitHub Copilot CLI that the Copilot SDK drives, pinned to
-	// the version SDK v1.0.14 was released against.
+	// the version SDK v1.0.28 was released against.
 	Copilot = Model{
 		Name:  "GitHub Copilot",
 		Key:   "copilot",
-		URL:   "https://github.com/github/copilot-cli/releases/download/v1.0.85/copilot-darwin-arm64.tar.gz",
-		Bytes: 87_519_489,
-		Check: "54b1cdb4d88cfe0806f13e1f70adc4e8ed7d3edcac38fe070475e29f553949aa",
+		URL:   "https://github.com/github/copilot-cli/releases/download/v1.0.105/copilot-darwin-arm64.tar.gz",
+		Bytes: 119_263_282,
+		Check: "34aacd03fb478d47e4b3cfc5ca045c37278c5d8d86239466521a16ea54ac84aa",
 		Run:   true,
 	}
 

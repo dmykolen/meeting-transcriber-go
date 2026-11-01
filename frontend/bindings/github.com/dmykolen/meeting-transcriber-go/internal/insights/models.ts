@@ -6,11 +6,14 @@
 import { Create as $Create } from "@wailsio/runtime";
 
 /**
- * Model is one Copilot model the signed-in account may use.
+ * Model is one Copilot model the signed-in account has. One not yet enabled
+ * in the account's Copilot settings is listed too, so that a new model does
+ * not look missing; it cannot be chosen until it is enabled.
  */
 export class Model {
     "id": string;
     "name": string;
+    "enabled": boolean;
 
     /** Creates a new Model instance. */
     constructor($$source: Partial<Model> = {}) {
@@ -19,6 +22,9 @@ export class Model {
         }
         if (!("name" in $$source)) {
             this["name"] = "";
+        }
+        if (!("enabled" in $$source)) {
+            this["enabled"] = false;
         }
 
         Object.assign(this, $$source);

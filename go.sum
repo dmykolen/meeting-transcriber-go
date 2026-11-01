@@ -52,6 +52,8 @@ github.com/gen2brain/malgo v0.11.26 h1:k5WcPIKw1bbJAbPqrvNPt7nehPLoaPNcOFde2+eru
 github.com/gen2brain/malgo v0.11.26/go.mod h1:xLVG3ROA33Bzol1quF3e4ehqcFuqh8QK4B8T6LQUs/M=
 github.com/github/copilot-sdk/go v1.0.14 h1:DeHPF2CbxRCe4EeAjYIo7v3CovGEEMHsrURUNaogf5A=
 github.com/github/copilot-sdk/go v1.0.14/go.mod h1:U0STg9Jdv9LDwtkUtcUJCzPQ4KTnKakRfP+1LhEx248=
+github.com/github/copilot-sdk/go v1.0.28 h1:p9205uladSUScyM7B+AbdaGLbcQGSTbx3U+bSH1YXZ4=
+github.com/github/copilot-sdk/go v1.0.28/go.mod h1:U0STg9Jdv9LDwtkUtcUJCzPQ4KTnKakRfP+1LhEx248=
 github.com/go-audio/audio v1.0.0 h1:zS9vebldgbQqktK4H0lUqWrG8P0NxCJVqcj7ZpNnwd4=
 github.com/go-audio/audio v1.0.0/go.mod h1:6uAu0+H2lHkwdGsAY+j2wHPNPpPoeg5AaEFh9FlA+Zs=
 github.com/go-audio/riff v1.0.0 h1:d8iCGbDvox9BfLagY94fBynxSPHO80LmZCaOsmKxokA=

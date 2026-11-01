@@ -243,19 +243,24 @@ type Turn struct {
 // summaryPrompt is for a recording somebody else was in. Measured against the
 // earlier prompt on the owner's own meetings (exp/22_summaries): owners come out
 // as names rather than SPEAKER labels, and a decision is something that binds.
+// The write-up itself was two sentences and a line per chapter for an hour of
+// talk; it now carries what was said, part by part, at the length the meeting
+// earns.
 const summaryPrompt = `You are given the transcript of one meeting, with timestamps and speakers.
 
-Write it up for somebody who was not there, will not read the transcript, and will later come looking for what was decided and who owes what.
+Write it up for a colleague who missed the meeting and will not read the transcript. After reading it they should know what was talked about, what each person brought to it, what was concluded and what is still open, well enough to join the next meeting on the subject. Later they will come back to find what was decided and who owes what.
+
+Write plainly, as one colleague briefs another. Be concrete: keep the names, numbers, dates, products, systems and terms people used, and where somebody explains an abbreviation or an internal name, keep the explanation where the name first appears. Say what was said, not that something was discussed: not "they discussed the release date" but "the release moves to 14 November because the payment API is not ready; Olena wants to ship without it". Name people as the transcript names them; somebody who appears only as a label such as SPEAKER_05 and is never named is "a participant", or their role when it is clear (the client, the tester), never the label. The length follows the substance: a long meeting full of substance gets a long write-up; small talk, games and greetings get a sentence at most.
 
 - title: four to eight words naming what the meeting was actually about: the subject, not the format. "Team meeting" and "Sync" are wrong.
-- overview: two or three plain sentences: what the meeting dealt with and what came of it. State facts; no "the team discussed".
+- overview: one paragraph that a reader who stops there can live with: what the meeting was for, when that was said; the main subjects, weightiest first, and what came of each; what is left open. Four to seven sentences for a meeting with several subjects, two or three for a short one about one thing.
+- chapters: the course of the meeting in order, starting at 00:00. One chapter per subject people actually spent time on, coarse enough that each is worth jumping to: usually three to eight for an hour, fewer for a short meeting; a long discussion of one subject is one chapter. Each summary tells what happened in that part so that the reader does not need the recording: the question or problem raised, what each person proposed, reported or objected to and why, the facts, figures and examples given, and where it ended. Two to four sentences for a short part, five to eight for a long one with substance, one for small talk.
 - topics: two to five broad subjects, two to four words each, the labels you would file this meeting under. Not every sentence is a topic, and side talk (food, schedules, greetings) is not one.
 - decisions: only what was settled and will bind later work: a choice between options, an agreed approach, a rule. A plan for this week, a priority for now, a suggestion nobody accepted and a task are not decisions. If nothing was decided, return nothing.
 - action_items: only what somebody took on: an accepted request ("ok, I'll check"), or an assignment nobody objected to. Phrase each as an instruction that starts with a verb. Not action items: something done in the past, a wish, "we should think about", a question. owner is the person who took it on, by the name the transcript gives. When the transcript has only a label such as SPEAKER_05 but the person is addressed or introduced by name somewhere, use that name; otherwise keep the label. due is the deadline in the words it was said. Leave an owner or a deadline empty rather than guess.
-- chapters: cover the meeting in order, starting at 00:00, coarse enough that each one is worth jumping to: a handful for an hour, not one per minute.
 - open_questions: questions the meeting raised and left unanswered that somebody will have to answer. Phrase each as the question it was, so that the same question asked next week is recognisable. Not rhetorical questions, and not ones answered later in the same meeting.
 
-Transcripts of real meetings are imperfect and words are sometimes misheard. Where a passage is garbled, or is background noise or somebody else's media, leave it out rather than guess. If the whole transcript is unusable, say so in one sentence in the overview and leave every list empty.
+Transcripts of real meetings are imperfect and words are sometimes misheard. Write only what the transcript says: never add a reason, an outcome, a name or a number it does not contain, never fill in what a vague phrase leaves out (somebody who says "I changed it" changed "it", not whatever you guess it was), and never state your own inference as something that was said. Give numbers as they were said and never work out one nobody said: "5 seconds instead of 12" stays that, not "twice as fast". What was said about one person stays about that person; do not widen it to everyone named with them. Where a passage is garbled, or is background noise or somebody else's media, leave it out rather than guess. If the whole transcript is unusable, say so in one sentence in the overview and leave every list empty.
 
 Write in %s. This holds even when the transcript itself contains other languages, borrowed words or whole sentences in another language: those are what people say, and they do not change what you answer in.`
 
@@ -267,11 +272,11 @@ const notePrompt = `You are given the transcript of a recording made by one pers
 Write a short record for the person who made it, who will want to find the thought again.
 
 - title: four to eight words naming the subject.
-- overview: two or three plain sentences: what the person was thinking about, working out or doing, and where they got to. If what you read is clearly other people's content (a video, a lecture, a call on the speakers), say so first in one sentence and keep everything else minimal.
+- overview: two to four plain sentences: what the person was thinking about, working out or doing, and where they got to, with the specifics they gave. If what you read is clearly other people's content (a video, a lecture, a call on the speakers), say so first in one sentence and keep everything else minimal.
 - topics: one to four broad subjects, two to four words each. Not side talk.
-- decisions: only what the speaker decided for themselves.
+- decisions: only what the speaker decided for themselves and said so.
 - action_items: the speaker's own to-dos and intentions ("I need to", "remind me to", "tomorrow I will"), phrased as instructions that start with a verb. Leave owner empty: it is the speaker. due is the deadline in the words it was said, or empty.
-- chapters: only when the recording runs past ten minutes and really changes subject; otherwise at most one.
+- chapters: only when the recording runs past ten minutes and really changes subject; otherwise at most one. Each summary says what the person worked out in that part, with the specifics, in two to five sentences.
 - open_questions: what the speaker is still unsure of or means to find out. Phrase each as the question it was.
 
 Where a passage is garbled or is background noise, leave it out rather than guess. If the whole transcript is unusable, say so in one sentence in the overview and leave every list empty.
@@ -287,7 +292,8 @@ Topics already used in earlier recordings, most used first:
 %s
 
 For "topics", reuse one of these exactly as written whenever it genuinely
-covers a subject here. Add a new topic only when none of them fits;
+covers a subject here; one that only shares a word or a general area with
+this recording does not. Add a new topic only when none of them fits;
 never reword, translate or pluralise an existing one into a variant of it.`
 
 // Summarise turns a transcript into a structured summary. A note is a

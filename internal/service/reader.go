@@ -16,7 +16,9 @@ func (m *Meetings) EditAction(id int64, index int, action store.Action) error {
 	return m.db.EditAction(id, index, action)
 }
 func (m *Meetings) PreviewSummary(id int64) (*store.Summary, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	// A detailed summary of an hour-long meeting takes a slow model past two
+	// minutes; five is what a Copilot request is given anyway.
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 	return m.lib.PreviewSummary(ctx, id)
 }

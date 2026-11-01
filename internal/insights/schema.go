@@ -3,11 +3,11 @@ package insights
 // Schema is the strict JSON shape the summary model must return.
 var Schema = object(map[string]any{
 	"title":    text("Four to eight words naming what this meeting was about"),
-	"overview": text("Two or three sentences on what happened"),
+	"overview": text("One paragraph: what it was for, the main subjects and what came of each, what is left open"),
 	"chapters": array(object(map[string]any{
 		"start":   number("Seconds from the start of the recording"),
-		"title":   text("A few words naming the topic"),
-		"summary": text("One sentence on what was covered"),
+		"title":   text("A few words naming the subject of this part"),
+		"summary": text("What happened in this part: the question, who said what and why, facts and figures, where it ended"),
 	})),
 	"topics":    array(text("A topic discussed")),
 	"decisions": array(text("Something actually settled")),

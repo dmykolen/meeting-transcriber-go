@@ -15,7 +15,7 @@ import {
   Plus,
   ListTree,
   RotateCcw,
-  ArrowDownToLine,
+  LocateFixed,
 } from "lucide-react"
 import {
   Meetings,
@@ -38,6 +38,7 @@ import Reveal from "../components/Reveal"
 import Drawer, { useNarrow } from "../components/Drawer"
 import NotesDeck from "../components/NotesDeck"
 import ActionEditor from "../components/ActionEditor"
+import { draft as write, drop, useDrafts, useNow, working } from "../drafts"
 import { locale, t, tr } from "../i18n"
 
 const norm = (topic: string) =>
@@ -85,8 +86,6 @@ export default function Transcript({
     [finding, setFinding] = useState(false),
     [right, setRight] = useState(false),
     [problem, setProblem] = useState(""),
-    [thinking, setThinking] = useState(false),
-    [draft, setDraft] = useState<Summary | null>(null),
     [showDone, setShowDone] = useState(false),
     [editing, setEditing] = useState<number | null>(null),
     [undo, setUndo] = useState<null | (() => Promise<void>)>(null),
@@ -100,6 +99,11 @@ export default function Transcript({
     player = useRef<Controls>(null),
     cancelTitle = useRef(false),
     narrow = useNarrow(1339)
+  // The summary being written lives outside the reader, so that it survives
+  // opening another meeting and is waiting here on the way back.
+  const job = useDrafts().find((d) => d.id === id),
+    thinking = working(job),
+    draft = job?.summary ?? null
   const load = useCallback(async () => {
     try {
       const m = (await Meetings.Open(id)) as Meeting
@@ -217,17 +221,10 @@ export default function Transcript({
       setProblem(why(e))
     }
   }
-  const preview = async () => {
+  const preview = () => {
     setTab("summary")
-    setThinking(true)
     setProblem("")
-    try {
-      setDraft((await Meetings.PreviewSummary(id)) as Summary)
-    } catch (e) {
-      setProblem(why(e))
-    } finally {
-      setThinking(false)
-    }
+    write(id, meeting.title, !s)
   }
   const analytics = (
     <>
@@ -458,7 +455,7 @@ export default function Transcript({
           />
           <button className="ui-chip" disabled={thinking} onClick={preview}>
             <Sparkles size={13} className={thinking ? "animate-pulse" : ""} />
-            {thinking ? t("Читаю…") : t("Оновити підсумок")}
+            {thinking ? t("Готую підсумок…") : t("Оновити підсумок")}
           </button>
         </div>
       </div>
@@ -514,7 +511,7 @@ export default function Transcript({
                 {t("Повторити обробку")}
               </button>
               {meeting.transcript.length > 0 && (
-                <button className="ui-chip" onClick={preview}>
+                <button className="ui-chip" disabled={thinking} onClick={preview}>
                   {t("Лише новий підсумок")}
                 </button>
               )}
@@ -626,9 +623,14 @@ export default function Transcript({
                 <X size={11} />
               </button>
             )}
-            {tab === "turns" && (
+            {/* Back to the line being played. Its arrow-to-a-line icon read
+                as Download, and at 0:00 with the top in view a press moved
+                nothing, so it looked broken; now it appears once something
+                has played, and the line it finds lights up. */}
+            {tab === "turns" && at > 0 && (
               <button
                 className="follow-current"
+                title={t("До місця, що звучить")}
                 onClick={() => {
                   const target =
                     meeting.transcript.find(
@@ -639,13 +641,19 @@ export default function Transcript({
                         Math.abs(a.start - at) < Math.abs(b.start - at) ? a : b,
                       meeting.transcript[0],
                     )
-                  if (target)
-                    scroll.current
-                      ?.querySelector(`[data-at="${target.start}"]`)
-                      ?.scrollIntoView({ block: "center", behavior: "smooth" })
+                  const row = target
+                    ? scroll.current?.querySelector<HTMLElement>(
+                        `[data-at="${target.start}"]`,
+                      )
+                    : null
+                  row?.scrollIntoView({ block: "center", behavior: "smooth" })
+                  row?.animate(
+                    [{ background: "#a876fa3d" }, { background: "transparent" }],
+                    { duration: 1400, easing: "ease-out" },
+                  )
                 }}
               >
-                <ArrowDownToLine size={12} />
+                <LocateFixed size={12} />
                 {clock(at)}
               </button>
             )}
@@ -666,6 +674,30 @@ export default function Transcript({
           >
             {tab === "summary" ? (
               <>
+                {thinking && (
+                  <div className="summary-drafting" role="status">
+                    <header>
+                      <Sparkles size={14} className="animate-pulse" />
+                      {s ? t("Готую нову редакцію") : t("Готую підсумок")}
+                      <Elapsed since={job!.began} />
+                    </header>
+                    <i className="thinking" />
+                    <i className="thinking" />
+                    <i className="thinking" />
+                  </div>
+                )}
+                {job?.problem && (
+                  <p className="reader-error" role="alert">
+                    {job.problem}
+                    <button onClick={preview}>{t("Спробувати ще раз")}</button>
+                    <button
+                      onClick={() => drop(id)}
+                      aria-label={t("Закрити повідомлення")}
+                    >
+                      <X size={13} />
+                    </button>
+                  </p>
+                )}
                 {draft && (
                   <div className="summary-comparison">
                     <header>
@@ -696,7 +728,7 @@ export default function Transcript({
                               before as never,
                               after as never,
                             )
-                            setDraft(null)
+                            drop(id)
                             await load()
                             onChanged()
                             if (before)
@@ -715,10 +747,7 @@ export default function Transcript({
                       >
                         {t("Прийняти")}
                       </button>
-                      <button
-                        className="ui-chip"
-                        onClick={() => setDraft(null)}
-                      >
+                      <button className="ui-chip" onClick={() => drop(id)}>
                         {t("Залишити поточний")}
                       </button>
                     </footer>
@@ -841,6 +870,32 @@ export default function Transcript({
                         </ul>
                       </section>
                     )}
+                    {/* How the meeting went, part by part. The model always
+                        wrote this, but it only reached a list of titles. */}
+                    {!!s.chapters?.some((c) => c.summary) && (
+                      <section className="doc-block course">
+                        <h3>
+                          <ListTree size={13} />
+                          {t("Хід зустрічі")}
+                        </h3>
+                        <ol>
+                          {s.chapters.map((c, i) => (
+                            <li key={i}>
+                              <button
+                                onClick={() => jump(c.start)}
+                                title={t("Відкрити розшифровку з цього місця")}
+                              >
+                                {clock(c.start)}
+                              </button>
+                              <div>
+                                <b>{c.title}</b>
+                                {c.summary && <p>{c.summary}</p>}
+                              </div>
+                            </li>
+                          ))}
+                        </ol>
+                      </section>
+                    )}
                   </div>
                 ) : meeting.status !== "done" &&
                   meeting.transcript.length === 0 ? (
@@ -852,13 +907,11 @@ export default function Transcript({
                   <div className="empty-reader">
                     <Sparkles size={20} />
                     <p>{t("Підсумку ще немає. Розшифровка доступна поруч.")}</p>
-                    <button
-                      className="ui-primary"
-                      onClick={preview}
-                      disabled={thinking}
-                    >
-                      {t("Створити підсумок")}
-                    </button>
+                    {!thinking && !job?.problem && (
+                      <button className="ui-primary" onClick={preview}>
+                        {t("Створити підсумок")}
+                      </button>
+                    )}
                   </div>
                 )}
               </>
@@ -1004,6 +1057,13 @@ export default function Transcript({
       )}
     </div>
   )
+}
+
+/** The time a draft has taken, ticking on its own so the reader does not
+    redraw every second. */
+function Elapsed({ since }: { since: number }) {
+  const now = useNow(true)
+  return <time>{clock((now - since) / 1000)}</time>
 }
 
 /** What an <input type="datetime-local"> wants: local time, no zone, no seconds. */

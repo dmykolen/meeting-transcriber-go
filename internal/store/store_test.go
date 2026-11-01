@@ -206,6 +206,28 @@ func TestRecentIsNewestFirst(t *testing.T) {
 	}
 }
 
+func TestBusyListsOnlyWhatIsBeingProcessedNow(t *testing.T) {
+	db := open(t)
+	queued, reading, writing, done, binned := add(t, db, Meeting), add(t, db, Meeting), add(t, db, Meeting), add(t, db, Meeting), add(t, db, Meeting)
+	db.Progress(reading.ID, Transcribing, 0.4)
+	db.Progress(writing.ID, Summarising, 0.9)
+	db.Progress(done.ID, Done, 1)
+	db.Progress(binned.ID, Transcribing, 0.1)
+	db.Bury(binned.ID)
+
+	got, err := db.Busy()
+	if err != nil {
+		t.Fatal(err)
+	}
+	ids := map[int64]bool{}
+	for _, r := range got {
+		ids[r.ID] = true
+	}
+	if len(got) != 2 || !ids[reading.ID] || !ids[writing.ID] || ids[queued.ID] {
+		t.Fatalf("busy = %+v; want the transcribing and the summarising one", got)
+	}
+}
+
 func TestDeletingForgetsEverythingAndNamesTheAudio(t *testing.T) {
 	db := open(t)
 	r := add(t, db, Meeting)

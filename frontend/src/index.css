@@ -1249,13 +1249,18 @@ button:active:not([role="checkbox"]) {
 .timeline-fields button {
   color: var(--color-accent);
 }
+/* The player. The play button is the anchor: the rest opens to its left, as
+   a curtain drawn back, so nothing under the pointer moves. --p is the played
+   share (0..1) and --level the loudness under the playhead, both set once a
+   frame while it plays. */
 .floating-audio {
+  --wave: 168px;
   position: fixed;
   bottom: 12px;
   right: 15px;
   z-index: 42;
   display: flex;
-  gap: 7px;
+  gap: 6px;
   align-items: center;
   background: linear-gradient(145deg, #3a2459db, #101c2ce8);
   border: 1px solid #b38bea66;
@@ -1264,58 +1269,135 @@ button:active:not([role="checkbox"]) {
     0 0 28px #892eff12,
     inset 0 1px #e6d4ff1c;
   backdrop-filter: blur(24px);
-  padding: 5px;
+  padding: 4px;
   border-radius: 24px;
+  transition:
+    box-shadow 0.4s var(--motion-out),
+    border-color 0.4s;
 }
-.audio-play {
-  width: 29px;
-  height: 29px;
-  border-radius: 50%;
-  background: #aa52ff;
-  color: #fff;
-  display: grid;
-  place-items: center;
-  box-shadow: 0 0 16px #b24bff55;
+.floating-audio.playing {
+  border-color: #c39cf599;
+  box-shadow:
+    0 12px 32px #0009,
+    0 0 34px #9a3dff2e,
+    inset 0 1px #e6d4ff26;
 }
-.audio-clock {
-  font-size: 9px;
-  white-space: nowrap;
-  font-variant-numeric: tabular-nums;
-  padding-right: 5px;
-  color: #d4c6e8;
-}
-.audio-expanded {
+.audio-more {
   display: flex;
-  gap: 7px;
-  align-items: center;
-  max-width: 0;
+  justify-content: flex-end;
+  width: 0;
   overflow: hidden;
   opacity: 0;
   transition:
-    max-width 0.25s var(--motion-out),
-    opacity 0.2s;
+    width 0.36s var(--motion-out),
+    opacity 0.22s ease;
 }
-.floating-audio:hover .audio-expanded,
-.floating-audio:focus-within .audio-expanded {
-  max-width: 320px;
+.floating-audio.open .audio-more {
+  width: calc(var(--wave) + 76px);
   opacity: 1;
+}
+.audio-more > div {
+  flex: none;
+  width: calc(var(--wave) + 76px);
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  padding-left: 2px;
+  transform: translateX(10px);
+  transition: transform 0.42s var(--motion-out);
+}
+.floating-audio.open .audio-more > div {
+  transform: none;
+}
+.audio-rate {
+  min-width: 30px;
+  height: 22px;
+  padding: 0 5px;
+  border-radius: 6px;
+  font-size: 9.5px;
+  font-variant-numeric: tabular-nums;
+  color: #d4c6e8;
+}
+.audio-rate:hover {
+  background: #a881ff18;
+  color: #f5efff;
 }
 .audio-wave {
   position: relative;
-  width: 135px;
-  height: 22px;
+  width: var(--wave);
+  height: 24px;
+  margin-left: 4px;
   flex-shrink: 0;
 }
 .audio-wave > div {
+  position: absolute;
+  inset: 0;
   display: flex;
   gap: 1px;
   align-items: center;
-  height: 100%;
 }
 .audio-wave i {
   flex: 1;
-  background: #7790ab60;
+  height: calc(var(--h) * 100%);
+  min-height: 2px;
   border-radius: 1px;
+  background: #8fa3c255;
+  transform: scaleY(0.2);
+  transition: transform 0.5s var(--motion-out) calc(var(--i) * 6ms);
+}
+.floating-audio.open .audio-wave i {
+  transform: none;
+}
+/* The same bars again, lit, and cut off where the playhead is. */
+.audio-wave > .lit {
+  clip-path: inset(-4px calc((1 - var(--p, 0)) * 100%) -4px 0);
+}
+.audio-wave > .lit i {
+  background: linear-gradient(to top, #8a3dff, #d9b8ff);
+  box-shadow: 0 0 6px #a855ff70;
+}
+.audio-head {
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  left: 0;
+  width: 2px;
+  border-radius: 2px;
+  background: #f6edff;
+  box-shadow: 0 0 9px #c58bff;
+  transform: translateX(calc(var(--p, 0) * var(--wave) - 1px));
+  opacity: 0;
+  transition: opacity 0.3s;
+  pointer-events: none;
+}
+.floating-audio.open .audio-head {
+  opacity: 1;
+}
+.audio-aim {
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  left: 0;
+  width: 1px;
+  background: #ffffff66;
+  transform: translateX(calc(var(--a) * var(--wave)));
+  pointer-events: none;
+}
+.audio-tip {
+  position: absolute;
+  bottom: calc(100% + 7px);
+  transform: translateX(-50%);
+  pointer-events: none;
+  padding: 2px 6px;
+  border-radius: 6px;
+  border: 1px solid #ffffff17;
+  background: #0d1018f0;
+  box-shadow: 0 6px 16px #0008;
+  font-size: 9.5px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: var(--color-text);
 }
 .audio-wave input {
   position: absolute;
@@ -1324,16 +1406,115 @@ button:active:not([role="checkbox"]) {
   opacity: 0;
   cursor: pointer;
 }
-.audio-rate {
-  display: flex;
-  gap: 4px;
-  align-items: center;
+.audio-clock {
+  font-size: 9.5px;
   white-space: nowrap;
-  font-size: 9px;
-  padding: 0 7px;
+  font-variant-numeric: tabular-nums;
+  padding: 0 3px 0 5px;
+  color: #ecdfff;
+}
+.audio-clock small {
+  font-size: inherit;
+  color: #a596bf;
+}
+.audio-play {
+  position: relative;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #aa52ff;
+  color: #fff;
+  display: grid;
+  place-items: center;
+  box-shadow: 0 0 16px #b24bff55;
+  transition:
+    box-shadow 0.3s,
+    background 0.3s;
+}
+.audio-play:hover {
+  background: #b468ff;
+  box-shadow: 0 0 20px #b24bff80;
+}
+/* A halo that swells with the voice under the playhead. */
+.audio-play::before {
+  content: "";
+  position: absolute;
+  inset: -7px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #b55cff80 30%, transparent 70%);
+  opacity: 0;
+  transform: scale(calc(0.85 + var(--level, 0) * 0.45));
+  transition: opacity 0.4s;
+  pointer-events: none;
+  z-index: -1;
+}
+.floating-audio.playing .audio-play::before {
+  opacity: calc(0.35 + var(--level, 0) * 0.65);
+}
+.audio-ring {
+  position: absolute;
+  inset: -3px;
+  width: 38px;
+  height: 38px;
+  transform: rotate(-90deg);
+  pointer-events: none;
+}
+.audio-ring circle {
+  fill: none;
+  stroke: #f1e4ff;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-dasharray: 1;
+  stroke-dashoffset: calc(1 - var(--p, 0));
+  opacity: 0;
+  transition: opacity 0.3s;
+  filter: drop-shadow(0 0 3px #c99bff);
+}
+.floating-audio.playing .audio-ring circle,
+.floating-audio:not(.open) .audio-ring circle {
+  opacity: 0.9;
+}
+.audio-icon-play,
+.audio-icon-pause {
+  grid-area: 1 / 1;
+  transition:
+    opacity 0.22s ease,
+    transform 0.32s var(--motion-out);
+}
+.audio-icon-play {
+  margin-left: 2px;
+}
+.audio-icon-pause,
+.floating-audio.playing .audio-icon-play {
+  opacity: 0;
+  transform: rotate(-90deg) scale(0.4);
+}
+.floating-audio.playing .audio-icon-pause {
+  opacity: 1;
+  transform: none;
+}
+/* One ring leaving the button when the sound starts. */
+.audio-pulse {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 1.5px solid #d6b3ff;
+  animation: audio-pulse 0.75s var(--motion-out) forwards;
+  pointer-events: none;
+}
+@keyframes audio-pulse {
+  from {
+    opacity: 0.8;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(2.1);
+  }
 }
 .audio-error .audio-play {
   background: #ff7552;
+  box-shadow: 0 0 16px #ff755255;
 }
 .project-dock {
   bottom: 10px !important;
@@ -2433,4 +2614,261 @@ html.strip-window body {
   to {
     transform: translate(2.5px, 2px);
   }
+}
+
+/* Work going on behind the screen, in the corner of the title bar. */
+.jobs {
+  position: relative;
+  margin-left: auto;
+  animation: rise 0.22s var(--motion-out);
+}
+.jobs-pill {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  max-width: 340px;
+  height: 24px;
+  padding: 0 10px 0 8px;
+  border-radius: 999px;
+  border: 1px solid #a36dff4d;
+  background: linear-gradient(145deg, #2b1f45cc, #141a28cc);
+  color: var(--color-soft);
+  font-size: 10.5px;
+  white-space: nowrap;
+}
+.jobs-pill > span:first-of-type {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.jobs-pill:hover,
+.jobs-pill[aria-expanded="true"] {
+  border-color: #b57bff99;
+  color: var(--color-text);
+}
+.jobs-count {
+  display: grid;
+  place-items: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  font-size: 9.5px;
+  font-variant-numeric: tabular-nums;
+}
+.jobs-count.ready {
+  background: color-mix(in oklch, var(--color-good) 20%, transparent);
+  color: var(--color-good);
+}
+.jobs-count.failed {
+  background: color-mix(in oklch, var(--color-warn) 22%, transparent);
+  color: var(--color-warn);
+}
+.jobs-list {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  z-index: 80;
+  width: 320px;
+  max-height: min(60vh, 420px);
+  overflow-y: auto;
+  margin: 0;
+  padding: 5px;
+  list-style: none;
+  border-radius: 12px;
+  border: 1px solid #9e8cbd55;
+  background: var(--glass);
+  box-shadow: var(--lift);
+  backdrop-filter: blur(24px);
+  transform-origin: top right;
+  animation: rise 0.16s var(--motion-out);
+}
+.jobs-list li {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding-right: 4px;
+  border-radius: 8px;
+}
+.jobs-list li:hover {
+  background: #a881ff12;
+}
+.jobs-open {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  padding: 7px 8px;
+  text-align: left;
+}
+.jobs-open > span {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.jobs-open b {
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--color-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.jobs-open small {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  font-size: 10px;
+  line-height: 1.45;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-faint);
+}
+.jobs-list li.ready small {
+  color: var(--color-good);
+}
+.jobs-list li.failed small {
+  color: var(--color-warn);
+}
+.jobs-open > svg,
+.jobs-open > .jobs-dot {
+  margin-top: 2px;
+}
+.jobs-ring {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  transform: rotate(-90deg);
+}
+.jobs-ring circle {
+  fill: none;
+  stroke-width: 2;
+  stroke: #ffffff1f;
+}
+.jobs-ring circle + circle {
+  stroke: var(--color-accent);
+  stroke-linecap: round;
+  stroke-dasharray: 1;
+  transition: stroke-dashoffset 0.6s var(--motion-out);
+}
+.jobs-ring.spin {
+  animation: jobs-spin 0.9s linear infinite;
+}
+@keyframes jobs-spin {
+  from {
+    transform: rotate(-90deg);
+  }
+  to {
+    transform: rotate(270deg);
+  }
+}
+.jobs-dot {
+  width: 8px;
+  height: 8px;
+  margin: 3px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.jobs-dot.ready {
+  background: var(--color-good);
+  box-shadow: 0 0 8px color-mix(in oklch, var(--color-good) 60%, transparent);
+}
+.jobs-dot.failed {
+  background: var(--color-warn);
+}
+
+/* How the meeting went, part by part: a time that opens the transcript there,
+   a title, and what was said. It may run on into the next column; a part
+   never splits. */
+.summary-body > .doc-block.course {
+  break-inside: auto;
+}
+.course ol {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.course li {
+  display: grid;
+  grid-template-columns: 46px minmax(0, 1fr);
+  gap: 6px;
+  break-inside: avoid;
+}
+.course li > button {
+  align-self: start;
+  justify-self: start;
+  padding: 1px 0;
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-accent);
+}
+.course li > button:hover {
+  color: var(--color-text);
+}
+.course b {
+  display: block;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--color-text);
+}
+.course p {
+  max-width: 78ch;
+  margin: 3px 0 0;
+  font-size: 11.5px;
+  line-height: 1.65;
+  color: #cdd6e4;
+}
+
+/* A summary being written: what it is, how long it has taken, and the light
+   every wait on the model shares. */
+.summary-drafting {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 78ch;
+  margin-bottom: 18px;
+  padding: 10px 12px 12px;
+  border: 1px solid #9651ed4d;
+  border-radius: 8px;
+  background: #632cbd0c;
+}
+.summary-drafting header {
+  display: flex;
+  gap: 7px;
+  align-items: center;
+  font-size: 11px;
+  color: var(--color-soft);
+}
+.summary-drafting time {
+  margin-left: auto;
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-faint);
+}
+.summary-drafting i {
+  display: block;
+  height: 8px;
+  border-radius: 4px;
+}
+.summary-drafting i:nth-of-type(2) {
+  width: 86%;
+}
+.summary-drafting i:nth-of-type(3) {
+  width: 62%;
+}
+.document-scroll > .reader-error {
+  gap: 12px;
+  max-width: 78ch;
+  margin-bottom: 14px;
+  padding: 8px 12px;
+  border-radius: 8px;
+}
+.reader-error > button:not(:last-child) {
+  margin-left: auto;
+  white-space: nowrap;
+  color: var(--color-accent);
 }

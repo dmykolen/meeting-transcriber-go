@@ -20,10 +20,13 @@ import (
 	"github.com/github/copilot-sdk/go/rpc"
 )
 
-// Model is one Copilot model the signed-in account may use.
+// Model is one Copilot model the signed-in account has. One not yet enabled
+// in the account's Copilot settings is listed too, so that a new model does
+// not look missing; it cannot be chosen until it is enabled.
 type Model struct {
-	ID   string `json:"id"`
-	Name string `json:"name"`
+	ID      string `json:"id"`
+	Name    string `json:"name"`
+	Enabled bool   `json:"enabled"`
 }
 
 // pilot asks GitHub Copilot through the Copilot SDK, which drives the pinned
@@ -175,8 +178,8 @@ func unfence(reply string) (string, error) {
 }
 
 // CopilotAccount says who is signed in to GitHub Copilot and which models they
-// may use. An empty login means nobody is. Auto is left out: it is what no
-// choice at all means.
+// have. An empty login means nobody is. Auto is left out: it is what no choice
+// at all means. So is a model an administrator turned off.
 func CopilotAccount(ctx context.Context, bin, home string) (string, []Model, error) {
 	c := sdk(bin, home)
 	if err := c.Start(ctx); err != nil {
@@ -193,8 +196,8 @@ func CopilotAccount(ctx context.Context, bin, home string) (string, []Model, err
 	}
 	models := []Model{}
 	for _, m := range found {
-		if m.ID != "auto" && (m.Policy == nil || m.Policy.State == "enabled") {
-			models = append(models, Model{ID: m.ID, Name: m.Name})
+		if m.ID != "auto" && (m.Policy == nil || m.Policy.State != "disabled") {
+			models = append(models, Model{ID: m.ID, Name: m.Name, Enabled: m.Policy == nil || m.Policy.State == "enabled"})
 		}
 	}
 	return *status.Login, models, nil

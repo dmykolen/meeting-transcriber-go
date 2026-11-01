@@ -411,6 +411,11 @@ func (d *DB) Recent(limit int) ([]Recording, error) {
 	return d.list(`WHERE r.deleted IS NULL`, limit)
 }
 
+// Busy lists the recordings being transcribed or summarised right now.
+func (d *DB) Busy() ([]Recording, error) {
+	return d.list(`WHERE r.deleted IS NULL AND r.status IN (?, ?)`, -1, Transcribing, Summarising)
+}
+
 // In lists one group's recordings.
 func (d *DB) In(group int64, limit int) ([]Recording, error) {
 	return d.list(`WHERE r.deleted IS NULL AND r.folder = ?`, limit, group)

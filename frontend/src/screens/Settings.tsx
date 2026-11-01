@@ -466,7 +466,14 @@ export default function Settings() {
               </Row>
             )}
             {values.aiProvider === "copilot" && !!account?.login && (
-              <Row label={t("Модель Copilot")} hint={t("«Автоматично» — Copilot обирає сам.")}>
+              <Row
+                label={t("Модель Copilot")}
+                hint={
+                  account.models.some((m) => !m.enabled)
+                    ? t("Щоб обрати не ввімкнену модель, увімкніть її в налаштуваннях Copilot на github.com.")
+                    : t("«Автоматично» — Copilot обирає сам.")
+                }
+              >
                 <select
                   aria-label={t("Модель Copilot")}
                   value={values.copilotModel}
@@ -476,11 +483,17 @@ export default function Settings() {
                   className="w-44 rounded-lg border border-line/60 bg-surface/60 px-2 py-1.5 text-[12px] outline-none transition-colors focus:border-accent/50"
                 >
                   <option value="">{t("Автоматично")}</option>
-                  {account.models.map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {m.name}
-                    </option>
-                  ))}
+                  {/* Newest first: in the order Copilot sends them, a new
+                      model sat somewhere in the middle and went unseen. */}
+                  {[...account.models]
+                    .sort((a, b) =>
+                      b.name.localeCompare(a.name, "en", { numeric: true }),
+                    )
+                    .map((m) => (
+                      <option key={m.id} value={m.id} disabled={!m.enabled}>
+                        {m.enabled ? m.name : t("{name} — не ввімкнена", { name: m.name })}
+                      </option>
+                    ))}
                 </select>
               </Row>
             )}

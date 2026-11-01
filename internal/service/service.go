@@ -138,6 +138,16 @@ func (m *Meetings) Recent(limit int) ([]store.Recording, error) {
 	return found, nil
 }
 
+// Working lists what the queue is transcribing or summarising now, for the
+// window's list of work in progress.
+func (m *Meetings) Working() ([]store.Recording, error) {
+	found, err := m.db.Busy()
+	if found == nil {
+		found = []store.Recording{}
+	}
+	return found, err
+}
+
 // Meeting is one recording with its transcript.
 type Meeting struct {
 	store.Recording
@@ -751,6 +761,15 @@ func (m *Meetings) Markdown(id int64) (string, error) {
 			b.WriteString("\n")
 		}
 		section(&b, "Left open", s.OpenQuestions)
+		if len(s.Chapters) > 0 {
+			b.WriteString("## How it went\n\n")
+			for _, c := range s.Chapters {
+				fmt.Fprintf(&b, "### `%s` %s\n\n", media.Clock(c.Start), c.Title)
+				if c.Summary != "" {
+					fmt.Fprintf(&b, "%s\n\n", c.Summary)
+				}
+			}
+		}
 	}
 
 	b.WriteString("## Transcript\n\n")

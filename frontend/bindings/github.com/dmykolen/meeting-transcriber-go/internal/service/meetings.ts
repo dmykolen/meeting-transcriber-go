@@ -612,6 +612,16 @@ export function Waveform(id: number): $CancellablePromise<number[]> {
     });
 }
 
+/**
+ * Working lists what the queue is transcribing or summarising now, for the
+ * window's list of work in progress.
+ */
+export function Working(): $CancellablePromise<store$0.Recording[]> {
+    return $Call.ByID(3333967343).then(($result: any) => {
+        return $$createType12($result);
+    });
+}
+
 // Private type creation functions
 const $$createType0 = $models.AIState.createFrom;
 const $$createType1 = store$0.Outstanding.createFrom;

@@ -18,9 +18,24 @@ const summary = {
   overview:
     "Коротко пройшлися по поточних задачах команди: Софія працює над скриптами для витягування даних, Тарас — над архітектурними й безпековими питаннями, а Марта — над пакетом документів для Northwind.",
   chapters: [
-    { start: 282, title: "Скрипти та дані", summary: "" },
-    { start: 441, title: "Безпека та доступ", summary: "" },
-    { start: 733, title: "Матеріали для Northwind", summary: "" },
+    {
+      start: 0,
+      title: "Скрипти для витягування даних",
+      summary:
+        "Софія розповіла, що скрипти вже тягнуть замовлення з CRM, але падають на записах без дати закриття — таких близько 4% із 12 тисяч. Тарас запропонував не відкидати їх, а позначати окремим статусом, щоб звіт не занижував обсяги. Зійшлися, що Софія спершу перевірить, звідки беруться порожні дати, і лише тоді змінюватиме скрипт.",
+    },
+    {
+      start: 441,
+      title: "Безпека та доступ",
+      summary:
+        "Тарас пояснив, що повністю закривати продукт не можна: ним користуються двоє підрядників. Тому доступ ззовні обмежать, а працювати можна буде лише через VPN. Марта спитала, які саме IP-діапазони вписати в правила, — відповіді поки немає. Безпекові питання планують закрити до 3-го числа.",
+    },
+    {
+      start: 733,
+      title: "Матеріали для Northwind",
+      summary:
+        "Марта готує пакет відповідей на запитання Northwind; бракує розділу про зберігання даних. Домовилися, що вона додасть його сьогодні.",
+    },
   ],
   topics: ["скрипти", "безпека", "Northwind"],
   decisions: [
@@ -279,7 +294,7 @@ export const sample = {
   },
   ExactSearch: async (q: string) => sample.Search(q),
   PreviewSummary: async () => {
-    await new Promise((r) => setTimeout(r, 750))
+    await new Promise((r) => setTimeout(r, 4000))
     return {
       ...summary,
       overview:
@@ -291,6 +306,12 @@ export const sample = {
     if (r) r.summary = structuredClone(after)
   },
   Recent: async () => recordings.filter((r) => !deleted.has(r.id)),
+  Working: async () =>
+    recordings.filter(
+      (r) =>
+        !deleted.has(r.id) &&
+        (r.status === "transcribing" || r.status === "summarising"),
+    ),
   Open: async (id: number): Promise<Meeting> => {
     const r = recordings.find((r) => r.id === id) ?? recordings[0]
     const until = new Date()
@@ -594,8 +615,15 @@ export const sample = {
   Copilot: async () => ({
     login: "octocat",
     models: [
-      { id: "gpt-5-mini", name: "GPT-5 mini" },
-      { id: "gpt-5.4-mini", name: "GPT-5.4 mini" },
+      { id: "claude-sonnet-5", name: "Claude Sonnet 5", enabled: true },
+      { id: "claude-haiku-4.5", name: "Claude Haiku 4.5", enabled: true },
+      { id: "gpt-6-astra", name: "GPT-6 Astra", enabled: true },
+      { id: "gpt-5.6-terra", name: "GPT-5.6 Terra", enabled: true },
+      { id: "claude-opus-5.5", name: "Claude Opus 5.5", enabled: true },
+      { id: "gpt-6.1-sol", name: "GPT-6.1 Sol", enabled: true },
+      { id: "gpt-6.1-terra", name: "GPT-6.1 Terra", enabled: false },
+      { id: "gpt-6-sol", name: "GPT-6 Sol", enabled: true },
+      { id: "grok-4.7", name: "Grok 4.7", enabled: true },
     ],
   }),
   ConnectCopilot: async () => {},

@@ -137,7 +137,8 @@ export type UsageReport = {
 
 export type CopilotAccount = {
   login: string
-  models: { id: string; name: string }[]
+  /** Not enabled: the account has it, but it must be switched on at GitHub. */
+  models: { id: string; name: string; enabled: boolean }[]
 }
 
 export type Action = { task: string; owner: string; due: string; done: boolean }
