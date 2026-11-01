@@ -111,6 +111,11 @@ export default function Notes({ pick, onPicked }: { pick: number | null; onPicke
   useEffect(() => {
     if (playing) player.current?.go(playing.at)
   }, [playing])
+  useEffect(() => {
+    if (!replaced) return
+    const timer = setTimeout(() => setReplaced(null), 10_000)
+    return () => clearTimeout(timer)
+  }, [replaced])
 
   const shown = useMemo(() => {
     const q = query.trim().toLowerCase()
