@@ -126,6 +126,25 @@ Evidence: `exp/11_speakers`, `exp/12_community1`, `exp/13_company`, and
 - Destructive actions use bin + undo and reserve their layout space.
 - Every wait has a visible state.
 - Motion explains navigation or state and respects reduced motion.
+- A summary asked for by hand keeps being written while another meeting or
+  screen is open. The draft lives in the window (`frontend/src/drafts.ts`),
+  not in the reader, which unmounts: before, the answer came back to nobody and
+  the button looked as if it had never been pressed. Back in the meeting it
+  shows as being written, then as the comparison to accept. A second press
+  while one is being written does nothing.
+- Work behind the screen shows in the title bar's corner on every screen, only
+  while there is some: those drafts, and the recording the queue is
+  transcribing or summarising (`Meetings.Working`, polled every 2 s). Each line
+  opens its meeting; a failed draft can be retried or dismissed there.
+- The player's play button never moves. The rest opens to its left while the
+  pointer or focus is on it and while it plays; it used to grow from the
+  button's side, so the button slid out from under the pointer. The wave is 56
+  bars made from the 300-point envelope (one bar a point came out zero pixels
+  wide), and the position and loudness under the playhead reach the styles as
+  `--p` and `--level` once a frame, without React rendering.
+- The transcript's "to the moment playing" control appears only once something
+  has played and lights the line it finds. Its arrow-to-a-line icon read as
+  Download, and at 0:00 a press moved nothing.
 
 ## Interface language
 
@@ -193,8 +212,9 @@ Evidence: `exp/19_local_llm`, `exp/out/N-local-llm.jsonl`,
 - GitHub Models, the OpenAI-compatible inference API, was retired on
   2026-07-30. The supported route is the Copilot SDK, which drives the Copilot
   CLI. Reverse-engineered Copilot API proxies are not an option.
-- The CLI is downloaded when Copilot is chosen, pinned to 1.0.85 — the version
-  SDK v1.0.14 was released against — and always run with `--no-auto-update`;
+- The CLI is downloaded when Copilot is chosen, pinned to 1.0.105 — the version
+  SDK v1.0.28 was released against ("SDK snapshot for Copilot CLI 1.0.105-1";
+  1.0.85 and v1.0.14 until 2026-11-01) — and always run with `--no-auto-update`;
   without it the binary hands over to whatever newer copy the person has.
 - Sign-in is the CLI's own `copilot login`, which opens the browser. Its state
   lives in `~/MeetingTranscriber/copilot`, apart from the person's own Copilot
@@ -202,7 +222,7 @@ Evidence: `exp/19_local_llm`, `exp/out/N-local-llm.jsonl`,
   CLI's config there. The login runs with `COPILOT_DISABLE_KEYTAR=1` and
   `"storeTokenPlaintext": true` in `settings.json`: without a keychain the CLI
   asks before writing the token to a file, and only at a terminal, so a login
-  started by the app exited with "the token was not saved". CLI 1.0.85 keeps
+  started by the app exited with "the token was not saved". CLI 1.0.85 and 1.0.105 keep
   it under `authTokens` in `config.json`, mode 0600. Kept in the keychain
   (1.1.0–1.2.0), the token was found only through the CLI's `gh` fallback:
   fine from a terminal, absent in an app opened from Finder or the Dock, whose
@@ -224,6 +244,21 @@ Evidence: `exp/19_local_llm`, `exp/out/N-local-llm.jsonl`,
   included (checked 2026-09-28).
 - Copilot bills AI Credits per token. Business and Enterprise need the Copilot
   CLI policy enabled. The SDK has no embeddings; search uses OpenAI or local.
+- The model list in the settings is newest first; in Copilot's order a new
+  model sat in the middle. A model the account has but has not enabled (policy
+  `unconfigured`) is listed and cannot be chosen, with a line on enabling it on
+  github.com; one an administrator disabled is left out. `models.list` on the
+  pinned CLI 1.0.85 already returned GPT-6.1 Sol for the owner's Copilot
+  Business account (`exp/23_copilot_models`, 2026-10-31), so the pin was not
+  what hid it; 1.0.105 returns the same list. GPT-6.1 Terra (announced
+  2026-10-26, rolled out gradually) is refused for that account by both
+  versions, so the organisation does not have it yet.
+- Moving to CLI 1.0.105 (2026-11-01) changed nothing the app relies on: the
+  token file keeps its keys (`config.json` is JSON with `//` comments), the
+  existing sign-in works, and `copilot login` still starts under
+  `COPILOT_DISABLE_KEYTAR=1` with `storeTokenPlaintext`. A completed new
+  sign-in has not been tried. The npm package is now only a loader, so the
+  JavaScript can no longer be read there.
 
 ## Recording strip
 
@@ -306,6 +341,34 @@ Evidence: `exp/19_local_llm`, `exp/out/N-local-llm.jsonl`,
   the log counts operations the document could not use.
 - Documents made before this have no streams or picture until rebuilt; the
   project page says so.
+- The meeting write-up is detailed (2026-10-31). An hour of talk had come out
+  as two sentences and a line per chapter, and the chapter lines reached only a
+  list of titles. Now the overview is a paragraph (what the meeting was for,
+  the main subjects and what came of each, what is open) and each chapter says
+  what was said in that part, by whom and why, with the figures, at the length
+  the part earns; the reader shows the chapters as "How it went" below the
+  decisions, commitments and questions, and Copy Markdown includes them.
+  Measured on six meetings of 20 minutes or more and one 60-minute note
+  (`exp/out/22-summaries.md`): chapter text 589 to about 3,500 characters a
+  meeting, overview 288 to about 750, judged more useful blind 7 of 7 twice,
+  about 24 s instead of 14 per meeting. Detail first brought five unsupported
+  statements into the prose; rules against filling in what a vague phrase
+  leaves out and against stating an inference as said took that to none. The
+  weak spot left is topics reused from the archive's vocabulary: 3 of 25
+  judged not to fit.
+- On GPT-5.6 Terra, the owner's main model (2026-11-01, judged by GPT-6 Sol):
+  chapter text 618 to about 4,100 characters a meeting, judged more useful 7
+  of 7 and then 6 of 7. Terra first worked out ratios nobody said and widened
+  what one person said to others; two rules (numbers as said, a statement
+  stays with its person) took its unsupported statements from 11 to 4,
+  against 9 for the previous prompt in the same run. The judge varies by
+  about three statements between runs on identical texts. GPT-6.x Terra is
+  refused for the owner's account by the pinned CLI.
+- The prose never names a speaker by a label such as SPEAKER_05 ("a
+  participant", or a role): renaming a speaker later changes the transcript,
+  not the summary's text. Owners keep the measured rule above.
+- A draft asked for by hand may take five minutes before it gives up; two was
+  enough for the short summary only.
 
 ## Topics
 

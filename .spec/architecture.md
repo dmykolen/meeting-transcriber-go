@@ -144,7 +144,11 @@ Tools are read-only and never return secrets or raw voiceprint vectors.
 
 ## Frontend
 
-The main rail owns Today, Meetings, Search, To do, Ask, and Settings.
+The main rail owns Today, Meetings, Search, To do, Ask, and Settings. The
+title bar holds the command palette and, while anything runs behind the
+screen, the list of that work: summary drafts asked for by hand
+(`frontend/src/drafts.ts`, kept for as long as the window is open) and the
+recording the queue is transcribing or summarising.
 
 The Meetings workspace combines:
 
