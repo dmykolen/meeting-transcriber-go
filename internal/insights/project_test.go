@@ -4,6 +4,7 @@ import (
 	"context"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestHeldShowsOpenLinesByStreamAndOnlyCountsTheRest(t *testing.T) {
@@ -27,18 +28,33 @@ func TestHeldShowsOpenLinesByStreamAndOnlyCountsTheRest(t *testing.T) {
 	}
 }
 
-func TestNotesAndMeetingsAreSummarisedByTheirOwnPrompts(t *testing.T) {
-	var seen string
+func TestNotesAreWrittenOutWithTheirWeekAndMeetingsSummarised(t *testing.T) {
+	var seen prompt
 	c := &Client{language: "Ukrainian", ask: func(_ context.Context, p prompt) (string, spent, error) {
-		seen = p.instructions
+		seen = p
+		if p.name == "voice_note" {
+			return `{"title":"Доступ і батарейки","text":"Завтра зайти до Олега щодо доступу.","action_items":[{"task":"Купити батарейки","due":"2026-11-06"}]}`, spent{}, nil
+		}
 		return `{"title":"x","overview":"","chapters":[],"topics":[],"decisions":[],"action_items":[],"open_questions":[]}`, spent{}, nil
 	}}
-	turns := []Turn{{Text: "x"}}
-	if _, err := c.Summarise(context.Background(), turns, nil, true); err != nil || !strings.Contains(seen, "one person's microphone") {
-		t.Fatalf("a note was not given the note prompt (%v):\n%.200s", err, seen)
+	turns := []Turn{{Speaker: "Me", Text: "е-е, завтра треба зайти до Олега щодо доступу… а, і батарейки купити, ні, батарейки в п'ятницю"}}
+	note, err := c.Polish(context.Background(), turns, time.Date(2026, 11, 1, 14, 5, 0, 0, time.Local))
+	if err != nil || !strings.Contains(seen.instructions, "voice note") || seen.name != "voice_note" {
+		t.Fatalf("a note was not given the note prompt (%v):\n%.200s", err, seen.instructions)
 	}
-	if _, err := c.Summarise(context.Background(), turns, nil, false); err != nil || !strings.Contains(seen, "one meeting") || strings.Contains(seen, "one person's microphone") {
-		t.Fatalf("a meeting was not given the meeting prompt (%v):\n%.200s", err, seen)
+	for _, want := range []string{"Recorded on Sunday 2026-11-01 at 14:05", "Monday 2026-11-02", "Friday 2026-11-06", "Sunday 2026-11-08", "Me: е-е, завтра"} {
+		if !strings.Contains(seen.input, want) {
+			t.Fatalf("the note's input lacks %q:\n%s", want, seen.input)
+		}
+	}
+	if strings.Contains(seen.input, "Monday 2026-11-09") {
+		t.Fatalf("the week after runs past seven days:\n%s", seen.input)
+	}
+	if note.Overview != "Завтра зайти до Олега щодо доступу." || len(note.ActionItems) != 1 || note.ActionItems[0].Due != "2026-11-06" || note.ActionItems[0].Owner != "" {
+		t.Fatalf("note = %+v", note)
+	}
+	if _, err := c.Summarise(context.Background(), turns, nil); err != nil || !strings.Contains(seen.instructions, "one meeting") || seen.name != "meeting_summary" {
+		t.Fatalf("a meeting was not given the meeting prompt (%v):\n%.200s", err, seen.instructions)
 	}
 }
 

@@ -3,6 +3,7 @@ package listen
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -40,10 +41,33 @@ type Status struct {
 	Problem string `json:"problem"`
 	// Until is when a pause asked for by hand ends; zero when there is none.
 	Until time.Time `json:"until,omitzero"`
+	// Dictating is a note started with the Note button: only the microphone is
+	// heard, and it stays a note.
+	Dictating bool `json:"dictating"`
+	// Missed is when the last dictated note was dropped because nothing was
+	// said into it.
+	Missed time.Time `json:"missed,omitzero"`
+}
+
+// Filed is a finished recording, handed to the library.
+type Filed struct {
+	Path    string
+	Kind    Kind
+	Started time.Time
+	// Dictated is a note made with the Note button: it is wanted now.
+	Dictated bool
+	// Jots are the lines typed while it was recording.
+	Jots []Jot
+}
+
+// Jot is a line typed while a recording runs, at seconds into it.
+type Jot struct {
+	Text string
+	At   float64
 }
 
 // Done handles a finished recording.
-type Done func(path string, kind Kind, started time.Time)
+type Done func(Filed)
 
 // Threw reports a discarded recording.
 type Threw func(seconds float64, why string)
@@ -94,6 +118,12 @@ type Recorder struct {
 	system bool
 	want   *bool // Record now / Stop, waiting to be applied by the capture loop
 	snap   Status
+
+	// The recording in progress was started with Note: the microphone alone,
+	// and a note to the end. dictate is a press of Note not yet applied.
+	dictating, dictate bool
+	jots               []Jot     // typed into the recording in progress
+	missed             time.Time // see Status.Missed
 }
 
 // Write turns one utterance into words. Nil disables live transcript.
@@ -217,8 +247,9 @@ func (r *Recorder) hear(ctx context.Context) error {
 			for i := range audio.FrameSize {
 				left[i], right[i] = frame[2*i], frame[2*i+1]
 			}
-			// Ignore the app's own playback when asked.
-			if r.Muffled() {
+			// Ignore the app's own playback when asked, and everything but the
+			// microphone while a note is dictated.
+			if r.Muffled() || r.Dictating() {
 				for i := range audio.FrameSize {
 					right[i], frame[2*i+1] = 0, 0
 				}
@@ -241,7 +272,7 @@ func (r *Recorder) hush(system bool) (bool, error) {
 	until := r.until
 	on := time.Now().Before(until)
 	if on {
-		r.want = nil
+		r.want, r.dictate = nil, false
 	}
 	r.mu.Unlock()
 	switch {
@@ -264,17 +295,34 @@ func (r *Recorder) hush(system bool) (bool, error) {
 	return on, nil
 }
 
+// apply hands the detector what was pressed since the last frame. It runs on
+// the capture loop: the detector is touched from one goroutine only.
+func (r *Recorder) apply() {
+	r.mu.Lock()
+	want, dictate, dictating := r.want, r.dictate, r.dictating
+	r.want, r.dictate = nil, false
+	r.mu.Unlock()
+	on, _ := r.detector.Recording()
+	switch {
+	case want != nil:
+		r.detector.Force(*want)
+	case dictate && !on:
+		// Nothing heard before Note was pressed has a say in what it is.
+		r.detector.Reset()
+		r.detector.Force(true)
+		r.mu.Lock()
+		r.dictating = true
+		r.mu.Unlock()
+	case dictate && dictating:
+		r.detector.Force(false)
+	case dictate:
+		slog.Info("a recording began before the note could; nothing changed")
+	}
+}
+
 // step handles one captured frame.
 func (r *Recorder) step(frame, left, right []int16, system bool) error {
-	// Touch the detector from one goroutine only.
-	r.mu.Lock()
-	if want := r.want; want != nil {
-		r.want = nil
-		r.mu.Unlock()
-		r.detector.Force(*want)
-	} else {
-		r.mu.Unlock()
-	}
+	r.apply()
 	// Held, nothing heard is written, transcribed or kept for a preroll, and
 	// the detector stands still so the pause cannot end the meeting.
 	if r.Held() {
@@ -297,8 +345,9 @@ func (r *Recorder) step(frame, left, right []int16, system bool) error {
 			r.scribe.Hear("you", u)
 			// Without the system channel this is the only way to learn that
 			// somebody else is here. With it, the answer is already known and
-			// an embedding per utterance would be work for nothing.
-			if !system && r.company.Heard(u.Samples) {
+			// an embedding per utterance would be work for nothing. A dictated
+			// note is a note whoever else is in the room.
+			if !system && !r.Dictating() && r.company.Heard(u.Samples) {
 				r.detector.Company()
 			}
 		}
@@ -317,9 +366,13 @@ func (r *Recorder) step(frame, left, right []int16, system bool) error {
 		if err := r.flush(nil); err != nil {
 			return err
 		}
+		note := r.Dictating()
 		if err := r.finish("hourly split"); err != nil {
 			return err
 		}
+		r.mu.Lock()
+		r.dictating = note // the next hour of a dictated note is still one
+		r.mu.Unlock()
 		// The next file starts now, not in the past: the preroll belongs to the
 		// beginning of the meeting, and it is already in the previous file.
 		if err := r.open(0); err != nil {
@@ -376,6 +429,9 @@ func (r *Recorder) begin() error {
 	// twice, two rows for one conversation, and both rows on one file.
 	r.mu.Lock()
 	back := reach(r.preroll, r.ended, time.Now())
+	if r.dictating {
+		back = 0 // a dictated note starts when Note is pressed
+	}
 	r.mu.Unlock()
 
 	replay := r.ring.ReplaySpeech(back)
@@ -439,8 +495,8 @@ func free(path string) string {
 // have changed since it was opened, so the file is renamed to match first.
 func (r *Recorder) finish(why string) error {
 	r.mu.Lock()
-	writer, kind, begun, asked := r.writer, r.kind, r.begun, r.asked
-	r.writer, r.held = nil, false
+	writer, kind, begun, asked, dictated, jots := r.writer, r.kind, r.begun, r.asked, r.dictating, r.jots
+	r.writer, r.held, r.dictating, r.jots = nil, false, false, nil
 	r.mu.Unlock()
 	if writer == nil {
 		return nil
@@ -469,9 +525,16 @@ func (r *Recorder) finish(why string) error {
 		"trimmed", dropped.Round(time.Second), "why", why)
 
 	// A recording too short to hold a sentence is a false start, not a meeting.
-	if held < 5*time.Second {
-		slog.Info("too short to keep", "length", held.Round(time.Second))
+	// A dictated note is kept however short ("buy bread" takes a second)
+	// unless nothing at all was said into it.
+	if held < 5*time.Second && (!dictated || held == 0) {
+		slog.Info("too short to keep", "length", held.Round(time.Second), "dictated", dictated, "typed_lines_lost", len(jots))
 		_ = os.Remove(final)
+		if dictated {
+			r.mu.Lock()
+			r.missed = time.Now()
+			r.mu.Unlock()
+		}
 		return nil
 	}
 	// Nobody else was in it and nobody asked for it: the app listening to a
@@ -496,7 +559,7 @@ func (r *Recorder) finish(why string) error {
 	r.company.Alone()
 	r.mic.Forget()
 	r.sys.Forget()
-	r.done(final, kind, begun)
+	r.done(Filed{Path: final, Kind: kind, Started: begun, Dictated: dictated, Jots: jots})
 	return nil
 }
 
@@ -519,6 +582,8 @@ func (r *Recorder) observe(system bool) {
 	}
 	r.mu.Lock()
 	status.Asked = on && r.asked
+	status.Dictating = on && r.dictating
+	status.Missed = r.missed
 	if on && r.held {
 		status.Phase = Held
 	}
@@ -553,6 +618,46 @@ func (r *Recorder) Toggle() {
 	r.until = time.Time{} // and Record pressed during a pause ends the pause
 	r.mu.Unlock()
 	slog.Info("recording asked for by hand", "start", on)
+}
+
+// Dictate starts a note from the microphone alone, or stops the one being
+// dictated. It refuses while anything else records: there is one microphone,
+// and it is already taking that down. Like Record, it ends a pause for a
+// private conversation.
+func (r *Recorder) Dictate() error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	busy := r.snap.Phase == Recording || r.snap.Phase == WrappingUp || r.snap.Phase == Held
+	switch {
+	case r.paused:
+		return errors.New("Слухання вимкнено: увімкніть його в параметрах, щоб записати нотатку")
+	case busy && !r.dictating:
+		return errors.New("Уже йде запис: нотатку до нього можна додати текстом")
+	}
+	r.dictate, r.until = true, time.Time{}
+	slog.Info("note asked for by hand", "start", !busy)
+	return nil
+}
+
+// Dictating reports whether the recording in progress is a dictated note.
+func (r *Recorder) Dictating() bool {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.dictating
+}
+
+// Jot keeps a line typed while a recording runs, to be filed with it at the
+// moment it was typed. Typing into a recording says it is wanted, so it is not
+// thrown away as nobody's.
+func (r *Recorder) Jot(text string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.writer == nil {
+		return errors.New("Запис уже завершився: додайте нотатку в самій зустрічі")
+	}
+	r.jots = append(r.jots, Jot{Text: text, At: time.Since(r.begun).Seconds()})
+	r.asked = true
+	return nil
 }
 
 // Mute records nothing until the given time, for a private conversation in the

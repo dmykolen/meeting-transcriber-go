@@ -100,6 +100,27 @@ func (m *Meetings) Record() {
 	}
 }
 
+// Dictate starts a voice note from the microphone alone, or stops the one being
+// dictated.
+func (m *Meetings) Dictate() error {
+	if m.ears == nil {
+		return errors.New("Мікрофон ще не відкрито")
+	}
+	return m.ears.Dictate()
+}
+
+// Jot types a line into the recording in progress; it is filed with it as a
+// note at that moment.
+func (m *Meetings) Jot(text string) error {
+	if text = strings.TrimSpace(text); text == "" {
+		return errors.New("Порожня нотатка")
+	}
+	if m.ears == nil {
+		return errors.New("Мікрофон ще не відкрито")
+	}
+	return m.ears.Jot(text)
+}
+
 // Hold pauses the recording in progress without ending it, or resumes it.
 func (m *Meetings) Hold(on bool) {
 	if m.ears != nil {
@@ -146,6 +167,42 @@ func (m *Meetings) Working() ([]store.Recording, error) {
 		found = []store.Recording{}
 	}
 	return found, err
+}
+
+// VoiceNote is a recording nobody else was in, as the notes screen shows it.
+type VoiceNote struct {
+	store.Recording
+	// Said is the transcript, while there is no written note to read instead.
+	Said string `json:"said"`
+	// Wait and Until are as for Meeting.
+	Wait  string    `json:"wait"`
+	Until time.Time `json:"until"`
+}
+
+// VoiceNotes lists the voice notes, newest first.
+func (m *Meetings) VoiceNotes() ([]VoiceNote, error) {
+	found, err := m.db.VoiceNotes()
+	if err != nil {
+		return nil, err
+	}
+	now, notes := time.Now(), make([]VoiceNote, len(found))
+	for i, r := range found {
+		notes[i].Recording = r
+		notes[i].Wait, notes[i].Until = m.lib.Waiting(r, now)
+		if r.Summary != nil {
+			continue
+		}
+		turns, err := m.db.Turns(r.ID)
+		if err != nil {
+			return nil, err
+		}
+		said := make([]string, len(turns))
+		for j, t := range turns {
+			said[j] = t.Text
+		}
+		notes[i].Said = strings.Join(said, " ")
+	}
+	return notes, nil
 }
 
 // Meeting is one recording with its transcript.

@@ -1,9 +1,12 @@
 package library
 
 import (
+	"context"
+	"sync/atomic"
 	"testing"
 	"time"
 
+	"github.com/dmykolen/meeting-transcriber-go/internal/engine"
 	"github.com/dmykolen/meeting-transcriber-go/internal/store"
 )
 
@@ -119,6 +122,45 @@ func TestARecordingAskedForByHandSkipsTheScheduleAndTheLine(t *testing.T) {
 	if id, ok := lib.next(noon); !ok || id != older.ID {
 		t.Fatalf("a retry waited for the schedule: %d, %v", id, ok)
 	}
+}
+
+// A dictated note is filed, and rushed, from inside the recorder, a moment
+// before the recorder says it has stopped; the wakes it sends find the queue
+// still standing aside. It must still go within seconds, not on the half-minute
+// timer, and ahead of a schedule that waits for the Mac to be free.
+func TestADictatedNoteIsTakenWithinSecondsOfStopping(t *testing.T) {
+	lib, db, dir := setup(t, &fakeEngine{turns: []engine.Turn{{Text: "купити батарейки"}}})
+	lib.Schedule("idle", "19:00")
+	lib.occupied = func() string { return "user" }
+	var recording atomic.Bool
+	recording.Store(true)
+	lib.Wait(recording.Load)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	done := make(chan struct{})
+	go func() { defer close(done); lib.Run(ctx) }()
+
+	silence(t, dir, "note.wav", 1)
+	note, err := lib.Add(store.Note, "note.wav", time.Now(), "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := lib.Rush(note.ID); err != nil {
+		t.Fatal(err)
+	}
+	time.Sleep(50 * time.Millisecond)
+	recording.Store(false)
+
+	deadline := time.After(4 * time.Second)
+	for r, _ := db.Get(note.ID); r.Status != store.Done; r, _ = db.Get(note.ID) {
+		select {
+		case <-deadline:
+			t.Fatalf("the note is %q four seconds after the recording stopped", r.Status)
+		case <-time.After(50 * time.Millisecond):
+		}
+	}
+	cancel()
+	<-done
 }
 
 func TestEveryWaitHasAName(t *testing.T) {

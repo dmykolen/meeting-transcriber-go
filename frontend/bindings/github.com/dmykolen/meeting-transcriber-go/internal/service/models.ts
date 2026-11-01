@@ -870,6 +870,114 @@ export class UsageRow {
     }
 }
 
+/**
+ * VoiceNote is a recording nobody else was in, as the notes screen shows it.
+ */
+export class VoiceNote {
+    "id": number;
+    "kind": store$0.Kind;
+
+    /**
+     * from the summary; the file name until then
+     */
+    "title": string;
+
+    /**
+     * file name under recordings/, empty once deleted
+     */
+    "audio": string;
+
+    /**
+     * which group it is filed under, 0 for none
+     */
+    "group": number;
+    "started": string;
+    "duration": number;
+    "language": string;
+    "status": store$0.Status;
+    "progress": number;
+    "problem"?: string;
+    "summary"?: store$0.Summary | null;
+    "speakers"?: string[];
+    "turns": number;
+    "note"?: string;
+
+    /**
+     * Said is the transcript, while there is no written note to read instead.
+     */
+    "said": string;
+
+    /**
+     * Wait and Until are as for Meeting.
+     */
+    "wait": string;
+    "until": string;
+
+    /** Creates a new VoiceNote instance. */
+    constructor($$source: Partial<VoiceNote> = {}) {
+        if (!("id" in $$source)) {
+            this["id"] = 0;
+        }
+        if (!("kind" in $$source)) {
+            this["kind"] = store$0.Kind.$zero;
+        }
+        if (!("title" in $$source)) {
+            this["title"] = "";
+        }
+        if (!("audio" in $$source)) {
+            this["audio"] = "";
+        }
+        if (!("group" in $$source)) {
+            this["group"] = 0;
+        }
+        if (!("started" in $$source)) {
+            this["started"] = "0001-01-01T00:00:00.000Z";
+        }
+        if (!("duration" in $$source)) {
+            this["duration"] = 0;
+        }
+        if (!("language" in $$source)) {
+            this["language"] = "";
+        }
+        if (!("status" in $$source)) {
+            this["status"] = store$0.Status.$zero;
+        }
+        if (!("progress" in $$source)) {
+            this["progress"] = 0;
+        }
+        if (!("turns" in $$source)) {
+            this["turns"] = 0;
+        }
+        if (!("said" in $$source)) {
+            this["said"] = "";
+        }
+        if (!("wait" in $$source)) {
+            this["wait"] = "";
+        }
+        if (!("until" in $$source)) {
+            this["until"] = "0001-01-01T00:00:00.000Z";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new VoiceNote instance from a string or object.
+     */
+    static createFrom($$source: any = {}): VoiceNote {
+        const $$createField11_0 = $$createType8;
+        const $$createField12_0 = $$createType0;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("summary" in $$parsedSource) {
+            $$parsedSource["summary"] = $$createField11_0($$parsedSource["summary"]);
+        }
+        if ("speakers" in $$parsedSource) {
+            $$parsedSource["speakers"] = $$createField12_0($$parsedSource["speakers"]);
+        }
+        return new VoiceNote($$parsedSource as Partial<VoiceNote>);
+    }
+}
+
 // Private type creation functions
 const $$createType0 = $Create.Array($Create.Any);
 const $$createType1 = store$0.Hit.createFrom;

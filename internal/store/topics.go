@@ -5,13 +5,13 @@ import (
 	"strings"
 )
 
-// Topics lists the topics summaries already use, most used first, each spelled
-// the way it was most often written. Grouped in Go: SQLite's lower() leaves
-// Cyrillic alone.
+// Topics lists the topics meeting summaries already use, most used first, each
+// spelled the way it was most often written. Grouped in Go: SQLite's lower()
+// leaves Cyrillic alone.
 func (d *DB) Topics(limit int) ([]string, error) {
 	rows, err := d.sql.Query(`
 		SELECT j.value FROM recordings r, json_each(r.summary, '$.topics') j
-		WHERE r.deleted IS NULL AND r.summary IS NOT NULL ORDER BY r.started DESC`)
+		WHERE r.deleted IS NULL AND r.kind = 'meeting' AND r.summary IS NOT NULL ORDER BY r.started DESC`)
 	if err != nil {
 		return nil, err
 	}

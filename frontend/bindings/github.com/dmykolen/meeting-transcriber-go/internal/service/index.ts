@@ -23,5 +23,6 @@ export {
     UpdateState,
     UsageDay,
     UsageReport,
-    UsageRow
+    UsageRow,
+    VoiceNote
 } from "./models.js";

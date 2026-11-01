@@ -124,7 +124,7 @@ func main() {
 				var s *insights.Summary
 				var err error
 				if v == "shipping" {
-					s, err = c.Summarise(context.Background(), turns, known, r.Kind == store.Note)
+					s, err = shipping(c, turns, known, r)
 				} else {
 					s, err = before(c, cfg.Language, turns, known, r.Kind == store.Note)
 				}
@@ -205,6 +205,14 @@ func main() {
 	}
 	fmt.Printf("judged %d: shipping better %d, previous better %d, tie %d; unsupported statements previous %d, shipping %d\n",
 		len(verdicts), wins["shipping"], wins["previous"], wins["tie"], unsupported["previous"], unsupported["shipping"])
+}
+
+// shipping is what the app writes now: a meeting's summary, or a note polished.
+func shipping(c *insights.Client, turns []insights.Turn, known []string, r store.Recording) (*insights.Summary, error) {
+	if r.Kind == store.Note {
+		return c.Polish(context.Background(), turns, r.Started)
+	}
+	return c.Summarise(context.Background(), turns, known)
 }
 
 // before is the summary the previous prompt would have written.

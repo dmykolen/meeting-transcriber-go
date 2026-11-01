@@ -140,6 +140,18 @@ export class Status {
      */
     "until"?: string;
 
+    /**
+     * Dictating is a note started with the Note button: only the microphone is
+     * heard, and it stays a note.
+     */
+    "dictating": boolean;
+
+    /**
+     * Missed is when the last dictated note was dropped because nothing was
+     * said into it.
+     */
+    "missed"?: string;
+
     /** Creates a new Status instance. */
     constructor($$source: Partial<Status> = {}) {
         if (!("phase" in $$source)) {
@@ -162,6 +174,9 @@ export class Status {
         }
         if (!("problem" in $$source)) {
             this["problem"] = "";
+        }
+        if (!("dictating" in $$source)) {
+            this["dictating"] = false;
         }
 
         Object.assign(this, $$source);

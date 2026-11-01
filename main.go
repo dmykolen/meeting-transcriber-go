@@ -184,9 +184,23 @@ func run(out io.Writer) error {
 		// The listener shares loaded models and still runs beside the queue.
 		ears := listen.New(home.Recordings(dir),
 			models.Path(home.Models(dir), models.Speech), cfg.Listen,
-			func(path string, kind store.Kind, started time.Time) {
-				if _, err := lib.Add(kind, path, started, ""); err != nil {
-					slog.Error("could not file a recording", "path", path, "err", err)
+			func(f listen.Filed) {
+				r, err := lib.Add(f.Kind, f.Path, f.Started, "")
+				if err != nil {
+					slog.Error("could not file a recording", "path", f.Path, "err", err)
+					return
+				}
+				// A note made with the Note button is wanted now, whatever the
+				// schedule says.
+				if f.Dictated {
+					if err := lib.Rush(r.ID); err != nil {
+						slog.Warn("a dictated note waits for its turn", "id", r.ID, "err", err)
+					}
+				}
+				for _, j := range f.Jots {
+					if _, err := db.PutNote(store.Sticky{Recording: r.ID, Text: j.Text, At: j.At}); err != nil {
+						slog.Error("a line typed during the recording was not kept", "id", r.ID, "err", err)
+					}
 				}
 			},
 			func(seconds float64, why string) {
@@ -307,7 +321,7 @@ func strip(ctx context.Context, app *application.App, meetings *service.Meetings
 		}
 		s := meetings.Listening()
 		on := (s.Phase == listen.Recording || s.Phase == listen.WrappingUp || s.Phase == listen.Held) &&
-			(s.Kind == store.Meeting || s.Asked)
+			(s.Kind == store.Meeting || s.Asked) && !s.Dictating
 		screen := app.Screen.GetPrimary()
 		switch {
 		case on && window == nil && screen != nil:

@@ -14,7 +14,7 @@ import (
 // speech detectors are nil here and would panic if they were asked.
 func TestAHeldRecordingWritesNothingAndKeepsItsFile(t *testing.T) {
 	dir := t.TempDir()
-	r := New(dir, "", home.Defaults().Listen, func(string, Kind, time.Time) {}, nil, nil, nil)
+	r := New(dir, "", home.Defaults().Listen, func(Filed) {}, nil, nil, nil)
 	r.detector.Force(true)
 	r.detector.Feed(false, false)
 	writer, err := Create(filepath.Join(dir, "held.wav.part"))
@@ -53,7 +53,7 @@ func TestAHeldRecordingWritesNothingAndKeepsItsFile(t *testing.T) {
 // Record press not yet applied. Record pressed during the pause ends it.
 func TestAPauseFilesTheRecordingAndForgetsWhatCameBefore(t *testing.T) {
 	dir := t.TempDir()
-	r := New(dir, "", home.Defaults().Listen, func(string, Kind, time.Time) {}, nil, nil, nil)
+	r := New(dir, "", home.Defaults().Listen, func(Filed) {}, nil, nil, nil)
 	frame := make([]int16, 2*audio.FrameSize)
 	for range 100 {
 		r.ring.Add(frame, true)

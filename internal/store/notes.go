@@ -93,11 +93,11 @@ func (d *DB) AcceptSummary(id int64, before, after *Summary) error {
 			return err
 		}
 	}
-	old, err := json.Marshal(before)
+	old, err := json.Marshal(filled(before))
 	if err != nil {
 		return err
 	}
-	actual, err := json.Marshal(current)
+	actual, err := json.Marshal(filled(current))
 	if err != nil {
 		return err
 	}
@@ -122,6 +122,22 @@ func (d *DB) AcceptSummary(id int64, before, after *Summary) error {
 		_, err = d.sql.Exec(`UPDATE recordings SET title = ? WHERE id = ? AND titled = 0`, title, id)
 	}
 	return err
+}
+
+// filled is a summary with every absent list empty. The interface reads a list
+// stored as null as an empty one and sends it back so; compared byte for byte,
+// a summary with no action items could never be replaced.
+func filled(s *Summary) *Summary {
+	if s == nil {
+		return nil
+	}
+	c := *s
+	c.Chapters = append([]Chapter{}, c.Chapters...)
+	c.Topics = append([]string{}, c.Topics...)
+	c.Decisions = append([]string{}, c.Decisions...)
+	c.ActionItems = append([]Action{}, c.ActionItems...)
+	c.OpenQuestions = append([]string{}, c.OpenQuestions...)
+	return &c
 }
 
 // EditAction changes one stored action item, or appends one when index < 0.

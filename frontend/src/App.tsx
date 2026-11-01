@@ -7,6 +7,7 @@ import Today from "./screens/Today"
 import Workspace from "./screens/Meetings"
 import Search from "./screens/Search"
 import Todo from "./screens/Todo"
+import Notes from "./screens/Notes"
 import Ask from "./screens/Ask"
 import Rail, { type Screen } from "./components/Rail"
 import { UpdateCard, useUpdate } from "./components/Update"
@@ -22,6 +23,8 @@ export default function App() {
   const [pickAt, setPickAt] = useState<number | undefined>()
   const [origin, setOrigin] = useState<Screen | null>(null)
   const [project, setProject] = useState<number | null>(null)
+  /** A voice note to bring into view on the notes screen. */
+  const [note, setNote] = useState<number | null>(null)
   const update = useUpdate()
 
   // Polled rather than pushed: one small object once a second, and an event
@@ -47,7 +50,7 @@ export default function App() {
 
   const working = setup?.stage === "ready"
 
-  // ⌘1..5 and ⌘, move between screens; the palette owns ⌘K. Every rail
+  // ⌘1..6 and ⌘, move between screens; the palette owns ⌘K. Every rail
   // button carries its own shortcut in the tooltip.
   useEffect(() => {
     if (!working) return
@@ -56,9 +59,10 @@ export default function App() {
       const to: Record<string, Screen> = {
         "1": "today",
         "2": "library",
-        "3": "search",
-        "4": "todo",
-        "5": "ask",
+        "3": "notes",
+        "4": "search",
+        "5": "todo",
+        "6": "ask",
         ",": "settings",
       }
       const next = to[e.key.toLowerCase()]
@@ -78,6 +82,13 @@ export default function App() {
     setScreen("library")
   }
 
+  /** A voice note opens as its card; a moment in it, as a transcript. */
+  const showNote = (id: number) => {
+    setOpen(null)
+    setNote(id)
+    setScreen("notes")
+  }
+
   const showProject = (id: number) => {
     setOrigin(screen)
     setOpen(null)
@@ -93,7 +104,7 @@ export default function App() {
           middle of the screen. */}
       <div className="titlebar flex shrink-0 items-center gap-3 pl-[86px] pr-4">
         <Palette
-          onOpenMeeting={show}
+          onOpenMeeting={(id, kind) => (kind === "note" ? showNote(id) : show(id))}
           onOpenProject={(id) => {
             setProject(id)
             setScreen("library")
@@ -103,7 +114,7 @@ export default function App() {
             setScreen(s)
           }}
         />
-        <Jobs onOpen={show} />
+        <Jobs onOpen={(id, isNote) => (isNote ? showNote(id) : show(id))} />
       </div>
 
       {/* No AnimatePresence around this one. It switches once per launch, and
@@ -144,7 +155,9 @@ export default function App() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
             >
-              {screen === "today" && <Today onOpen={show} />}
+              {screen === "today" && (
+                <Today onOpen={(id, kind) => (kind === "note" ? showNote(id) : show(id))} />
+              )}
               {screen === "library" && (
                 <Workspace
                   pick={open}
@@ -172,7 +185,12 @@ export default function App() {
               {screen === "search" && (
                 <Search onOpen={show} onProject={showProject} />
               )}
-              {screen === "todo" && <Todo onOpen={show} />}
+              {screen === "notes" && (
+                <Notes pick={note} onPicked={() => setNote(null)} />
+              )}
+              {screen === "todo" && (
+                <Todo onOpen={(id, kind) => (kind === "note" ? showNote(id) : show(id))} />
+              )}
               {screen === "ask" && (
                 <Ask onOpen={show} onProject={showProject} />
               )}

@@ -416,6 +416,11 @@ func (d *DB) Busy() ([]Recording, error) {
 	return d.list(`WHERE r.deleted IS NULL AND r.status IN (?, ?)`, -1, Transcribing, Summarising)
 }
 
+// VoiceNotes lists the recordings nobody else was in, newest first.
+func (d *DB) VoiceNotes() ([]Recording, error) {
+	return d.list(`WHERE r.deleted IS NULL AND r.kind = ?`, -1, Note)
+}
+
 // In lists one group's recordings.
 func (d *DB) In(group int64, limit int) ([]Recording, error) {
 	return d.list(`WHERE r.deleted IS NULL AND r.folder = ?`, limit, group)
@@ -571,6 +576,7 @@ func (d *DB) TickAction(id int64, index int, done bool) error {
 // Outstanding is one action item from one meeting.
 type Outstanding struct {
 	Recording int64     `json:"recording"`
+	Kind      Kind      `json:"kind"`
 	Title     string    `json:"title"`
 	Started   time.Time `json:"started"`
 	Index     int       `json:"index"`
@@ -592,7 +598,7 @@ func (d *DB) Actions(includeDone bool) ([]Outstanding, error) {
 				continue
 			}
 			out = append(out, Outstanding{
-				Recording: r.ID, Title: r.Title, Started: r.Started, Index: i, Action: a,
+				Recording: r.ID, Kind: r.Kind, Title: r.Title, Started: r.Started, Index: i, Action: a,
 			})
 		}
 	}

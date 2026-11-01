@@ -2872,3 +2872,376 @@ html.strip-window body {
   white-space: nowrap;
   color: var(--color-accent);
 }
+
+/* The Note button above Record: violet while a note is dictated, since Record
+   below it already shows the recording in coral; coral for a moment when
+   nothing was said. While a meeting records, it opens a field beside the rail
+   for a line typed into that recording. */
+.jot:enabled:hover svg {
+  filter: drop-shadow(0 0 6px #ae6bff70);
+}
+.jot-live {
+  background: linear-gradient(145deg, #a946ff2b, #6435b214);
+  box-shadow: inset 0 0 0 1px #b85bff40;
+}
+.jot-panel {
+  position: absolute;
+  left: calc(100% + 10px);
+  bottom: 0;
+  z-index: 80;
+  width: 300px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid #8f6dff3d;
+  border-radius: 12px;
+  background: var(--glass);
+  box-shadow: var(--lift), 0 12px 40px #7c3aed2e;
+  backdrop-filter: blur(24px) saturate(1.4);
+}
+.jot-refused {
+  width: 240px;
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.5;
+  color: #ff9b80;
+}
+.jot-panel label {
+  font-size: 10px;
+  color: var(--color-faint);
+}
+.jot-panel textarea {
+  resize: none;
+  padding: 7px 9px;
+  border: 1px solid var(--color-line);
+  border-radius: 8px;
+  background: #0b0e16;
+  font-size: 12px;
+  line-height: 1.5;
+  outline: none;
+}
+.jot-panel textarea:focus {
+  border-color: #a571ff9a;
+}
+.jot-panel footer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.jot-panel footer small {
+  flex: 1;
+  font-size: 9.5px;
+  color: var(--color-faint);
+}
+
+/* The notes screen (memos: .note-card and .notes-* belong to the sticky notes),
+   as many columns as the window holds. */
+.memos {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+.memos-find {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: min(260px, 40vw);
+  height: 25px;
+  padding: 0 8px;
+  border: 1px solid #3a4356;
+  border-radius: 6px;
+  background: #161c2890;
+  color: var(--color-faint);
+}
+.memos-find:focus-within {
+  border-color: #a571ff9a;
+}
+.memos-find input {
+  flex: 1;
+  min-width: 0;
+  background: none;
+  outline: none;
+  font-size: 11px;
+  color: var(--color-text);
+}
+.memos-feed {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 12px 16px 90px;
+}
+.memos-feed > .reader-error,
+.memos-missed {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 12px;
+  font-size: 11.5px;
+}
+.memos-missed {
+  color: var(--color-warn);
+}
+.memos-empty {
+  padding: 48px 16px;
+  text-align: center;
+  font-size: 11.5px;
+  line-height: 1.6;
+  color: var(--color-faint);
+}
+.memos-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+  gap: 10px;
+  align-items: start;
+}
+/* A card goes to the shortest column, so a long note leaves no hole under the
+   short ones beside it. WebKit on macOS 27 has it; elsewhere rows stay rows. */
+@supports (display: grid-lanes) {
+  .memos-grid {
+    display: grid-lanes;
+  }
+}
+.memo {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  padding: 11px 13px 7px;
+  border: 1px solid color-mix(in oklch, var(--color-line) 75%, transparent);
+  border-radius: 12px;
+  background: linear-gradient(160deg, #191e2bd9, #12161fd9);
+  transition:
+    border-color 0.3s,
+    box-shadow 0.3s;
+}
+.memo:hover,
+.memo:focus-within {
+  border-color: #4a5470;
+}
+.memo.lit {
+  border-color: #a571ffaa;
+  box-shadow: 0 0 0 1px #a571ff55, 0 0 26px #8a3dff2e;
+}
+.memo.proposal {
+  border-color: #9651ed90;
+  background: linear-gradient(160deg, #241a3ad9, #12161fd9);
+}
+.memo > header {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+.memo h3 {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  font-size: 12.5px;
+  font-weight: 500;
+  line-height: 1.4;
+}
+.memo > header time {
+  flex-shrink: 0;
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-faint);
+}
+.memo-state {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  margin: 0;
+  font-size: 11px;
+  color: var(--color-faint);
+}
+.memo-state.failed {
+  color: #ff9b80;
+}
+.memo-state.writing {
+  color: var(--color-accent);
+}
+.memo-state button {
+  color: var(--color-accent);
+}
+.memo-progress {
+  display: block;
+  width: 100%;
+  height: 2px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, var(--color-accent) calc(var(--p) * 100%), #ffffff12 0);
+}
+.memo-proposal {
+  margin: 0;
+  font-size: 9.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-accent);
+}
+.memo-text {
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: #dfe6f1;
+  overflow-wrap: anywhere;
+}
+.memo-text.raw {
+  color: var(--color-soft);
+}
+.memo-text.folded {
+  max-height: 15.5em;
+  overflow: hidden;
+}
+.memo-text.cut {
+  mask-image: linear-gradient(to bottom, #000 72%, transparent);
+}
+.memo-text p {
+  margin: 0 0 6px;
+}
+.memo-text ul {
+  margin: 0 0 6px;
+  padding-left: 16px;
+  list-style: disc;
+}
+.memo-text li::marker {
+  color: #a876fa;
+}
+.memo-unfold {
+  align-self: start;
+  margin-top: -4px;
+  font-size: 10px;
+  color: var(--color-accent);
+}
+.memo-todos {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.memo-todos li {
+  display: flex;
+  align-items: start;
+  gap: 8px;
+  padding: 3px 0;
+  font-size: 12px;
+  line-height: 1.45;
+}
+.memo-todos li > span {
+  flex: 1;
+  min-width: 0;
+}
+.memo-todos button[role="checkbox"] {
+  width: 16px;
+  height: 16px;
+  margin-top: 1px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  border: 1px solid #536077;
+  border-radius: 4px;
+}
+.memo-todos button[role="checkbox"]:enabled:hover {
+  border-color: #a571ff;
+}
+.memo-todos li.done > span {
+  text-decoration: line-through;
+  color: var(--color-faint);
+}
+.memo-todos li.done button {
+  color: var(--color-good);
+  border-color: color-mix(in oklch, var(--color-good) 70%, transparent);
+}
+.memo-todos time {
+  flex-shrink: 0;
+  font-size: 10.5px;
+  white-space: nowrap;
+  color: var(--color-faint);
+}
+.memo-todos time.late {
+  color: var(--color-warn);
+}
+.memo-said {
+  max-height: 220px;
+  overflow-y: auto;
+  padding: 8px 0 0;
+  border-top: 1px solid #ffffff0b;
+  font-size: 11.5px;
+  line-height: 1.55;
+  color: var(--color-soft);
+}
+.memo-said p {
+  margin: 0 0 4px;
+}
+.memo-said button {
+  margin-right: 6px;
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-accent);
+}
+.memo > footer {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 28px;
+}
+.memo-play {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  color: #e9d8ff;
+  background: #a154ff33;
+  box-shadow: inset 0 0 0 1px #a571ff55;
+  transition:
+    background 0.15s,
+    transform 0.15s var(--motion-out);
+}
+.memo-play:hover {
+  background: #a154ff55;
+  transform: scale(1.06);
+}
+.memo-filing {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  min-width: 0;
+  font-size: 10.5px;
+}
+.memo-more {
+  margin-left: auto;
+}
+.memo-menu {
+  min-width: 200px;
+  margin: 4px 0 0;
+  padding: 5px;
+  position-area: bottom span-left;
+  position-try-fallbacks: flip-block;
+  border: 1px solid #64718e55;
+  border-radius: 9px;
+  background: var(--glass);
+  box-shadow: var(--lift);
+  backdrop-filter: blur(24px);
+}
+.memo-menu:popover-open {
+  animation: rise 0.16s var(--motion-out);
+}
+.memo-menu button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 8px;
+  border-radius: 5px;
+  font-size: 11px;
+  text-align: left;
+  color: var(--color-soft);
+}
+.memo-menu button:hover {
+  background: #a355ff22;
+  color: var(--color-text);
+}
+.memo-menu button.danger:hover {
+  background: #ff755218;
+  color: var(--color-warn);
+}

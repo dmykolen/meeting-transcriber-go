@@ -2,6 +2,7 @@ import { motion } from "motion/react"
 import {
   AudioLines,
   ListChecks,
+  NotepadText,
   Search,
   Settings2,
   Sparkles,
@@ -14,6 +15,7 @@ import { t, type Key } from "../i18n"
 export type Screen =
   | "today"
   | "library"
+  | "notes"
   | "search"
   | "todo"
   | "ask"
@@ -22,9 +24,10 @@ export type Screen =
 const screens = [
   { id: "today", label: "Сьогодні", Icon: Sunrise, key: "1" },
   { id: "library", label: "Записи", Icon: AudioLines, key: "2" },
-  { id: "search", label: "Пошук", Icon: Search, key: "3" },
-  { id: "todo", label: "Справи", Icon: ListChecks, key: "4" },
-  { id: "ask", label: "Запитати", Icon: Sparkles, key: "5" },
+  { id: "notes", label: "Нотатки", Icon: NotepadText, key: "3" },
+  { id: "search", label: "Пошук", Icon: Search, key: "4" },
+  { id: "todo", label: "Справи", Icon: ListChecks, key: "5" },
+  { id: "ask", label: "Запитати", Icon: Sparkles, key: "6" },
   { id: "settings", label: "Параметри", Icon: Settings2, key: "," },
 ] as const satisfies readonly {
   id: Screen
@@ -34,7 +37,7 @@ const screens = [
 }[]
 
 /**
- * The left rail. Five places, always visible, never a hamburger.
+ * The left rail. Six places, always visible, never a hamburger.
  *
  * Each carries its shortcut in the tooltip rather than in the label — the badge
  * that teaches you the keyboard without taking up room once you know it.

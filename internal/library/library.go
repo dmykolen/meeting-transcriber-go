@@ -267,11 +267,18 @@ func (l *Library) Run(ctx context.Context) {
 				return
 			}
 		}
+		// While something records, look again every second: the wake a
+		// finished recording sends arrives before the recorder says it has
+		// stopped, and a dictated note then waited half a minute for no reason.
+		again := 30 * time.Second
+		if l.waiting() {
+			again = time.Second
+		}
 		select {
 		case <-ctx.Done():
 			return
 		case <-l.wake:
-		case <-time.After(30 * time.Second):
+		case <-time.After(again):
 		}
 	}
 }
@@ -661,6 +668,15 @@ func (l *Library) known() []string {
 	return topics
 }
 
+// compose is what the model makes of a recording: a meeting's summary, or a
+// note written out as its speaker would have typed it.
+func (l *Library) compose(ctx context.Context, r *store.Recording, turns []insights.Turn) (*insights.Summary, error) {
+	if r.Kind == store.Note {
+		return l.AI().Polish(ctx, turns, r.Started)
+	}
+	return l.AI().Summarise(ctx, turns, l.known())
+}
+
 // summarise adds summary artifacts without failing an otherwise usable
 // recording.
 func (l *Library) summarise(ctx context.Context, id int64, turns []engine.Turn) error {
@@ -674,15 +690,14 @@ func (l *Library) summarise(ctx context.Context, id int64, turns []engine.Turn) 
 	if err != nil {
 		return err
 	}
-	kind := rec.Kind
 
 	said := make([]insights.Turn, len(turns))
 	for i, t := range turns {
 		said[i] = insights.Turn{Start: t.Start, Speaker: t.Speaker, Text: t.Text}
 	}
-	slog.Info("summary started", "id", id, "turns", len(turns))
+	slog.Info("summary started", "id", id, "kind", rec.Kind, "turns", len(turns))
 	began := time.Now()
-	summary, err := l.AI().Summarise(ctx, said, l.known(), kind == store.Note)
+	summary, err := l.compose(ctx, rec, said)
 	if err != nil {
 		slog.Warn("summary finished", "id", id, "took", time.Since(began).Round(time.Millisecond),
 			"status", "failed", "err", err)

@@ -13,6 +13,8 @@ export type Draft = {
   title: string
   /** The meeting had no summary yet. */
   first: boolean
+  /** A voice note's text rather than a meeting's summary. */
+  note?: boolean
   began: number
   summary?: Summary
   problem?: string
@@ -34,10 +36,10 @@ export const useDrafts = () => useSyncExternalStore(listen, () => drafts)
 export const working = (d?: Draft) => !!d && !d.summary && !d.problem
 
 /** Starts a draft unless one is already being written for this meeting. */
-export function draft(id: number, title: string, first: boolean) {
+export function draft(id: number, title: string, first: boolean, note = false) {
   if (working(drafts.find((d) => d.id === id))) return
   const began = Date.now()
-  set([...drafts.filter((d) => d.id !== id), { id, title, first, began }])
+  set([...drafts.filter((d) => d.id !== id), { id, title, first, note, began }])
   // Only the draft that asked takes the answer: one dropped and asked again
   // must not be filled by the call before it.
   const settle = (patch: Partial<Draft>) =>

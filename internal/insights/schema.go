@@ -19,6 +19,16 @@ var Schema = object(map[string]any{
 	"open_questions": array(text("Raised and left unresolved")),
 })
 
+// NoteSchema is the shape of a voice note written out by Polish.
+var NoteSchema = object(map[string]any{
+	"title": text("Three to seven words naming what the note is about"),
+	"text":  text("The note in the speaker's own voice, cleaned up; paragraphs, and \"- \" lines for a list"),
+	"action_items": array(object(map[string]any{
+		"task": text("What they mean to do, phrased as an instruction"),
+		"due":  text("YYYY-MM-DD when the day follows from what was said, the words when vague, or empty"),
+	})),
+})
+
 func array(items map[string]any) map[string]any {
 	return map[string]any{"type": "array", "items": items}
 }

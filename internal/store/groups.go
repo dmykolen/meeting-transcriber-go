@@ -167,13 +167,13 @@ type Mark struct {
 	Folder   int64     `json:"folder"`
 }
 
-// Span lists recordings between two moments, oldest first.
+// Span lists the meetings between two moments, oldest first.
 func (d *DB) Span(from, to time.Time) ([]Mark, error) {
 	rows, err := d.sql.Query(`
 		SELECT id, kind, started, duration, COALESCE(folder, 0)
 		FROM recordings
-		WHERE deleted IS NULL AND started >= ? AND started <= ?
-		ORDER BY started`, from.Unix(), to.Unix())
+		WHERE deleted IS NULL AND kind = ? AND started >= ? AND started <= ?
+		ORDER BY started`, Meeting, from.Unix(), to.Unix())
 	if err != nil {
 		return nil, err
 	}

@@ -138,6 +138,14 @@ export function Delete(id: number): $CancellablePromise<void> {
 }
 
 /**
+ * Dictate starts a voice note from the microphone alone, or stops the one being
+ * dictated.
+ */
+export function Dictate(): $CancellablePromise<void> {
+    return $Call.ByID(2344994108);
+}
+
+/**
  * DropGroup removes a group and leaves its recordings unfiled.
  */
 export function DropGroup(id: number): $CancellablePromise<void> {
@@ -210,6 +218,14 @@ export function InGroup(group: number): $CancellablePromise<store$0.Recording[]>
  */
 export function InstallUpdate(): $CancellablePromise<void> {
     return $Call.ByID(2723163598);
+}
+
+/**
+ * Jot types a line into the recording in progress; it is filed with it as a
+ * note at that moment.
+ */
+export function Jot(text: string): $CancellablePromise<void> {
+    return $Call.ByID(2768348369, text);
 }
 
 /**
@@ -596,6 +612,15 @@ export function Usage(days: number): $CancellablePromise<$models.UsageReport> {
 }
 
 /**
+ * VoiceNotes lists the voice notes, newest first.
+ */
+export function VoiceNotes(): $CancellablePromise<$models.VoiceNote[]> {
+    return $Call.ByID(2870726987).then(($result: any) => {
+        return $$createType47($result);
+    });
+}
+
+/**
  * WatchUpdates asks for a newer release now and then every hour, until ctx ends.
  * Switched off in the settings, it asks nothing.
  */
@@ -608,7 +633,7 @@ export function WatchUpdates(): $CancellablePromise<void> {
  */
 export function Waveform(id: number): $CancellablePromise<number[]> {
     return $Call.ByID(1827314399, id).then(($result: any) => {
-        return $$createType46($result);
+        return $$createType48($result);
     });
 }
 
@@ -669,4 +694,6 @@ const $$createType42 = $Create.Nullable($$createType41);
 const $$createType43 = $models.Tidied.createFrom;
 const $$createType44 = $models.UpdateState.createFrom;
 const $$createType45 = $models.UsageReport.createFrom;
-const $$createType46 = $Create.Array($Create.Any);
+const $$createType46 = $models.VoiceNote.createFrom;
+const $$createType47 = $Create.Array($$createType46);
+const $$createType48 = $Create.Array($Create.Any);

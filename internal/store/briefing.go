@@ -55,7 +55,9 @@ func (d *DB) Brief(days int) (*Briefing, error) {
 	asked := map[string][]Said{}
 
 	for _, r := range recent {
-		inWindow := r.Started.After(since)
+		// A voice note is nobody's meeting: only its to-dos count here.
+		meeting := r.Kind == Meeting
+		inWindow := meeting && r.Started.After(since)
 		if inWindow {
 			b.Meetings = append(b.Meetings, r)
 			seconds += r.Duration
@@ -78,8 +80,12 @@ func (d *DB) Brief(days int) (*Briefing, error) {
 			}
 		}
 		// Open questions come from the whole history so repeats outside the
-		// window still surface.
-		for _, q := range r.Summary.OpenQuestions {
+		// window still surface; a note's are the speaker's own.
+		questions := r.Summary.OpenQuestions
+		if !meeting {
+			questions = nil
+		}
+		for _, q := range questions {
 			line := where
 			line.Text = q
 			key := fingerprint(q)
@@ -90,7 +96,7 @@ func (d *DB) Brief(days int) (*Briefing, error) {
 			if a.Done {
 				continue
 			}
-			item := Outstanding{Recording: r.ID, Title: r.Title, Started: r.Started, Index: i, Action: a}
+			item := Outstanding{Recording: r.ID, Kind: r.Kind, Title: r.Title, Started: r.Started, Index: i, Action: a}
 			b.Mine = append(b.Mine, item)
 			if overdue(a.Due, r.Started) {
 				b.Overdue = append(b.Overdue, item)

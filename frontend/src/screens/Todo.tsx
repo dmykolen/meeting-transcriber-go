@@ -3,9 +3,13 @@ import { AnimatePresence, motion } from "motion/react"
 import { Check, MoreHorizontal, RotateCcw } from "lucide-react"
 import Head from "../components/Head"
 import ActionEditor from "../components/ActionEditor"
-import { Meetings, many, when, why, type Outstanding } from "../api"
+import { Meetings, due, late, many, when, why, type Outstanding } from "../api"
 import { t } from "../i18n"
-export default function Todo({ onOpen }: { onOpen: (id: number) => void }) {
+export default function Todo({
+  onOpen,
+}: {
+  onOpen: (id: number, kind: Outstanding["kind"]) => void
+}) {
   const [items, setItems] = useState<Outstanding[]>([]),
     [done, setDone] = useState(false),
     [editing, setEditing] = useState<Outstanding | null>(null),
@@ -91,9 +95,13 @@ export default function Todo({ onOpen }: { onOpen: (id: number) => void }) {
                     onClick={() => setEditing(a)}
                   >
                     {a.owner || t("Призначити")}{" "}
-                    <span>· {a.due || t("Без строку")}</span>
+                    <span className={!a.done && late(a.due) ? "text-warn" : ""}>
+                      · {a.due ? due(a.due) : t("Без строку")}
+                    </span>
                   </button>
-                  <button onClick={() => onOpen(a.recording)}>{a.title}</button>
+                  <button onClick={() => onOpen(a.recording, a.kind)}>
+                    {a.kind === "note" && a.title.endsWith(".wav") ? t("Нотатка") : a.title}
+                  </button>
                   <small>{when(a.started)}</small>
                 </div>
               </div>

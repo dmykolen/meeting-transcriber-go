@@ -83,6 +83,10 @@ export type Listening = {
   problem: string
   /** When a pause asked for by hand ends. */
   until?: string
+  /** A note started with the Note button: the microphone alone. */
+  dictating: boolean
+  /** When the last dictated note was dropped: nothing was said into it. */
+  missed?: string
 }
 
 /** A recording is in progress, paused by hand or not. */
@@ -194,6 +198,9 @@ export type Meeting = Recording & {
   wait: Wait
   until: string
 }
+/** A recording nobody else was in. `said` is its transcript while there is no
+    written note to read instead. */
+export type VoiceNote = Recording & { said: string; wait: Wait; until: string }
 export type Hit = {
   recording: number
   title: string
@@ -205,6 +212,7 @@ export type Answer = { text: string; sources: Hit[] }
 
 export type Outstanding = {
   recording: number
+  kind: Recording["kind"]
   title: string
   started: string
   index: number
@@ -445,6 +453,27 @@ export function when(iso: string): string {
     at.toLocaleDateString(locale(), { day: "numeric", month: "short" }) +
     ` ${time}`
   )
+}
+
+const dated = /^(\d{4})-(\d{2})-(\d{2})$/
+
+/** A to-do's deadline as a person reads it: "пн, 2 листопада" for a date a note
+    worked out, the words themselves for anything else. */
+export function due(text: string): string {
+  const d = dated.exec(text.trim())
+  return d
+    ? new Date(+d[1], +d[2] - 1, +d[3]).toLocaleDateString(locale(), {
+        weekday: "short",
+        day: "numeric",
+        month: "long",
+      })
+    : text
+}
+
+/** A written date that has gone by. */
+export function late(text: string): boolean {
+  const d = dated.exec(text.trim())
+  return !!d && new Date(+d[1], +d[2] - 1, +d[3] + 1) <= new Date()
 }
 
 export function bytes(n: number): string {

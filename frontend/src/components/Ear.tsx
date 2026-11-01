@@ -11,6 +11,7 @@ import {
 } from "lucide-react"
 import { Meetings, clock, recording, type Listening } from "../api"
 import { locale, t, tr } from "../i18n"
+import Dictate from "./Dictate"
 
 /** How long a pause for a private conversation lasts, in minutes. */
 const pauses = [5, 15, 60]
@@ -137,129 +138,132 @@ export default function Ear() {
   )
 
   return (
-    <div
-      className="relative mb-2 mt-auto w-full"
-      onPointerEnter={show}
-      onPointerLeave={() => {
-        window.clearTimeout(closing.current)
-        closing.current = window.setTimeout(() => setOpen(false), 200)
-      }}
-      onFocus={() => !dismissed.current && show()}
-      onBlur={(e) => {
-        if (e.currentTarget.contains(e.relatedTarget)) return
-        dismissed.current = false
-        setOpen(false)
-      }}
-      onKeyDown={(e) => {
-        if (e.key !== "Escape" || !open) return
-        dismissed.current = true
-        setOpen(false)
-        button.current?.focus()
-      }}
-    >
-      <button
-        ref={button}
-        onClick={press}
-        disabled={!look.pressable}
-        title={look.title}
-        className={`ear group flex w-full flex-col items-center gap-1 rounded-xl px-1 py-2.5 transition-colors enabled:hover:bg-raised disabled:cursor-default ${open && look.pressable ? "ear-open" : ""}`}
+    <>
+      <Dictate state={state} />
+      <div
+        className="relative mb-2 w-full"
+        onPointerEnter={show}
+        onPointerLeave={() => {
+          window.clearTimeout(closing.current)
+          closing.current = window.setTimeout(() => setOpen(false), 200)
+        }}
+        onFocus={() => !dismissed.current && show()}
+        onBlur={(e) => {
+          if (e.currentTarget.contains(e.relatedTarget)) return
+          dismissed.current = false
+          setOpen(false)
+        }}
+        onKeyDown={(e) => {
+          if (e.key !== "Escape" || !open) return
+          dismissed.current = true
+          setOpen(false)
+          button.current?.focus()
+        }}
       >
-        <span className="relative flex size-[18px] items-center justify-center">
-          {look.halo && (
-            <span
-              className={`breathe absolute inset-0 rounded-full ${look.halo}`}
-            />
-          )}
-          {paused && (
-            // What is left of the pause, as a share of an hour.
-            <svg viewBox="0 0 30 30" className="ear-ring" aria-hidden>
-              <circle cx="15" cy="15" r="13" />
-              <circle
-                cx="15"
-                cy="15"
-                r="13"
-                pathLength={1}
-                strokeDasharray={1}
-                strokeDashoffset={1 - Math.min(1, left / 3600)}
+        <button
+          ref={button}
+          onClick={press}
+          disabled={!look.pressable}
+          title={look.title}
+          className={`ear group flex w-full flex-col items-center gap-1 rounded-xl px-1 py-2.5 transition-colors enabled:hover:bg-raised disabled:cursor-default ${open && look.pressable ? "ear-open" : ""}`}
+        >
+          <span className="relative flex size-[18px] items-center justify-center">
+            {look.halo && (
+              <span
+                className={`breathe absolute inset-0 rounded-full ${look.halo}`}
               />
-            </svg>
-          )}
-          <look.Icon
-            size={16}
-            strokeWidth={1.9}
-            className={`ear-icon relative z-10 ${look.tint} ${look.spin ? "animate-spin" : ""}`}
-            fill={look.filled ? "currentColor" : "none"}
-          />
-        </span>
-        <span className={`text-[10px] font-medium tabular-nums ${look.tint}`}>
-          {look.label}
-        </span>
-      </button>
-      <AnimatePresence>
-        {open && look.pressable && (
-          <motion.div
-            className="ear-menu"
-            initial="hidden"
-            animate="shown"
-            exit="hidden"
-          >
-            <motion.span className="ear-beam" variants={beam} />
+            )}
+            {paused && (
+              // What is left of the pause, as a share of an hour.
+              <svg viewBox="0 0 30 30" className="ear-ring" aria-hidden>
+                <circle cx="15" cy="15" r="13" />
+                <circle
+                  cx="15"
+                  cy="15"
+                  r="13"
+                  pathLength={1}
+                  strokeDasharray={1}
+                  strokeDashoffset={1 - Math.min(1, left / 3600)}
+                />
+              </svg>
+            )}
+            <look.Icon
+              size={16}
+              strokeWidth={1.9}
+              className={`ear-icon relative z-10 ${look.tint} ${look.spin ? "animate-spin" : ""}`}
+              fill={look.filled ? "currentColor" : "none"}
+            />
+          </span>
+          <span className={`text-[10px] font-medium tabular-nums ${look.tint}`}>
+            {look.label}
+          </span>
+        </button>
+        <AnimatePresence>
+          {open && look.pressable && (
             <motion.div
-              className="ear-drawer"
-              variants={drawer}
-              onPointerMove={(e) => {
-                const box = e.currentTarget.getBoundingClientRect()
-                e.currentTarget.style.setProperty("--spot-x", `${e.clientX - box.left}px`)
-                e.currentTarget.style.setProperty("--spot-y", `${e.clientY - box.top}px`)
-              }}
-              onPointerLeave={() => setLit(null)}
+              className="ear-menu"
+              initial="hidden"
+              animate="shown"
+              exit="hidden"
             >
-              <div className="ear-row">
-                {control(
-                  0,
-                  press,
-                  <>
-                    {paused ? (
-                      <Play size={13} className="text-accent" />
-                    ) : busy ? (
-                      <Square size={11} fill="currentColor" className="text-warn" />
-                    ) : (
-                      <span className="ear-dot" />
-                    )}
-                    <span>
-                      {paused
-                        ? t("Слухати знову")
-                        : busy
-                          ? t("Зупинити запис")
-                          : t("Записати зараз")}
-                    </span>
-                    {!paused && <kbd className="ear-key">⌘R</kbd>}
-                  </>,
-                )}
-                <motion.span variants={row} className="ear-divider" />
-                <motion.small variants={row} id="ear-pause" className="ear-caption">
-                  {busy ? t("Зберегти запис і не записувати") : t("Не записувати")}
-                </motion.small>
-                <div role="group" aria-labelledby="ear-pause" className="flex gap-0.5">
-                  {pauses.map((m) =>
-                    control(
-                      m,
-                      () => Meetings.PauseFor(m).catch(() => {}),
-                      <>
-                        <Arc minutes={m} />
-                        <span>
-                          {m < 60 ? t("{m} хв", { m }) : t("{h} год", { h: m / 60 })}
-                        </span>
-                      </>,
-                    ),
+              <motion.span className="ear-beam" variants={beam} />
+              <motion.div
+                className="ear-drawer"
+                variants={drawer}
+                onPointerMove={(e) => {
+                  const box = e.currentTarget.getBoundingClientRect()
+                  e.currentTarget.style.setProperty("--spot-x", `${e.clientX - box.left}px`)
+                  e.currentTarget.style.setProperty("--spot-y", `${e.clientY - box.top}px`)
+                }}
+                onPointerLeave={() => setLit(null)}
+              >
+                <div className="ear-row">
+                  {control(
+                    0,
+                    press,
+                    <>
+                      {paused ? (
+                        <Play size={13} className="text-accent" />
+                      ) : busy ? (
+                        <Square size={11} fill="currentColor" className="text-warn" />
+                      ) : (
+                        <span className="ear-dot" />
+                      )}
+                      <span>
+                        {paused
+                          ? t("Слухати знову")
+                          : busy
+                            ? t("Зупинити запис")
+                            : t("Записати зараз")}
+                      </span>
+                      {!paused && <kbd className="ear-key">⌘R</kbd>}
+                    </>,
                   )}
+                  <motion.span variants={row} className="ear-divider" />
+                  <motion.small variants={row} id="ear-pause" className="ear-caption">
+                    {busy ? t("Зберегти запис і не записувати") : t("Не записувати")}
+                  </motion.small>
+                  <div role="group" aria-labelledby="ear-pause" className="flex gap-0.5">
+                    {pauses.map((m) =>
+                      control(
+                        m,
+                        () => Meetings.PauseFor(m).catch(() => {}),
+                        <>
+                          <Arc minutes={m} />
+                          <span>
+                            {m < 60 ? t("{m} хв", { m }) : t("{h} год", { h: m / 60 })}
+                          </span>
+                        </>,
+                      ),
+                    )}
+                  </div>
                 </div>
-              </div>
+              </motion.div>
             </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
+          )}
+        </AnimatePresence>
+      </div>
+    </>
   )
 }
 

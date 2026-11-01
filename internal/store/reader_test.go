@@ -111,6 +111,26 @@ func TestSummaryAcceptanceComparesContentAndRejectsStaleDraft(t *testing.T) {
 	}
 }
 
+// A generated summary with nothing in a list stores it as null; the interface
+// hands the same summary back with an empty list. That is no change, and a new
+// edition must still be accepted over it.
+func TestAnEmptyListIsTheSameAsAnAbsentOneWhenAccepting(t *testing.T) {
+	db := open(t)
+	r := add(t, db, Note)
+	if err := db.SaveSummary(r.ID, &Summary{Title: "Меню доку", Overview: "Обговорили меню."}); err != nil {
+		t.Fatal(err)
+	}
+	seen := Summary{Title: "Меню доку", Overview: "Обговорили меню.", Chapters: []Chapter{}, Topics: []string{},
+		Decisions: []string{}, ActionItems: []Action{}, OpenQuestions: []string{}}
+	next := Summary{Title: "Меню доку", Overview: "Треба прискорити меню доку."}
+	if err := db.AcceptSummary(r.ID, &seen, &next); err != nil {
+		t.Fatalf("a summary with an empty list could not be replaced: %v", err)
+	}
+	if got, _ := db.Get(r.ID); got.Summary.Overview != next.Overview {
+		t.Fatalf("overview %q", got.Summary.Overview)
+	}
+}
+
 // A summary written by hand after the automatic one failed names the recording
 // as the automatic one would have. A later edition, or a title somebody typed,
 // keeps the name.

@@ -11,6 +11,7 @@ import type {
   Sticky,
   Action,
   Summary,
+  VoiceNote,
 } from "./api"
 
 const summary = {
@@ -133,7 +134,121 @@ const recordings: Recording[] = [
     turns: 0,
   },
 ]
+// Voice notes as the note prompt writes them: a text in the speaker's voice and
+// dated to-dos, nothing else.
+const day = (days: number, hour: number, minute = 0) => {
+  const d = new Date()
+  d.setDate(d.getDate() - days)
+  d.setHours(hour, minute, 0, 0)
+  return d.toISOString()
+}
+const iso = (days: number) => {
+  const d = new Date()
+  d.setDate(d.getDate() + days)
+  return d.toLocaleDateString("sv")
+}
+const note = (r: Partial<Recording> & { id: number }): Recording => ({
+  kind: "note",
+  audio: `sample-${r.id}.wav`,
+  group: 0,
+  title: `note ${r.id}.wav`,
+  started: day(0, 9),
+  duration: 20,
+  language: "uk",
+  status: "done",
+  progress: 1,
+  turns: 4,
+  ...r,
+})
+const said: Record<number, string> = {
+  9: "Так, це для себе. Треба перевірити, чи нічний бекап справді доходить до другого диска, бо минулого тижня він двічі падав без жодного листа.",
+  10: "Е-е, щодо демо в четвер: показати спершу нотатки, потім пошук, і не забути вимкнути сповіщення.",
+}
+recordings.push(
+  note({
+    id: 6,
+    title: "Доступ і батарейки",
+    started: day(0, 14, 5),
+    duration: 12,
+    summary: {
+      title: "Доступ і батарейки",
+      overview: "Завтра зайти до Олега щодо доступу. У пʼятницю купити батарейки.",
+      chapters: [],
+      topics: [],
+      decisions: [],
+      open_questions: [],
+      action_items: [
+        { task: "Зайти до Олега щодо доступу", owner: "", due: iso(1), done: false },
+        { task: "Купити батарейки", owner: "", due: iso(5), done: false },
+      ],
+    },
+  }),
+  note({
+    id: 7,
+    title: "Запис нотатки одразу в проєкт",
+    started: day(1, 18, 20),
+    duration: 41,
+    group: 1,
+    summary: {
+      title: "Запис нотатки одразу в проєкт",
+      overview:
+        "Ідея для застосунку: коли я вже в проєкті й тисну запис, нотатка має одразу потрапляти в цей проєкт, щоб не перетягувати її потім руками.\n\nЦе для екрана проєкту, не для дока.",
+      chapters: [],
+      topics: [],
+      decisions: [],
+      open_questions: [],
+      action_items: [],
+    },
+  }),
+  note({
+    id: 8,
+    title: "Хостинг, бекапи і звіт",
+    started: day(1, 9, 40),
+    duration: 96,
+    summary: {
+      title: "Хостинг, бекапи і звіт",
+      overview:
+        "До 15-го оплатити хостинг — приблизно 40 доларів.\n\nПеренести бекапи на інший диск, але це не терміново. Що варто перевірити перед тим:\n- скільки місця займають знімки за місяць;\n- чи встигає копія за ніч;\n- чи приходить лист, коли копія падає.\n\nЗвіт Ірині здати у вівторок, бо в понеділок у неї вихідний.",
+      chapters: [],
+      topics: [],
+      decisions: [],
+      open_questions: [],
+      action_items: [
+        { task: "Оплатити хостинг — приблизно 40 доларів", owner: "", due: iso(-2), done: false },
+        { task: "Здати звіт Ірині", owner: "", due: iso(2), done: true },
+        { task: "Перевірити, чи пофіксили flaky test у pipeline", owner: "", due: "наступного тижня", done: false },
+      ],
+    },
+  }),
+  note({
+    id: 9,
+    title: "note 9.wav",
+    started: day(4, 22, 10),
+    duration: 18,
+  }),
+  note({
+    id: 10,
+    title: "note 10.wav",
+    started: day(0, 16, 30),
+    duration: 9,
+    status: "summarising",
+    progress: 0.9,
+  }),
+  note({
+    id: 11,
+    title: "note 11.wav",
+    started: day(4, 8, 2),
+    duration: 0,
+    status: "failed",
+    turns: 0,
+    problem: "could not read the audio: no data chunk",
+  }),
+  note({ id: 12, title: "note 12.wav", started: day(4, 7, 55), duration: 3, turns: 0 }),
+)
 const rushed = new Set<number>()
+let dictated = 0 // when a note began being dictated, 0 while none is
+let meeting = 0 // when Record started a meeting, 0 while none records
+let missed = "" // when one was last dropped as silent
 
 const transcript = [
   { start: 42, end: 44, speaker: "Marta", text: "Привіт, привіт." },
@@ -306,6 +421,58 @@ export const sample = {
     if (r) r.summary = structuredClone(after)
   },
   Recent: async () => recordings.filter((r) => !deleted.has(r.id)),
+  VoiceNotes: async (): Promise<VoiceNote[]> =>
+    recordings
+      .filter((r) => r.kind === "note" && !deleted.has(r.id))
+      .sort((a, b) => b.started.localeCompare(a.started))
+      .map((r) => ({
+        ...r,
+        said: r.summary ? "" : (said[r.id] ?? ""),
+        wait: r.status === "queued" ? "next" : "",
+        until: "",
+      })),
+  // A dictated note goes through the queue in a few seconds here; one under a
+  // second is dropped as silent, as the recorder drops one nothing was said into.
+  Dictate: async () => {
+    if (!dictated) {
+      dictated = Date.now()
+      until = ""
+      return
+    }
+    const seconds = (Date.now() - dictated) / 1000
+    dictated = 0
+    if (seconds < 1) {
+      missed = new Date().toISOString()
+      return
+    }
+    const r = note({ id: 100 + recordings.length, started: new Date().toISOString(), duration: seconds, status: "queued", progress: 0, turns: 0 })
+    recordings.push(r)
+    const step = (ms: number, patch: Partial<Recording>, text?: string) =>
+      setTimeout(() => {
+        Object.assign(r, patch)
+        if (text) said[r.id] = text
+      }, ms)
+    step(1200, { status: "transcribing", progress: 0.4 })
+    step(2600, { status: "summarising", progress: 0.9, turns: 2 }, "Е-е, нагадати собі: у середу о десятій стоматолог на Хрещатику.")
+    step(5200, {
+      status: "done",
+      progress: 1,
+      title: "Стоматолог у середу",
+      summary: {
+        title: "Стоматолог у середу",
+        overview: "У середу о десятій — стоматолог на Хрещатику.",
+        chapters: [],
+        topics: [],
+        decisions: [],
+        open_questions: [],
+        action_items: [{ task: "Прийти до стоматолога на Хрещатику о десятій", owner: "", due: iso(3), done: false }],
+      },
+    })
+  },
+  Jot: async (text: string) => {
+    if (!meeting) throw new Error("Запис уже завершився: додайте нотатку в самій зустрічі")
+    notes.push({ id: nextNote++, recording: 1, project: 0, text, colour: "lime", at: 0 })
+  },
   Working: async () =>
     recordings.filter(
       (r) =>
@@ -637,6 +804,7 @@ export const sample = {
         (r.summary?.action_items ?? []).map((a, index) => ({
           ...a,
           recording: r.id,
+          kind: r.kind,
           index,
           title: r.title,
           started: r.started,
@@ -727,7 +895,7 @@ export const sample = {
   // The strip is only there while something records.
   Listening: () => ({
     phase:
-      location.hash === "#strip"
+      location.hash === "#strip" || dictated || meeting
         ? held
           ? "held"
           : "recording"
@@ -735,12 +903,14 @@ export const sample = {
           ? "paused"
           : "listening",
     until: Date.parse(until) > Date.now() ? until : undefined,
-    asked: false,
-    kind: "meeting",
-    elapsed: 0,
+    asked: !!(dictated || meeting),
+    kind: dictated ? "note" : "meeting",
+    elapsed: dictated || meeting ? Math.floor((Date.now() - (dictated || meeting)) / 1000) : 0,
     quiet: 0,
     system: true,
     problem: "",
+    dictating: !!dictated,
+    missed: missed || undefined,
   }),
   Summaries: () => true,
   MCPStatus: async () => ({
@@ -764,7 +934,10 @@ export const sample = {
     { id: 2, name: "AI platform", count: 5 },
   ],
   NewGroup: async (name: string) => ({ id: 3, name, count: 0 }),
-  File: async () => {},
+  File: async (id: number, group: number) => {
+    const r = recordings.find((r) => r.id === id)
+    if (r) r.group = group
+  },
   DropGroup: async () => {},
   InGroup: async () => [],
   Bin: async () => recordings.filter((r) => deleted.has(r.id)),
@@ -959,6 +1132,8 @@ export const sample = {
   }),
   Record: () => {
     until = ""
+    if (dictated) return void sample.Dictate()
+    meeting = meeting ? 0 : Date.now()
   },
   PauseFor: (minutes: number) => {
     until = minutes ? new Date(Date.now() + minutes * 60e3).toISOString() : ""

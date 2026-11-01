@@ -7,6 +7,7 @@ import { t } from "../i18n"
 type Job = {
   id: number
   title: string
+  note: boolean
   state: "working" | "ready" | "failed"
   /** What is happening, in two words, and then in full. */
   verb: string
@@ -20,9 +21,9 @@ type Job = {
  * Work going on behind the screen, in the corner of the title bar: summaries
  * somebody asked for and the recording the queue is busy with. It shows only
  * while there is something to show, on every screen, and each line opens its
- * meeting.
+ * meeting, or its note on the notes screen.
  */
-export default function Jobs({ onOpen }: { onOpen: (id: number) => void }) {
+export default function Jobs({ onOpen }: { onOpen: (id: number, note: boolean) => void }) {
   const drafts = useDrafts()
   const [queue, setQueue] = useState<Recording[]>([])
   const [open, setOpen] = useState(false)
@@ -56,31 +57,35 @@ export default function Jobs({ onOpen }: { onOpen: (id: number) => void }) {
 
   const jobs: Job[] = [
     ...queue.map((r): Job => {
-      const reading = r.status === "transcribing"
+      const reading = r.status === "transcribing",
+        note = r.kind === "note",
+        writing = note ? t("Пишу текст") : t("Готую підсумок")
       return {
         id: r.id,
-        title: r.title,
+        title: note && r.title.endsWith(".wav") ? t("Нотатка") : r.title,
+        note,
         state: "working",
-        verb: reading ? t("Розшифровую") : t("Готую підсумок"),
-        what: reading
-          ? t("Розшифровую · {n}%", { n: Math.round(r.progress * 100) })
-          : t("Готую підсумок"),
+        verb: reading ? t("Розшифровую") : writing,
+        what: reading ? t("Розшифровую · {n}%", { n: Math.round(r.progress * 100) }) : writing,
         share: reading ? r.progress : undefined,
       }
     }),
     ...drafts.map((d): Job => {
-      const done = d.first ? t("Підсумок готовий") : t("Нова редакція готова")
+      const note = !!d.note,
+        done = note ? t("Текст готовий") : d.first ? t("Підсумок готовий") : t("Нова редакція готова"),
+        writing = note ? t("Пишу текст") : t("Готую підсумок")
       return d.problem
-        ? { id: d.id, title: d.title, draft: d, state: "failed", verb: t("Підсумок не вдався"), what: d.problem }
+        ? { id: d.id, title: d.title, note, draft: d, state: "failed", verb: note ? t("Текст не вдався") : t("Підсумок не вдався"), what: d.problem }
         : d.summary
-          ? { id: d.id, title: d.title, draft: d, state: "ready", verb: done, what: done }
+          ? { id: d.id, title: d.title, note, draft: d, state: "ready", verb: done, what: done }
           : {
               id: d.id,
               title: d.title,
+              note,
               draft: d,
               state: "working",
-              verb: t("Готую підсумок"),
-              what: t("Готую підсумок · {time}", { time: clock((now - d.began) / 1000) }),
+              verb: writing,
+              what: `${writing} · ${clock((now - d.began) / 1000)}`,
             }
     }),
   ]
@@ -132,7 +137,7 @@ export default function Jobs({ onOpen }: { onOpen: (id: number) => void }) {
                 className="jobs-open"
                 onClick={() => {
                   setOpen(false)
-                  onOpen(j.id)
+                  onOpen(j.id, j.note)
                 }}
               >
                 <Mark job={j} />
@@ -146,7 +151,7 @@ export default function Jobs({ onOpen }: { onOpen: (id: number) => void }) {
                   className="ui-icon"
                   aria-label={t("Спробувати ще раз")}
                   title={t("Спробувати ще раз")}
-                  onClick={() => draft(j.id, j.title, !!j.draft?.first)}
+                  onClick={() => draft(j.id, j.title, !!j.draft?.first, j.note)}
                 >
                   <RotateCcw size={13} />
                 </button>

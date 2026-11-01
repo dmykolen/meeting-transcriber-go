@@ -265,23 +265,23 @@ Transcripts of real meetings are imperfect and words are sometimes misheard. Wri
 Write in %s. This holds even when the transcript itself contains other languages, borrowed words or whole sentences in another language: those are what people say, and they do not change what you answer in.`
 
 // notePrompt is for a recording of one person's microphone alone: a voice
-// note, one side of a call, thinking aloud, or something playing in the room.
-// The meeting prompt gave a television drama's lines to its owner as tasks.
-const notePrompt = `You are given the transcript of a recording made by one person's microphone, with timestamps. Nobody else was in the conversation. It is a voice note, thinking aloud, one side of a phone call, a dictated message, or a talk to nobody. Sometimes the microphone only picked up something playing in the room (a video, a call on speakers, a lecture); then it is not the person's own speech.
+// note, thinking aloud, one side of a call, or something playing in the room.
+// It used to be written up like a meeting ("they discussed…", topics,
+// decisions); a note is read by the person who said it, so it comes back as
+// what they would have typed, with its to-dos dated (exp/24_notes).
+const notePrompt = `You are given the transcript of a voice note: what one person said into their microphone, with timestamps, and above it the day it was recorded. They said it so as not to forget something or to think it through, and they will read your version instead of listening to it again.
 
-Write a short record for the person who made it, who will want to find the thought again.
+Write the note as they would have typed it themselves, calmly.
 
-- title: four to eight words naming the subject.
-- overview: two to four plain sentences: what the person was thinking about, working out or doing, and where they got to, with the specifics they gave. If what you read is clearly other people's content (a video, a lecture, a call on the speakers), say so first in one sentence and keep everything else minimal.
-- topics: one to four broad subjects, two to four words each. Not side talk.
-- decisions: only what the speaker decided for themselves and said so.
-- action_items: the speaker's own to-dos and intentions ("I need to", "remind me to", "tomorrow I will"), phrased as instructions that start with a verb. Leave owner empty: it is the speaker. due is the deadline in the words it was said, or empty.
-- chapters: only when the recording runs past ten minutes and really changes subject; otherwise at most one. Each summary says what the person worked out in that part, with the specifics, in two to five sentences.
-- open_questions: what the speaker is still unsure of or means to find out. Phrase each as the question it was.
+- text: the note in their own voice, in the first person or as they would jot it down ("Call Olena about access", "Idea: …"), never about them ("the speaker says", "they discussed"). Drop fillers, false starts, repetitions and what was said to the microphone ("so", "uh", "wait, where was I"). Where they corrected themselves, keep only what they settled on: "tomorrow, no, on Friday" is Friday. Keep everything that carries meaning: names, places, numbers, products, terms, reasons, and the order of their thoughts. Add nothing they did not say: no advice, conclusions or explanations of your own. A few seconds of speech is a sentence or two. A longer note is organised: a short paragraph per thought, and a list, one item per line starting with "- ", where they listed things. However long the recording, the note can be read in two minutes, about 400 words at most: a long one that moves through many subjects gets a short paragraph per subject with what they said about it, why, and where they got to.
+- title: three to seven words naming what the note is about, as they would label it.
+- action_items: what they mean to do or must not forget ("I need to", "remind me", "tomorrow I'll", "buy…"), each an instruction that starts with a verb, with the specifics they gave: who, where, what. Not something already done, a wish or a maybe. due is the date as YYYY-MM-DD when the day follows from what they said and the days listed above the transcript ("tomorrow", "on Friday", "by the 15th": the next such day on or after the day it was recorded); the words they used when it is vague ("next week", "soon"); empty when they gave no time.
 
-Where a passage is garbled or is background noise, leave it out rather than guess. If the whole transcript is unusable, say so in one sentence in the overview and leave every list empty.
+The transcript may split one voice into several labels such as SPEAKER_00 and SPEAKER_01; unless people clearly answer each other, it is still one person's note. If several people really talked, write in prose what was said and agreed, naming people as the transcript names them, and only the speaker's own commitments as action items. Never write a label such as SPEAKER_01, and never lay the note out as a dialogue. If the microphone picked up something playing in the room (a video, a talk, a call on the speakers), say so first, then what it was about in a sentence or two, and leave action_items empty.
 
-Write in %s. This holds even when the transcript contains other languages, borrowed words or whole sentences in another language.`
+Words are sometimes misheard. Keep what can be understood, even in fragments, and leave out only what is garbled or background noise; never guess, and never invent a name, number or date. Say that the recording holds nothing usable only when nothing in it can be understood, and then leave action_items empty.
+
+Write in %s. This holds even when the speaker mixes in words or whole sentences from another language; keep their terms as they said them.`
 
 // topicsPrompt follows the summary prompt when the archive already has topics.
 // Without it every meeting words the same subject a little differently, and
@@ -296,14 +296,39 @@ covers a subject here; one that only shares a word or a general area with
 this recording does not. Add a new topic only when none of them fits;
 never reword, translate or pluralise an existing one into a variant of it.`
 
-// Summarise turns a transcript into a structured summary. A note is a
-// recording nobody else was in. known are the topics the archive already has:
-// the summary reuses them where they fit.
-func (c *Client) Summarise(ctx context.Context, turns []Turn, known []string, note bool) (*Summary, error) {
+// Polish writes a voice note out as its speaker would have typed it, with its
+// to-dos dated from the day it was recorded. It comes back as a summary with
+// the note as the overview and nothing else but the title and the to-dos.
+func (c *Client) Polish(ctx context.Context, turns []Turn, at time.Time) (*Summary, error) {
 	if !c.Ready() {
 		return nil, ErrNoKey
 	}
-	instructions := fmt.Sprintf(cmp.Or(map[bool]string{true: notePrompt}[note], summaryPrompt), c.language)
+	var out struct {
+		Title       string       `json:"title"`
+		Text        string       `json:"text"`
+		ActionItems []ActionItem `json:"action_items"`
+	}
+	// The week after the day is spelled out, so that "on Friday" becomes a
+	// date without the model counting days.
+	days := make([]string, 7)
+	for i := range days {
+		days[i] = at.AddDate(0, 0, i+1).Format("Monday 2006-01-02")
+	}
+	input := fmt.Sprintf("Recorded on %s. The days after it: %s.\n\n%s",
+		at.Format("Monday 2006-01-02 at 15:04"), strings.Join(days, ", "), Transcript(turns))
+	if err := c.Structured(ctx, fmt.Sprintf(notePrompt, c.language), input, "voice_note", NoteSchema, &out); err != nil {
+		return nil, err
+	}
+	return &Summary{Title: out.Title, Overview: out.Text, ActionItems: out.ActionItems}, nil
+}
+
+// Summarise turns a meeting's transcript into a structured summary. known are
+// the topics the archive already has: the summary reuses them where they fit.
+func (c *Client) Summarise(ctx context.Context, turns []Turn, known []string) (*Summary, error) {
+	if !c.Ready() {
+		return nil, ErrNoKey
+	}
+	instructions := fmt.Sprintf(summaryPrompt, c.language)
 	if len(known) > 0 {
 		instructions += fmt.Sprintf(topicsPrompt, "- "+strings.Join(known, "\n- "))
 	}

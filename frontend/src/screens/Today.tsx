@@ -11,6 +11,7 @@ import {
 import Head from "../components/Head"
 import {
   Meetings,
+  due,
   length,
   many,
   when,
@@ -39,7 +40,11 @@ const windows = [
  * model is called and nothing leaves the machine, so it is instant and it is
  * the same whether there is a key or not.
  */
-export default function Today({ onOpen }: { onOpen: (id: number) => void }) {
+export default function Today({
+  onOpen,
+}: {
+  onOpen: (id: number, kind?: Outstanding["kind"]) => void
+}) {
   const [days, setDays] = useState<number>(1)
   const [problem, setProblem] = useState("")
   const [brief, setBrief] = useState<Briefing | null>(null)
@@ -294,11 +299,11 @@ function Item({
 }: {
   action: Outstanding
   overdue?: boolean
-  onOpen: (id: number) => void
+  onOpen: (id: number, kind?: Outstanding["kind"]) => void
 }) {
   return (
     <button
-      onClick={() => onOpen(action.recording)}
+      onClick={() => onOpen(action.recording, action.kind)}
       className="flex w-full items-start gap-3 border-b border-line/40 px-4 py-2.5 text-left last:border-b-0 hover:bg-raised/50"
     >
       <span className="min-w-0 flex-1">
@@ -308,7 +313,7 @@ function Item({
             <span className="font-medium text-accent">{action.owner}</span>
           )}
           {action.due && (
-            <span className={overdue ? "text-warn" : ""}>{action.due}</span>
+            <span className={overdue ? "text-warn" : ""}>{due(action.due)}</span>
           )}
           <span className="truncate">{action.title}</span>
         </span>

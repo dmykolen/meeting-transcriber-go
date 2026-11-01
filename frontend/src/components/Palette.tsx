@@ -47,9 +47,9 @@ export default function Palette({
   onOpenProject,
   onScreen,
 }: {
-  onOpenMeeting: (id: number) => void
+  onOpenMeeting: (id: number, kind: Recording["kind"]) => void
   onOpenProject: (id: number) => void
-  onScreen: (screen: "today" | "search" | "todo" | "ask" | "settings") => void
+  onScreen: (screen: "today" | "notes" | "search" | "todo" | "ask" | "settings") => void
 }) {
   const [query, setQuery] = useState("")
   const [at, setAt] = useState(0)
@@ -95,6 +95,18 @@ export default function Palette({
         id: -1,
         label: t("Почати або зупинити запис"),
         run: () => Api.Record(),
+      },
+      {
+        kind: "do",
+        id: -7,
+        label: t("Записати голосову нотатку"),
+        run: () => Api.Dictate().catch(() => {}),
+      },
+      {
+        kind: "do",
+        id: -8,
+        label: t("Нотатки"),
+        run: () => onScreen("notes"),
       },
       {
         kind: "do",
@@ -158,7 +170,7 @@ export default function Palette({
           id: r.id,
           label: r.title,
           note: when(r.started),
-          run: () => onOpenMeeting(r.id),
+          run: () => onOpenMeeting(r.id, r.kind),
         })),
     ]
   }, [query, rows, groups, people, onOpenMeeting, onOpenProject, onScreen, lang()])
