@@ -274,7 +274,7 @@ func run(out io.Writer) error {
 		OnShutdown: func() { lib.AI().Close() },
 	})
 
-	app.Window.NewWithOptions(application.WebviewWindowOptions{
+	fit(app.Window.NewWithOptions(application.WebviewWindowOptions{
 		Title:  "Meeting Transcriber",
 		Width:  1180,
 		Height: 800,
@@ -289,7 +289,7 @@ func run(out io.Writer) error {
 		},
 		// The interface is dark only, so its Windows title bar is too.
 		Windows: application.WindowsWindow{Theme: application.Dark},
-	})
+	}))
 
 	go strip(ctx, app, meetings)
 
