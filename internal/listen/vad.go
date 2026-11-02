@@ -3,7 +3,7 @@ package listen
 import (
 	"fmt"
 
-	sherpa "github.com/k2-fsa/sherpa-onnx-go-macos"
+	sherpa "github.com/k2-fsa/sherpa-onnx-go/sherpa_onnx"
 
 	"github.com/dmykolen/meeting-transcriber-go/internal/audio"
 )

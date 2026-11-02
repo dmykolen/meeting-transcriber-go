@@ -63,8 +63,8 @@ func (h *helper) client(ctx context.Context) (openai.Client, error) {
 		return openai.Client{}, err
 	}
 	key := rand.Text()
-	cmd := exec.Command(h.bin, append([]string{"-m", h.model, "--host", "127.0.0.1", "--port", port,
-		"--no-webui", "-np", "1", "--sleep-idle-seconds", "300"}, h.args...)...)
+	cmd := quiet(exec.Command(h.bin, append([]string{"-m", h.model, "--host", "127.0.0.1", "--port", port,
+		"--no-webui", "-np", "1", "--sleep-idle-seconds", "300"}, h.args...)...))
 	// The key goes in the environment, where the process list does not show it.
 	cmd.Env = append(os.Environ(), "LLAMA_API_KEY="+key)
 	cmd.Stdout, cmd.Stderr = &h.output, &h.output

@@ -15,6 +15,12 @@ const listeners = new Set<() => void>()
 
 export const lang = () => current
 
+/** Windows has no ⌘ and is not a Mac: the few words that name either differ. */
+export const windows = navigator.userAgent.includes("Windows")
+
+/** The key the shortcuts are held with. */
+export const mod = windows ? "Ctrl+" : "⌘"
+
 /** The locale dates, times and numbers are written in. */
 export const locale = () => (current === "en" ? "en-GB" : "uk-UA")
 

@@ -10,7 +10,7 @@ import {
 } from "lucide-react"
 import Ear from "./Ear"
 import { Version, type useUpdate } from "./Update"
-import { t, type Key } from "../i18n"
+import { mod, t, type Key } from "../i18n"
 
 export type Screen =
   | "today"
@@ -59,7 +59,7 @@ export default function Rail({
           <button
             key={id}
             onClick={() => onChange(id)}
-            title={`${t(label)}   ⌘${key}`}
+            title={`${t(label)}   ${mod}${key}`}
             aria-label={t(label)}
             aria-current={active ? "page" : undefined}
             className="rail-control group relative flex w-full flex-col items-center gap-1 rounded-xl px-1 py-2"

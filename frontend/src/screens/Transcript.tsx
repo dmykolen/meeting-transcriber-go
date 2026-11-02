@@ -39,7 +39,7 @@ import Drawer, { useNarrow } from "../components/Drawer"
 import NotesDeck from "../components/NotesDeck"
 import ActionEditor from "../components/ActionEditor"
 import { draft as write, drop, useDrafts, useNow, working } from "../drafts"
-import { locale, t, tr } from "../i18n"
+import { locale, t, tr, windows } from "../i18n"
 
 const norm = (topic: string) =>
   topic.trim().replace(/\s+/g, " ").toLowerCase()
@@ -537,8 +537,12 @@ export default function Transcript({
                       models: t("Почнеться, щойно завантажаться моделі."),
                       recording: t("Почнеться, коли закінчиться поточний запис."),
                       next: t("Розшифрується наступною."),
-                      user: t("Почнеться, коли ви 5 хвилин не користуватиметесь Mac."),
-                      busy: t("Почнеться, коли Mac звільниться від іншої роботи."),
+                      user: windows
+                  ? t("Почнеться, коли ви 5 хвилин не користуватиметесь комп’ютером.")
+                  : t("Почнеться, коли ви 5 хвилин не користуватиметесь Mac."),
+                      busy: windows
+                  ? t("Почнеться, коли комп’ютер звільниться від іншої роботи.")
+                  : t("Почнеться, коли Mac звільниться від іншої роботи."),
                       turn: t("Чекає своєї черги."),
                     }[meeting.wait]}
               </p>

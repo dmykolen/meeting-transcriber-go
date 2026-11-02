@@ -17,7 +17,7 @@ import {
   type Recording,
 } from "../api"
 import { colourOf } from "../colours"
-import { lang, t, type Key } from "../i18n"
+import { lang, mod, t, type Key } from "../i18n"
 
 type Hit = {
   kind: "meeting" | "project" | "person" | "do"
@@ -207,7 +207,7 @@ export default function Palette({
           placeholder={t("Нарада, проєкт, людина, дія…")}
           className="min-w-0 flex-1 bg-transparent text-[11.5px] outline-none placeholder:text-faint/80"
         />
-        <kbd className="shrink-0 text-[9px] tabular-nums text-faint/70">⌘K</kbd>
+        <kbd className="shrink-0 text-[9px] tabular-nums text-faint/70">{mod}K</kbd>
       </div>
 
       <AnimatePresence>

@@ -39,7 +39,7 @@ import {
   type UpdateState,
 } from "../api"
 import { colourOf, picked, tone, wash } from "../colours"
-import { setLang, t, tr } from "../i18n"
+import { setLang, t, tr, windows } from "../i18n"
 import Head from "../components/Head"
 import Paint from "../components/Paint"
 import Snippet from "../components/Snippet"
@@ -325,11 +325,15 @@ export default function Settings() {
               label={t("Коли розшифровувати")}
               hint={
                 {
-                  after: t(
-                    "Одразу після кожного запису. Поки йде розшифровка, Mac працює на повну.",
-                  ),
-                  at: t("Записи чекають до вказаної години. Якщо Mac тоді спить, розшифровка почнеться, щойно він прокинеться."),
-                  idle: t("Коли ви 5 хвилин не користуєтесь Mac і його не завантажує інша робота."),
+                  after: windows
+                    ? t("Одразу після кожного запису. Поки йде розшифровка, комп’ютер працює на повну.")
+                    : t("Одразу після кожного запису. Поки йде розшифровка, Mac працює на повну."),
+                  at: windows
+                    ? t("Записи чекають до вказаної години. Якщо комп’ютер тоді спить, розшифровка почнеться, щойно він прокинеться.")
+                    : t("Записи чекають до вказаної години. Якщо Mac тоді спить, розшифровка почнеться, щойно він прокинеться."),
+                  idle: windows
+                    ? t("Коли ви 5 хвилин не користуєтесь комп’ютером і його не завантажує інша робота.")
+                    : t("Коли ви 5 хвилин не користуєтесь Mac і його не завантажує інша робота."),
                 }[values.transcribe]
               }
             >
@@ -420,9 +424,9 @@ export default function Settings() {
                   copilot: t(
                     "Моделі вашого GitHub Copilot. Запити витрачають AI Credits плану.",
                   ),
-                  local: t(
-                    "Модель на цьому Mac: текст зустрічей нікуди не надсилається.",
-                  ),
+                  local: windows
+                    ? t("Модель на цьому комп’ютері: текст зустрічей нікуди не надсилається.")
+                    : t("Модель на цьому Mac: текст зустрічей нікуди не надсилається."),
                 }[values.aiProvider]
               }
             >
@@ -430,7 +434,7 @@ export default function Settings() {
                 options={[
                   { id: "openai", label: "OpenAI" },
                   { id: "copilot", label: "GitHub Copilot" },
-                  { id: "local", label: t("Локально") },
+                  { id: "local", label: t(windows ? "Локально||pc" : "Локально") },
                 ]}
                 value={values.aiProvider}
                 onChange={(id) =>
@@ -515,14 +519,16 @@ export default function Settings() {
               label={t("Пошук за змістом")}
               hint={
                 values.embeddings === "local"
-                  ? t("Qwen3 Embedding на цьому Mac, 0,6 ГБ. Після зміни індекс перебудовується.")
+                  ? windows
+                    ? t("Qwen3 Embedding на цьому комп’ютері, 0,6 ГБ. Після зміни індекс перебудовується.")
+                    : t("Qwen3 Embedding на цьому Mac, 0,6 ГБ. Після зміни індекс перебудовується.")
                   : t("Вектори для пошуку й Ask робить OpenAI. Після зміни індекс перебудовується.")
               }
             >
               <Choice
                 options={[
                   { id: "openai", label: "OpenAI" },
-                  { id: "local", label: t("Локально") },
+                  { id: "local", label: t(windows ? "Локально||pc" : "Локально") },
                 ]}
                 value={values.embeddings}
                 onChange={(id) =>
@@ -534,7 +540,11 @@ export default function Settings() {
               values.embeddings === "openai") && (
               <Row
                 label={t("Ключ OpenAI")}
-                hint={t("Лише для того, що вище обрано через OpenAI. Розпізнавання мовлення працює локально.")}
+                hint={t(
+                  windows
+                    ? "Лише для того, що вище обрано через OpenAI. Розпізнавання мовлення працює локально.||pc"
+                    : "Лише для того, що вище обрано через OpenAI. Розпізнавання мовлення працює локально.",
+                )}
               >
                 <Text
                   value={values.openaiKey}

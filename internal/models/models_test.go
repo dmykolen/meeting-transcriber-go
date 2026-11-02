@@ -2,6 +2,7 @@ package models
 
 import (
 	"archive/tar"
+	"archive/zip"
 	"bytes"
 	"compress/gzip"
 	"context"
@@ -79,5 +80,43 @@ func TestAnExecutableComesOutOfItsReleaseArchive(t *testing.T) {
 	}
 	if got, _ := os.ReadFile(Path(dir, m)); string(got) != "#!/bin/sh\necho copilot\n" {
 		t.Fatalf("unpacked the wrong entry: %q", got)
+	}
+}
+
+// On Windows the Copilot CLI ships as a zip, which is read from its end: the
+// download is kept whole, the executable comes out of it, and the zip goes.
+func TestAnExecutableComesOutOfAZip(t *testing.T) {
+	var archive bytes.Buffer
+	zw := zip.NewWriter(&archive)
+	for name, body := range map[string]string{"README.md": "read me", "copilot.exe": "MZ copilot"} {
+		f, err := zw.Create(name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		f.Write([]byte(body))
+	}
+	zw.Close()
+	sum := sha256.Sum256(archive.Bytes())
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Write(archive.Bytes())
+	}))
+	defer server.Close()
+
+	dir := filepath.Join(t.TempDir(), "models")
+	m := Model{Name: "GitHub Copilot", Key: "copilot.exe", URL: server.URL + "/copilot-win32-x64.zip",
+		Bytes: int64(archive.Len()), Check: hex.EncodeToString(sum[:]), Run: true}
+	report := make(chan Progress, 64)
+	go Fetch(context.Background(), dir, Set{m}, report)
+	for p := range report {
+		if p.Err != nil {
+			t.Fatalf("download failed: %v", p.Err)
+		}
+	}
+	if got, _ := os.ReadFile(Path(dir, m)); !Have(dir, m) || string(got) != "MZ copilot" {
+		t.Fatalf("unpacked %q, marked present: %v", got, Have(dir, m))
+	}
+	if _, err := os.Stat(Path(dir, m) + ".zip"); err == nil {
+		t.Fatal("the downloaded zip was left beside the executable")
 	}
 }

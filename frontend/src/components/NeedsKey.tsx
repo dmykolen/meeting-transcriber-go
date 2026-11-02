@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react"
 import { KeyRound } from "lucide-react"
 import { Meetings } from "../api"
-import { t } from "../i18n"
+import { t, windows } from "../i18n"
 
 /**
  * Summaries, the to-do list and Ask all need an AI; transcription and speakers
@@ -26,7 +26,9 @@ export default function NeedsKey({ what }: { what: string }) {
       <KeyRound size={14} className="mt-0.5 shrink-0 text-faint" />
       <p className="text-[12.5px] leading-relaxed text-soft">
         {t(
-          "{what}: оберіть AI у параметрах. Розшифровка й розпізнавання учасників працюють локально.",
+          windows
+            ? "{what}: оберіть AI у параметрах. Розшифровка й розпізнавання учасників працюють локально.||pc"
+            : "{what}: оберіть AI у параметрах. Розшифровка й розпізнавання учасників працюють локально.",
           { what },
         )}
       </p>

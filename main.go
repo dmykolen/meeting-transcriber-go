@@ -287,6 +287,8 @@ func run(out io.Writer) error {
 			TitleBar:                application.MacTitleBarHiddenInset,
 			InvisibleTitleBarHeight: 42,
 		},
+		// The interface is dark only, so its Windows title bar is too.
+		Windows: application.WindowsWindow{Theme: application.Dark},
 	})
 
 	go strip(ctx, app, meetings)
@@ -360,6 +362,9 @@ func strip(ctx context.Context, app *application.App, meetings *service.Meetings
 						application.MacWindowCollectionBehaviorStationary |
 						application.MacWindowCollectionBehaviorIgnoresCycle,
 				},
+				// Kept out of the taskbar, with no frame or shadow drawn around
+				// the transparent window.
+				Windows: application.WindowsWindow{HiddenOnTaskbar: true, DisableFramelessWindowDecorations: true},
 			})
 			untouchable(window)
 			shown, w := time.Now(), window

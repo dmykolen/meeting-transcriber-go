@@ -4,7 +4,7 @@ import (
 	"errors"
 	"path/filepath"
 
-	sherpa "github.com/k2-fsa/sherpa-onnx-go-macos"
+	sherpa "github.com/k2-fsa/sherpa-onnx-go/sherpa_onnx"
 )
 
 // Threshold is deliberately loose: later voiceprint matching can merge splits,

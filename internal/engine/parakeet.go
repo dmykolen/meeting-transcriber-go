@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	sherpa "github.com/k2-fsa/sherpa-onnx-go-macos"
+	sherpa "github.com/k2-fsa/sherpa-onnx-go/sherpa_onnx"
 )
 
 // parakeet is the optional sherpa-onnx Parakeet recognizer.

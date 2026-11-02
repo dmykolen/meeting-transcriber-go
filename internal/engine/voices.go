@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"sort"
 
-	sherpa "github.com/k2-fsa/sherpa-onnx-go-macos"
+	sherpa "github.com/k2-fsa/sherpa-onnx-go/sherpa_onnx"
 )
 
 // Enough is the minimum speech duration worth storing as a voiceprint.

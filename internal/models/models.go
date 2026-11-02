@@ -3,6 +3,7 @@ package models
 
 import (
 	"archive/tar"
+	"archive/zip"
 	"compress/bzip2"
 	"compress/gzip"
 	"context"
@@ -58,16 +59,6 @@ var (
 		Bytes: 643_854,
 	}
 
-	// ffmpeg covers containers the platform decoders do not handle.
-	FFmpeg = Model{
-		Name:  "Format support",
-		Key:   "ffmpeg",
-		URL:   "https://github.com/eugeneware/ffmpeg-static/releases/download/b6.1.1/ffmpeg-darwin-arm64.gz",
-		Bytes: 19_246_198,
-		Check: "8923876afa8db5585022d7860ec7e589af192f441c56793971276d450ed3bbfa",
-		Run:   true,
-	}
-
 	// Parakeet is optional and fetched only when selected.
 	ParakeetModel = Model{
 		Name:  "Parakeet",
@@ -95,17 +86,6 @@ var (
 // The AI assets are fetched only when the settings choose them, while the app
 // keeps working.
 var (
-	// Copilot is the GitHub Copilot CLI that the Copilot SDK drives, pinned to
-	// the version SDK v1.0.28 was released against.
-	Copilot = Model{
-		Name:  "GitHub Copilot",
-		Key:   "copilot",
-		URL:   "https://github.com/github/copilot-cli/releases/download/v1.0.105/copilot-darwin-arm64.tar.gz",
-		Bytes: 119_263_282,
-		Check: "34aacd03fb478d47e4b3cfc5ca045c37278c5d8d86239466521a16ea54ac84aa",
-		Run:   true,
-	}
-
 	// Chat is the small default local model for summaries and answers:
 	// Gemma 4 E2B, Apache-2.0, 140+ languages. Chosen for size, not measured
 	// against OpenAI; a bigger model is one link away in the settings.
@@ -314,6 +294,30 @@ func unpack(r io.Reader, dir string, m Model) error {
 				return os.Chmod(Path(dir, m), 0o755)
 			}
 		}
+	case m.Run && strings.HasSuffix(m.URL, ".zip"):
+		// A zip is read from its end, so it is kept whole first; the executable
+		// is the entry named like the model.
+		kept := Path(dir, m) + ".zip"
+		if err := writeFile(kept, r); err != nil {
+			return err
+		}
+		defer os.Remove(kept)
+		archive, err := zip.OpenReader(kept)
+		if err != nil {
+			return err
+		}
+		defer archive.Close()
+		for _, f := range archive.File {
+			if path.Base(f.Name) == m.Key {
+				body, err := f.Open()
+				if err != nil {
+					return err
+				}
+				defer body.Close()
+				return writeFile(Path(dir, m), body)
+			}
+		}
+		return fmt.Errorf("the archive has no %s in it", m.Key)
 	case m.Run:
 		gz, err := gzip.NewReader(r)
 		if err != nil {

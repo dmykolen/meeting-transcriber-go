@@ -1,5 +1,7 @@
 # whisper.cpp is cloned and built here by `make whisper`
 build/
+# `make exe` writes the Windows resources here for one go build and removes them
+*.syso
 
 # Local frontend and Wails development artifacts
 frontend/node_modules/

@@ -229,7 +229,7 @@ func CopilotLogin(ctx context.Context, bin, home string, say func(string)) error
 	if err := os.WriteFile(path, data, 0o600); err != nil {
 		return err
 	}
-	cmd := exec.CommandContext(ctx, bin, "--no-auto-update", "login")
+	cmd := quiet(exec.CommandContext(ctx, bin, "--no-auto-update", "login"))
 	cmd.Env = append(os.Environ(), "COPILOT_HOME="+home, "COPILOT_DISABLE_KEYTAR=1")
 	out, err := cmd.StdoutPipe()
 	if err != nil {

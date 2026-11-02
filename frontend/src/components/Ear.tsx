@@ -10,7 +10,7 @@ import {
   TriangleAlert,
 } from "lucide-react"
 import { Meetings, clock, recording, type Listening } from "../api"
-import { locale, t, tr } from "../i18n"
+import { locale, mod, t, tr, windows } from "../i18n"
 import Dictate from "./Dictate"
 
 /** How long a pause for a private conversation lasts, in minutes. */
@@ -236,7 +236,7 @@ export default function Ear() {
                             ? t("Зупинити запис")
                             : t("Записати зараз")}
                       </span>
-                      {!paused && <kbd className="ear-key">⌘R</kbd>}
+                      {!paused && <kbd className="ear-key">{mod}R</kbd>}
                     </>,
                   )}
                   <motion.span variants={row} className="ear-divider" />
@@ -320,8 +320,8 @@ function describe(s: Listening) {
         label: clock(s.elapsed),
         title:
           s.kind === "note"
-            ? t("Триває запис нотатки — ⌘R зупинити")
-            : t("Триває запис зустрічі — ⌘R зупинити"),
+            ? t("Триває запис нотатки — {key} зупинити", { key: `${mod}R` })
+            : t("Триває запис зустрічі — {key} зупинити", { key: `${mod}R` }),
       }
     case "wrapping up":
       return {
@@ -343,7 +343,7 @@ function describe(s: Listening) {
         spin: false,
         pressable: true,
         label: clock(s.elapsed),
-        title: t("Запис на паузі: сказане зараз не записується — ⌘R зупинити"),
+        title: t("Запис на паузі: сказане зараз не записується — {key} зупинити", { key: `${mod}R` }),
       }
     case "listening":
       return {
@@ -355,7 +355,7 @@ function describe(s: Listening) {
         pressable: true,
         label: t("Запис"),
         title: s.system
-          ? t("Слухаю. Почати запис — ⌘R")
+          ? t("Слухаю. Почати запис — {key}", { key: `${mod}R` })
           : t("Слухаю лише вас: звук співрозмовників не захоплюється"),
       }
     case "opening":
@@ -367,7 +367,9 @@ function describe(s: Listening) {
         spin: true,
         pressable: false,
         label: t("Запуск"),
-        title: t("Відкриваю мікрофон. macOS може запитати дозвіл."),
+        title: windows
+          ? t("Відкриваю мікрофон.")
+          : t("Відкриваю мікрофон. macOS може запитати дозвіл."),
       }
     case "paused":
     case "off":

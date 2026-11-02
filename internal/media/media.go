@@ -217,12 +217,12 @@ func decodeWith(path, tool string) ([]float32, error) {
 	if err != nil {
 		return nil, fmt.Errorf("not installed")
 	}
-	cmd := exec.Command(bin,
+	cmd := quiet(exec.Command(bin,
 		"-nostdin", "-loglevel", "error",
 		"-i", path,
 		"-f", "f32le", "-acodec", "pcm_f32le",
 		"-ac", "1", "-ar", fmt.Sprint(Rate),
-		"-")
+		"-"))
 	out, err := cmd.Output()
 	if err != nil {
 		var exit *exec.ExitError
@@ -241,11 +241,12 @@ func decodeWith(path, tool string) ([]float32, error) {
 	return samples, nil
 }
 
-// find prefers the app's own copy over PATH.
+// find prefers the app's own copy over PATH. LookPath knows an executable on
+// each platform: by its x bit on macOS, by its .exe on Windows.
 func find(tool string) (string, error) {
 	if Tools != "" {
-		if candidate := filepath.Join(Tools, tool); usable(candidate) {
-			return candidate, nil
+		if bin, err := exec.LookPath(filepath.Join(Tools, tool)); err == nil {
+			return bin, nil
 		}
 	}
 	if self, err := os.Executable(); err == nil {
@@ -253,15 +254,10 @@ func find(tool string) (string, error) {
 			filepath.Join(filepath.Dir(self), tool),
 			filepath.Join(filepath.Dir(self), "..", "Resources", tool),
 		} {
-			if usable(candidate) {
-				return filepath.Abs(candidate)
+			if bin, err := exec.LookPath(candidate); err == nil {
+				return filepath.Abs(bin)
 			}
 		}
 	}
 	return exec.LookPath(tool)
-}
-
-func usable(path string) bool {
-	info, err := os.Stat(path)
-	return err == nil && !info.IsDir() && info.Mode()&0o111 != 0
 }

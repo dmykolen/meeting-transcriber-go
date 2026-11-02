@@ -12,7 +12,7 @@ import Ask from "./screens/Ask"
 import Rail, { type Screen } from "./components/Rail"
 import { UpdateCard, useUpdate } from "./components/Update"
 import Jobs from "./components/Jobs"
-import { t } from "./i18n"
+import { t, windows } from "./i18n"
 
 const SettingsScreen = lazy(() => import("./screens/Settings"))
 
@@ -101,8 +101,11 @@ export default function App() {
       {/* The title bar was forty-two pixels of nothing but the traffic lights.
           The one line that reaches anything in the app lives there now, which is
           how a command palette exists here without a panel thrown over the
-          middle of the screen. */}
-      <div className="titlebar flex shrink-0 items-center gap-3 pl-[86px] pr-4">
+          middle of the screen. Windows keeps its own title bar above, with
+          nothing to leave room for. */}
+      <div
+        className={`titlebar flex shrink-0 items-center gap-3 pr-4 ${windows ? "pl-4" : "pl-[86px]"}`}
+      >
         <Palette
           onOpenMeeting={(id, kind) => (kind === "note" ? showNote(id) : show(id))}
           onOpenProject={(id) => {

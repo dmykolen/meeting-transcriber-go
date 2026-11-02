@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react"
 import { Meetings, type UsageReport } from "../api"
-import { locale, t } from "../i18n"
+import { locale, t, windows } from "../i18n"
 
 const days = 30
 
@@ -99,7 +99,7 @@ export default function Usage() {
               </td>
               <td className="py-1.5 text-right">{Math.round(m.seconds)} {t("с")}</td>
               <td className="py-1.5 text-right">
-                {m.priced ? `≈ ${dollars(m.cost)}` : m.credits ? `${credits(m.credits)} Credits` : m.provider === "local" ? t("локально") : "—"}
+                {m.priced ? `≈ ${dollars(m.cost)}` : m.credits ? `${credits(m.credits)} Credits` : m.provider === "local" ? t(windows ? "локально||pc" : "локально") : "—"}
               </td>
             </tr>
           ))}

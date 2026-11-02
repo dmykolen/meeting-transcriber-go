@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log/slog"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"time"
 
@@ -250,7 +251,8 @@ func (m *Meetings) Copilot() (CopilotAccount, error) {
 }
 
 // llamaServer finds llama-server where audiotee is found: beside the executable, as
-// in the .app bundle and in build/, or where MT_LLAMA_SERVER says.
+// in the .app bundle, the Windows install and build/, or where MT_LLAMA_SERVER
+// says. LookPath adds the .exe on Windows.
 func llamaServer() string {
 	if bin := os.Getenv("MT_LLAMA_SERVER"); bin != "" {
 		return bin
@@ -263,8 +265,8 @@ func llamaServer() string {
 		filepath.Join(filepath.Dir(self), "llama-server"),
 		filepath.Join(filepath.Dir(self), "..", "Resources", "llama-server"),
 	} {
-		if info, err := os.Stat(candidate); err == nil && !info.IsDir() {
-			return candidate
+		if bin, err := exec.LookPath(candidate); err == nil {
+			return bin
 		}
 	}
 	return ""

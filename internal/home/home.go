@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -223,16 +222,6 @@ func Load(dir string) (Config, error) {
 
 // UILanguages are the languages the interface is written in.
 var UILanguages = []string{"uk", "en"}
-
-// system is "uk" when Ukrainian is among the Mac's preferred languages, and
-// "en" otherwise.
-func system() string {
-	listed, _ := exec.Command("defaults", "read", "-g", "AppleLanguages").Output()
-	if strings.Contains(string(listed), `"uk`) {
-		return "uk"
-	}
-	return "en"
-}
 
 // Save writes the config back to disk.
 func Save(dir string, cfg Config) error {

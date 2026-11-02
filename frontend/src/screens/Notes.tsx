@@ -34,7 +34,7 @@ import Filing from "../components/Filing"
 import LiveNow from "../components/LiveNow"
 import Player, { type Controls } from "../components/Player"
 import Undo from "../components/Undo"
-import { locale, t, tr } from "../i18n"
+import { locale, t, tr, windows } from "../i18n"
 
 /**
  * What was said to nobody but the microphone, written out as its speaker would
@@ -319,8 +319,12 @@ function Card({
                 models: t("Почнеться, щойно завантажаться моделі."),
                 recording: t("Почнеться, коли закінчиться поточний запис."),
                 next: t("Розшифрується наступною."),
-                user: t("Почнеться, коли ви 5 хвилин не користуватиметесь Mac."),
-                busy: t("Почнеться, коли Mac звільниться від іншої роботи."),
+                user: windows
+                  ? t("Почнеться, коли ви 5 хвилин не користуватиметесь комп’ютером.")
+                  : t("Почнеться, коли ви 5 хвилин не користуватиметесь Mac."),
+                busy: windows
+                  ? t("Почнеться, коли комп’ютер звільниться від іншої роботи.")
+                  : t("Почнеться, коли Mac звільниться від іншої роботи."),
                 turn: t("Чекає своєї черги."),
               }[n.wait]}
           {n.wait !== "next" && n.wait !== "models" && (

@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"testing"
 )
 
@@ -210,5 +211,26 @@ func run(t *testing.T, bin string, args ...string) {
 	t.Helper()
 	if out, err := exec.Command(bin, args...).CombinedOutput(); err != nil {
 		t.Skipf("could not build the fixture (%s): %s", err, out)
+	}
+}
+
+// The app's own copy of a tool wins over PATH once it can be run: by its x bit
+// on macOS, by its .exe on Windows.
+func TestTheAppsOwnToolIsFoundFirst(t *testing.T) {
+	Tools = t.TempDir()
+	t.Cleanup(func() { Tools = "" })
+	own := filepath.Join(Tools, "ffmpeg")
+	if runtime.GOOS == "windows" {
+		own += ".exe"
+	}
+	os.WriteFile(own, []byte("#!/bin/sh\n"), 0o644)
+	if runtime.GOOS != "windows" {
+		if bin, _ := find("ffmpeg"); bin == own {
+			t.Fatal("a copy that cannot be run was chosen")
+		}
+		os.Chmod(own, 0o755)
+	}
+	if bin, err := find("ffmpeg"); err != nil || bin != own {
+		t.Fatalf("found %q (%v), want %s", bin, err, own)
 	}
 }

@@ -2,7 +2,7 @@ import { useEffect, useState } from "react"
 import { AnimatePresence, motion } from "motion/react"
 import { Check, Mic, PenLine } from "lucide-react"
 import { Meetings, clock, recording, why, type Listening } from "../api"
-import { t, tr } from "../i18n"
+import { t, tr, windows } from "../i18n"
 
 /**
  * The Note button, above Record at the foot of the rail. Press, say it, press
@@ -59,7 +59,9 @@ export default function Dictate({ state }: { state: Listening }) {
     ? state.phase === "broken"
       ? tr(state.problem) || t("Не вдалося відкрити мікрофон")
       : state.phase === "opening"
-        ? t("Відкриваю мікрофон. macOS може запитати дозвіл.")
+        ? windows
+          ? t("Відкриваю мікрофон.")
+          : t("Відкриваю мікрофон. macOS може запитати дозвіл.")
         : t("Слухання вимкнено. Увімкніть його в параметрах.")
     : missed
       ? t("Нічого не почув: нотатку не збережено")

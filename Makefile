@@ -183,3 +183,81 @@ test: whisper
 
 clean:
 	rm -rf $(BUILD)
+
+# --- Windows ----------------------------------------------------------------
+#
+# The same app as a Windows installer, cross-compiled on this Mac after
+# `brew install mingw-w64 makensis`. Nothing above reads anything from here:
+# whisper.cpp and llama.cpp get a build directory of their own beside the
+# macOS one, and the Windows files live in build/windows.
+#
+# x86-64 only: sherpa-onnx ships no ARM64 Windows libraries. AVX2 is the floor,
+# since GGML_NATIVE would tune for this Mac and plain SSE2 is too slow for
+# Whisper; the installer refuses a processor without it. OpenMP is off, so ggml
+# uses its own threads and no libgomp ships.
+
+WIN      := $(BUILD)/windows
+SETUP    := $(BUILD)/MeetingTranscriber-Setup.exe
+MINGW    := x86_64-w64-mingw32
+WINCMAKE := -DCMAKE_SYSTEM_NAME=Windows -DCMAKE_SYSTEM_PROCESSOR=x86_64 \
+	-DCMAKE_C_COMPILER=$(MINGW)-gcc -DCMAKE_CXX_COMPILER=$(MINGW)-g++ -DCMAKE_RC_COMPILER=$(MINGW)-windres \
+	-DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF -DGGML_OPENMP=OFF -DGGML_NATIVE=OFF \
+	-DGGML_SSE42=ON -DGGML_AVX=ON -DGGML_AVX2=ON -DGGML_FMA=ON -DGGML_F16C=ON -DGGML_BMI2=ON
+
+# Recursive, so a macOS build never spends time working these out. The Wails
+# CLI runs at the version go.mod pins and need not be installed.
+VERSION    = $(shell sed -n 's/^const Version = "\(.*\)"/\1/p' internal/service/mcp.go)
+WAILS3     = go run github.com/wailsapp/wails/v3/cmd/wails3@$(shell go list -m -f '{{.Version}}' github.com/wailsapp/wails/v3)
+SHERPA_WIN = $(shell go env GOMODCACHE)/github.com/k2-fsa/sherpa-onnx-go-windows@v1.13.7/lib/x86_64-pc-windows-gnu
+
+.PHONY: exe
+
+$(VENDOR)/build-windows/src/libwhisper.a:
+	@mkdir -p $(BUILD)
+	git clone --quiet $(WHISPER_REPO) $(VENDOR) 2>/dev/null || true
+	cd $(VENDOR) && git fetch --quiet origin && git checkout --quiet $(WHISPER_REF)
+	cd $(VENDOR) && cmake -B build-windows $(WINCMAKE) -DWHISPER_BUILD_TESTS=OFF -DWHISPER_BUILD_EXAMPLES=OFF >/dev/null
+	cd $(VENDOR) && cmake --build build-windows -j $(shell sysctl -n hw.ncpu 2>/dev/null || nproc) >/dev/null
+
+# ggml leaves the lib prefix off its Windows libraries, which the -l flags of
+# the Go bindings expect. The static libstdc++ and winpthread sit beside them,
+# so the linker takes them before the toolchain's DLL import libraries and the
+# executable needs no mingw DLL. A cross gcc ignores LIBRARY_PATH, hence -L.
+$(WIN)/lib/libwhisper.a: $(VENDOR)/build-windows/src/libwhisper.a
+	@mkdir -p $(WIN)/lib
+	for l in ggml ggml-base ggml-cpu; do cp $(VENDOR)/build-windows/ggml/src/$$l.a $(WIN)/lib/lib$$l.a; done
+	cp "$$($(MINGW)-gcc -print-file-name=libstdc++.a)" "$$($(MINGW)-gcc -print-file-name=libpthread.a)" $(WIN)/lib/
+	cp $< $@
+
+# The .syso puts the icon, the manifest and the version into the executable; go
+# build takes it from the package folder for windows/amd64 only. The old binary
+# goes first: go build does not notice that a C library changed. The frontend
+# target always runs, so this does too, and needs no list of Go files.
+$(WIN)/MeetingTranscriber.exe: frontend $(WIN)/lib/libwhisper.a
+	printf '{"fixed":{"file_version":"%s.0","product_version":"%s.0"},"info":{"0409":{"ProductName":"Meeting Transcriber","FileDescription":"Meeting Transcriber","ProductVersion":"%s","FileVersion":"%s","LegalCopyright":"Copyright (c) 2026 Dmytro Mykolenko"}}}' \
+		$(VERSION) $(VERSION) $(VERSION) $(VERSION) > $(WIN)/info.json
+	$(WAILS3) generate syso -arch amd64 -icon packaging/windows/icon.ico \
+		-manifest packaging/windows/MeetingTranscriber.exe.manifest -info $(WIN)/info.json -out rsrc_windows_amd64.syso
+	rm -f $@
+	CGO_ENABLED=1 GOOS=windows GOARCH=amd64 CC=$(MINGW)-gcc CXX=$(MINGW)-g++ CGO_LDFLAGS=-L$(abspath $(WIN)/lib) \
+		go build -ldflags "-H windowsgui -extldflags -static-libgcc" -o $@ . ; s=$$?; rm -f rsrc_windows_amd64.syso; exit $$s
+
+$(WIN)/llama-server.exe:
+	@mkdir -p $(BUILD)/llama.cpp $(WIN)
+	cd $(BUILD)/llama.cpp && git init --quiet && git fetch --quiet --depth 1 $(LLAMA_REPO) $(LLAMA_REF) && git checkout --quiet FETCH_HEAD
+	cd $(BUILD)/llama.cpp && cmake -B build-windows $(WINCMAKE) -DCMAKE_EXE_LINKER_FLAGS=-static \
+		-DLLAMA_OPENSSL=OFF -DLLAMA_USE_PREBUILT_UI=OFF -DLLAMA_BUILD_TESTS=OFF -DLLAMA_BUILD_EXAMPLES=OFF >/dev/null
+	cd $(BUILD)/llama.cpp && cmake --build build-windows --target llama-server -j $(shell sysctl -n hw.ncpu 2>/dev/null || nproc) >/dev/null
+	cp $(BUILD)/llama.cpp/build-windows/bin/llama-server.exe $@
+
+## exe — the Windows installer: the app, sherpa-onnx's two DLLs, llama-server,
+## and Microsoft's WebView2 bootstrapper for a Windows 10 that lacks the runtime.
+exe: $(SETUP)
+
+$(SETUP): $(WIN)/MeetingTranscriber.exe $(WIN)/llama-server.exe packaging/windows/installer.nsi
+	cp -f $(SHERPA_WIN)/sherpa-onnx-c-api.dll $(SHERPA_WIN)/onnxruntime.dll $(WIN)/
+	chmod u+w $(WIN)/*.dll
+	$(WAILS3) generate webview2bootstrapper -dir $(WIN)
+	@# makensis 3.13 aborts with bad_alloc when the shell names no UTF-8 locale.
+	LC_CTYPE=en_US.UTF-8 makensis -V2 -DVERSION=$(VERSION) -DSOURCE=$(abspath $(WIN)) -DOUT=$(abspath $@) packaging/windows/installer.nsi
+	@echo "$@  $$(du -h $@ | cut -f1) — run it on Windows; it installs for the person running it"
