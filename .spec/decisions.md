@@ -589,8 +589,9 @@ written in about 9 s.
   (`sherpa-onnx-go/sherpa_onnx`), which on macOS re-exports the same
   `sherpa-onnx-go-macos` module as before.
 - Whisper runs on the processor; no GPU backend is built for Windows. On the
-  4-core GitHub runner (Windows Server 2025) an 11-second recording took 33 s,
-  three times its length; a Mac with Metal is far faster.
+  4-core GitHub runner (Windows Server 2025) an 11-second recording took 22 s
+  and 33 s in two runs, two to three times its length; a Mac with Metal is far
+  faster.
 - The installer is per user (`%LOCALAPPDATA%\Programs\Meeting Transcriber`, no
   administrator), adds Start-menu and desktop shortcuts and an uninstall entry,
   and runs Microsoft's WebView2 bootstrapper only when the registry shows no

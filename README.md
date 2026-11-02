@@ -165,8 +165,8 @@ It needs 64-bit Windows 10 version 2004 or later, or Windows 11, and a
 processor with AVX2, which most made since 2015 have; some Celeron and Pentium
 chips do not. The installer checks both and stops with a message if either is
 missing. Transcription runs on the processor, as the graphics chip is not used
-on Windows, so it is slower than on a Mac: on a 4-core test machine it took
-three times as long as the recording. When a newer version is out, the app says so and links to its
+on Windows, so it is slower than on a Mac: on a 4-core test machine it took two
+to three times as long as the recording. When a newer version is out, the app says so and links to its
 release; run its installer over the old one. Uninstalling, in **Settings →
 Apps**, removes the program and keeps
 `%USERPROFILE%\MeetingTranscriber`, where your recordings, transcripts,
