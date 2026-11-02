@@ -5,10 +5,10 @@ coding agents working on Meeting Transcriber.
 
 ## Product
 
-Meeting Transcriber is a local-first macOS desktop app. It records microphone
-and system audio, transcribes locally, separates and recognises speakers, keeps
-meeting and project knowledge in SQLite, and exposes the archive through a
-read-only MCP server.
+Meeting Transcriber is a local-first desktop app for macOS, also built for
+Windows from the same code. It records microphone and system audio, transcribes
+locally, separates and recognises speakers, keeps meeting and project knowledge
+in SQLite, and exposes the archive through a read-only MCP server.
 
 Stack:
 
@@ -90,6 +90,9 @@ Library and platform knowledge becomes stale quickly.
 - `internal/service` is the Wails and MCP application surface.
 - `internal/insights` is the only outbound AI boundary.
 - `frontend/src` is the product interface.
+- Windows support lives in `_windows.go` files, in `Windows:` window options,
+  and in the Windows part of the Makefile. A change made for Windows must not
+  change what macOS builds or runs.
 
 Share the existing database, library, engine, and service objects. Do not create
 parallel stores, background coordinators, or a second source of truth.
@@ -161,6 +164,7 @@ make test
 cd frontend && npm run build
 make bundle
 make run
+make exe      # the Windows installer, cross-compiled on the Mac
 ```
 
 ## Experiments
@@ -276,15 +280,20 @@ Use sample data only for visual development. Before finishing:
 - Bump `CFBundleShortVersionString` and `CFBundleVersion` in
   `packaging/darwin/Info.plist` and `Version` in `internal/service/mcp.go`,
   then commit.
+- Push the branch and run the Windows workflow on that commit
+  (`gh workflow run windows.yml`); it installs and tries the installer on a
+  real Windows. Release only once it passes.
 - Build from that commit with `make dmg` and copy the image to
   `build/MeetingTranscriber-X.Y.Z.dmg`. Check the version and
   `codesign --verify --deep`; `go version -m` must show the release commit,
-  not modified.
-- Tag `vX.Y.Z` on that commit, push the branch and the tag, and create the
-  release "Meeting Transcriber X.Y.Z" with the DMG attached.
+  not modified. Build the Windows installer with `make exe` and copy it to
+  `build/MeetingTranscriber-X.Y.Z-Setup.exe`.
+- Tag `vX.Y.Z` on that commit, push the tag, and create the release "Meeting
+  Transcriber X.Y.Z" with the DMG and the installer attached.
 - Notes are short, plain English in three sections: New, Improved, Fixed. Add
-  "Known issue" when there is one, and end with the line that the app is not
-  notarized. No AI attribution in commits, tags, or notes.
+  "Known issue" when there is one, and end with the lines that the app is not
+  notarized and the Windows installer is not signed. No AI attribution in
+  commits, tags, or notes.
 
 ## Definition of done
 

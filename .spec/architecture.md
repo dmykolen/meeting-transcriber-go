@@ -5,13 +5,19 @@ the source of truth.
 
 ## Runtime
 
-Meeting Transcriber is one macOS application:
+Meeting Transcriber is one desktop application, built for macOS and, from the
+same code, for Windows:
 
 - Wails embeds the React frontend into the Go executable.
 - The same process owns capture, processing, SQLite, and the MCP server.
-- `audiotee` is bundled as a helper for macOS system-audio capture.
+- `audiotee` is bundled as a helper for macOS system-audio capture. Windows
+  records system audio through miniaudio's WASAPI loopback
+  (`internal/audio/system_other.go`).
 - `llama-server` is bundled as the helper that runs local AI models.
-- sherpa-onnx dynamic libraries are included in the `.app`.
+- sherpa-onnx dynamic libraries are included in the `.app`; on Windows its two
+  DLLs and `llama-server.exe` are installed beside the executable.
+- On Windows a second launch brings the running window forward and exits before
+  it opens anything (`instance_windows.go`); macOS does that itself.
 - Models and FFmpeg are downloaded on first run into the app home directory.
   Local AI models and the GitHub Copilot CLI are downloaded only when the AI
   settings choose them.
@@ -30,7 +36,8 @@ Default app data:
 └── logs/mt.log
 ```
 
-`MT_HOME` replaces this root.
+On Windows the root is `%USERPROFILE%\MeetingTranscriber`. `MT_HOME` replaces
+this root.
 
 ## Composition
 
@@ -91,7 +98,8 @@ attribution, echo handling, and far-side diarization.
 The queue is single-worker. Active recording prevents the queue from starting a
 new historical job; a job already in flight is not preempted. The settings
 decide when queued recordings run — after each one, at a time of day, or when
-the Mac is free (`internal/library/idle_darwin.go`) — and a recording asked for
+the computer is free (`idle_darwin.go` and `idle_windows.go` in
+`internal/library`) — and a recording asked for
 by hand, or a note dictated with the Note button, goes next regardless.
 
 ## Storage
@@ -175,7 +183,8 @@ Production builds do not include the sample adapter branch.
 The same bundle serves the recording strip, a second window opened at
 `#strip`: a non-activating panel under the menu bar that never takes the
 keyboard, shows over full-screen apps, and exists only while a meeting is
-recorded. `strip_darwin.go` lets its buttons take the first click.
+recorded. `strip_darwin.go` lets its buttons take the first click. On Windows it
+is an always-on-top window kept out of the taskbar (`strip_windows.go`).
 
 ## Build and packaging
 
@@ -185,7 +194,11 @@ make bundle   # build/Meeting Transcriber.app
 make install  # replace /Applications/Meeting Transcriber.app with that bundle
 make dmg      # build/MeetingTranscriber.dmg
 make test     # whisper.cpp + go vet + go test
+make exe      # build/MeetingTranscriber-Setup.exe, the Windows installer
 ```
 
-`whisper.cpp` and `audiotee` are pinned and built under `build/`. The directory
-is ignored and must be reproducible from a clean checkout.
+`whisper.cpp`, `llama.cpp` and `audiotee` are pinned and built under `build/`.
+The directory is ignored and must be reproducible from a clean checkout. `make
+exe` cross-compiles the Windows build on the Mac with mingw-w64 and packs it
+with NSIS (`packaging/windows/`); its whisper.cpp and llama.cpp builds live in
+`build-windows/` beside the macOS ones, and its files in `build/windows/`.

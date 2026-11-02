@@ -5,14 +5,15 @@
 <h1 align="center">Meeting Transcriber</h1>
 
 <p align="center">
-  A private meeting archive for macOS. It records your calls, writes down who
-  said what, and keeps the decisions and the follow-up work. Transcription runs
-  on your Mac: no bot joins the call, and no account is needed.
+  A private meeting archive for macOS and Windows. It records your calls, writes
+  down who said what, and keeps the decisions and the follow-up work.
+  Transcription runs on your computer: no bot joins the call, and no account is
+  needed.
 </p>
 
 <p align="center">
-  <a href="https://github.com/dmykolen/meeting-transcriber-go/releases/latest"><strong>Download for macOS</strong></a>
-  · Apple Silicon · macOS 14.2 or newer · MIT
+  <a href="https://github.com/dmykolen/meeting-transcriber-go/releases/latest"><strong>Download</strong></a>
+  · macOS 14.2 or newer on Apple Silicon · Windows 10 or 11, 64-bit · MIT
 </p>
 
 <p align="center">
@@ -131,6 +132,8 @@ leaves the Mac without your choice.
 
 ## Install
 
+### macOS
+
 1. Download the `.dmg` from the
    [latest release](https://github.com/dmykolen/meeting-transcriber-go/releases/latest).
 2. Open it and drag **Meeting Transcriber** to **Applications**.
@@ -139,8 +142,40 @@ leaves the Mac without your choice.
    about Meeting Transcriber and choose **Open Anyway**. You do this once.
 4. Allow **Microphone** and **System Audio Recording** when macOS asks.
 
-On the first launch the app downloads about 600 MiB into `~/MeetingTranscriber`:
-the transcription, speech-detection and speaker models, and FFmpeg.
+### Windows
+
+1. Download `MeetingTranscriber-<version>-Setup.exe` from the
+   [latest release](https://github.com/dmykolen/meeting-transcriber-go/releases/latest)
+   and run it. It installs the app for your Windows user only, without
+   administrator rights, into
+   `%LOCALAPPDATA%\Programs\Meeting Transcriber`, with shortcuts in the Start
+   menu and on the desktop. If Windows lacks Microsoft Edge WebView2, the
+   component that draws the app's window, the installer downloads it from
+   Microsoft; Windows 11 already has it.
+2. The installer is not signed, so SmartScreen may stop it: choose **More info
+   → Run anyway**.
+3. Open **Meeting Transcriber** from the Start menu. As on a Mac, it records
+   your microphone and, on a channel of its own, the sound the PC plays, which
+   is the other side of the call; Windows asks no permission for the second.
+   If the app hears nothing, let desktop apps use the microphone in **Settings
+   → Privacy & security → Microphone** (on Windows 10, **Settings → Privacy →
+   Microphone**).
+
+It needs 64-bit Windows 10 version 2004 or later, or Windows 11, and a
+processor with AVX2, which most made since 2015 have; some Celeron and Pentium
+chips do not. The installer checks both and stops with a message if either is
+missing. Transcription runs on the processor; on Windows the graphics chip is
+not used. When a newer version is out, the app says so and links to its
+release; run its installer over the old one. Uninstalling, in **Settings →
+Apps**, removes the program and keeps
+`%USERPROFILE%\MeetingTranscriber`, where your recordings, transcripts,
+settings and models are.
+
+### First launch
+
+On the first launch the app downloads about 600 MiB into `~/MeetingTranscriber`
+(`%USERPROFILE%\MeetingTranscriber` on Windows): the transcription,
+speech-detection and speaker models, and FFmpeg.
 The window opens straight away and shows the download; after that, recording
 and transcription work offline.
 
@@ -176,8 +211,9 @@ depend on it.
 └── logs/mt.log       the application log
 ```
 
-`MT_HOME` moves the whole folder. Audio is kept for 30 days by default; deleting
-audio never deletes the transcript or anything made from it.
+On Windows the folder is `%USERPROFILE%\MeetingTranscriber`. `MT_HOME` moves
+the whole folder. Audio is kept for 30 days by default; deleting audio never
+deletes the transcript or anything made from it.
 
 ## MCP access
 
@@ -299,7 +335,9 @@ The microphone channel is the person at the Mac; the system channel is everyone
 else. Speaker separation runs on the system channel, so your own voice echoing
 in the room does not become a second speaker. The `.app` carries the speaker
 libraries, an `audiotee` helper for system audio and `llama-server` for local
-models; the models themselves are downloaded per user.
+models; the models themselves are downloaded per user. On Windows the installer
+puts the same libraries and `llama-server` beside the executable, and system
+audio comes from Windows' own loopback capture instead of `audiotee`.
 
 The reasoning behind these choices, with the measurements, is in
 [engineering decisions](.spec/decisions.md) and
@@ -308,8 +346,9 @@ The reasoning behind these choices, with the measurements, is in
 ## Build from source
 
 You need an Apple Silicon Mac with macOS 14.2 or newer, Go 1.26.2, Node.js
-with npm, CMake and the Xcode Command Line Tools. The first build fetches the
-pinned native sources and frontend dependencies.
+with npm, CMake and the Xcode Command Line Tools. Run the commands in a clone of
+this repository; the first build fetches the pinned native sources and frontend
+dependencies.
 
 ```bash
 make           # build/mt, the development binary
@@ -324,6 +363,21 @@ Always run the `.app`. Started as a bare `build/mt` from a terminal, the
 microphone permission belongs to the terminal and the app records silence.
 `make cert` creates a local signing identity once, so macOS keeps the
 permissions across rebuilds.
+
+The Windows installer is built on the same Mac, with the tools above and two
+more from [Homebrew](https://brew.sh): mingw-w64, a compiler that makes Windows
+programs, and NSIS, which packs them into an installer.
+
+```bash
+brew install mingw-w64 makensis
+make exe       # build/MeetingTranscriber-Setup.exe
+```
+
+`make exe` does not need the macOS build: it compiles the app, whisper.cpp and
+llama.cpp for Windows from the same pinned sources, in folders of their own.
+The installer holds the app, sherpa-onnx (the library that tells speakers
+apart), `llama-server` for the local AI option, and Microsoft's small WebView2
+installer. The macOS build does not change.
 
 To work on the interface with sample data and without the models:
 

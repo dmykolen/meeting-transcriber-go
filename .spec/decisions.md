@@ -565,3 +565,61 @@ written in about 9 s.
 - The bundle includes `audiotee`, `llama-server`, and sherpa dynamic libraries.
 - Local signing stabilizes developer permissions; public distribution still
   requires Developer ID signing and notarization.
+
+## Windows
+
+- Built on the Mac: `make exe` cross-compiles with mingw-w64 and packs an NSIS
+  installer. whisper.cpp and llama.cpp come from the same pinned commits, built
+  in `build-windows/`. Windows-only code lives in `_windows.go` files and in
+  `Windows:` window options, which macOS ignores; the macOS targets read nothing
+  from the Windows part of the Makefile.
+- x86-64 only: sherpa-onnx ships no ARM64 Windows libraries. Whether Windows
+  on ARM runs the x64 build, and passes the installer's AVX2 check, is not
+  known.
+- AVX2 is the floor. A cross build leaves `GGML_NATIVE` off, and ggml then
+  compiles plain SSE2 unless each extension is named, so AVX2, FMA, F16C and
+  BMI2 are named. The installer refuses a processor without AVX2
+  (`IsProcessorFeaturePresent(40)`, answered from Windows 10 build 19041), as
+  Whisper would stop on its first instruction. OpenMP is off: ggml uses its own
+  threads and no libgomp ships.
+- The executable imports only Windows itself and `sherpa-onnx-c-api.dll`:
+  libstdc++ and winpthread are linked statically, and `llama-server.exe` is
+  linked with `-static`.
+- sherpa-onnx is imported through its cross-platform package
+  (`sherpa-onnx-go/sherpa_onnx`), which on macOS re-exports the same
+  `sherpa-onnx-go-macos` module as before.
+- Whisper runs on the processor; no GPU backend is built for Windows, and its
+  speed there is not measured.
+- The installer is per user (`%LOCALAPPDATA%\Programs\Meeting Transcriber`, no
+  administrator), adds Start-menu and desktop shortcuts and an uninstall entry,
+  and runs Microsoft's WebView2 bootstrapper only when the registry shows no
+  runtime. Uninstalling removes the program and WebView2's data for it, never
+  `%USERPROFILE%\MeetingTranscriber`.
+- One copy at a time. Windows starts a process for every click, and a second
+  one would open the same database and microphone and, through
+  `listen.Recover`, try to discard the first one's recording in progress. A
+  process that finds the named mutex `MeetingTranscriber` brings the first
+  window forward and exits in `init`, before it opens anything. The installer
+  waits on the same mutex. `--mcp-stdio` is exempt.
+- No update from inside the app: `update.Bundle` finds no `.app`, so the card
+  offers the release page.
+- "When the computer is free" reads `GetLastInputInfo` for the five minutes and
+  the processors' busy share over one second (`GetSystemTimes`) in place of the
+  load average; the GPU is not read.
+- FFmpeg and the Copilot CLI are the Windows builds from the same releases,
+  with pinned sha256: `ffmpeg-win32-x64.gz` and `copilot-win32-x64.zip`, a zip
+  holding one `copilot.exe`.
+- Console programs the app starts (FFmpeg, `llama-server`, `copilot login`) run
+  with `CREATE_NO_WINDOW` (`quiet`): the app has no console to lend them, so
+  Windows would open a window for each. The Copilot SDK hides its CLI the same
+  way. A `llama-server` left by a crash is not found again, as there is no
+  `pkill`; it unloads its model after five idle minutes.
+- The strip is an always-on-top window kept out of the taskbar, without frame
+  decorations, excluded from screen capture by Wails. Unlike the macOS panel, a
+  click on it makes it active.
+- A first run takes the interface language from Windows' preferred display
+  languages.
+- Interface words that name the Mac or ⌘ say "this PC" and Ctrl on Windows
+  (`windows` and `mod` in `i18n.ts`). The shortcuts already took Ctrl, and
+  Wails turns WebView2's own accelerator keys off, so Ctrl+R records instead of
+  reloading the page.
