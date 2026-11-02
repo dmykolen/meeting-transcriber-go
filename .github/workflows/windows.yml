@@ -1,0 +1,147 @@
+# Builds the Windows installer as `make exe` does on a Mac, then tries it on a
+# real Windows: installs it, starts the app, asks MCP, launches a second copy,
+# transcribes a spoken sample, and uninstalls without touching the data. Run it
+# from the Actions tab before a release.
+name: Windows
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - run: brew install mingw-w64 makensis
+      - run: make exe
+      - uses: actions/upload-artifact@v7
+        with:
+          name: setup
+          path: |
+            build/MeetingTranscriber-Setup.exe
+            build/whisper.cpp/samples/jfk.wav
+
+  check:
+    needs: build
+    runs-on: windows-latest
+    timeout-minutes: 45
+    env:
+      MT_HOME: C:\mt
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: setup
+
+      - name: Install for this user, silently
+        run: |
+          $p = Start-Process .\MeetingTranscriber-Setup.exe -ArgumentList '/S' -Wait -PassThru
+          if ($p.ExitCode -ne 0) { throw "the installer exited with $($p.ExitCode)" }
+          $dir = "$env:LOCALAPPDATA\Programs\Meeting Transcriber"
+          foreach ($f in 'MeetingTranscriber.exe', 'sherpa-onnx-c-api.dll', 'onnxruntime.dll', 'llama-server.exe', 'uninstall.exe') {
+            if (-not (Test-Path "$dir\$f")) { throw "$f is missing from $dir" }
+          }
+          foreach ($l in "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\Meeting Transcriber.lnk", "$([Environment]::GetFolderPath('Desktop'))\Meeting Transcriber.lnk") {
+            if (-not (Test-Path $l)) { throw "no shortcut at $l" }
+          }
+          Get-ItemProperty HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\MeetingTranscriber | Format-List DisplayName, DisplayVersion, Publisher
+
+      - name: Answer MCP over stdio
+        run: |
+          New-Item -ItemType Directory -Force "$env:MT_HOME\recordings" | Out-Null
+          @'
+          language = "en"
+          ui_language = "en"
+          no_updates = true
+          [listen]
+          enabled = false
+          '@ | Set-Content "$env:MT_HOME\config.toml"
+          $init = '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"ci","version":"0"}}}'
+          $answer = $init | & "$env:LOCALAPPDATA\Programs\Meeting Transcriber\MeetingTranscriber.exe" --mcp-stdio | Select-Object -First 1
+          "$answer"
+          if ("$answer" -notmatch '"serverInfo"') { throw "--mcp-stdio did not answer" }
+
+      - name: Start the app and load the models
+        run: |
+          Start-Process "$env:LOCALAPPDATA\Programs\Meeting Transcriber\MeetingTranscriber.exe"
+          $log = "$env:MT_HOME\logs\mt.log"
+          $until = (Get-Date).AddMinutes(20)
+          while ((Get-Date) -lt $until -and -not ((Test-Path $log) -and (Select-String $log -Pattern 'models ready|would not load' -Quiet))) { Start-Sleep 5 }
+          Get-Content $log
+          if (-not (Select-String $log -Pattern 'models ready' -Quiet)) { throw "the models did not load" }
+          if (@(Get-Process MeetingTranscriber -ErrorAction SilentlyContinue).Count -ne 1) { throw "the app is not running exactly once" }
+
+      - name: A second launch leaves one copy
+        run: |
+          $second = Start-Process "$env:LOCALAPPDATA\Programs\Meeting Transcriber\MeetingTranscriber.exe" -PassThru
+          if (-not $second.WaitForExit(15000)) { throw "the second copy kept running" }
+          Start-Sleep 2
+          if (@(Get-Process MeetingTranscriber).Count -ne 1) { throw "more than one copy runs" }
+
+      - name: Answer MCP over HTTP
+        run: |
+          $body = '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"ci","version":"0"}}}'
+          $r = Invoke-WebRequest http://127.0.0.1:8765/mcp -Method Post -Body $body -ContentType application/json -Headers @{ Accept = 'application/json, text/event-stream' }
+          $r.Content
+          if ($r.Content -notmatch '"serverInfo"') { throw "MCP over HTTP did not answer" }
+
+      - name: Transcribe a spoken sample
+        run: |
+          Copy-Item whisper.cpp\samples\jfk.wav "$env:MT_HOME\recordings\jfk.wav"
+          @'
+          import sqlite3, sys, time
+          db = sqlite3.connect(sys.argv[1], timeout=30)
+          db.execute("INSERT INTO recordings (kind, title, audio, started, status, titled) VALUES ('meeting', 'CI sample', 'jfk.wav', ?, 'queued', 1)", (int(time.time()),))
+          db.commit()
+          for _ in range(60):
+              status, problem = db.execute("SELECT status, problem FROM recordings WHERE audio = 'jfk.wav'").fetchone()
+              print(status, problem, flush=True)
+              if status in ("done", "failed"):
+                  break
+              time.sleep(10)
+          text = " ".join(t for (t,) in db.execute("SELECT text FROM turns WHERE recording = (SELECT id FROM recordings WHERE audio = 'jfk.wav') ORDER BY seq"))
+          print("transcript:", text)
+          sys.exit(0 if status == "done" and "country" in text.lower() else 1)
+          '@ | Set-Content transcribe.py
+          python transcribe.py "$env:MT_HOME\meetings.db"
+          if ($LASTEXITCODE -ne 0) { throw "the sample was not transcribed" }
+
+      - name: Screenshot
+        if: always()
+        shell: powershell
+        run: |
+          Add-Type -AssemblyName System.Windows.Forms, System.Drawing
+          $b = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
+          $bmp = New-Object System.Drawing.Bitmap $b.Width, $b.Height
+          [System.Drawing.Graphics]::FromImage($bmp).CopyFromScreen($b.Location, [System.Drawing.Point]::Empty, $b.Size)
+          $bmp.Save("$env:RUNNER_TEMP\screen.png")
+
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: windows-check
+          path: |
+            ${{ runner.temp }}\screen.png
+            C:\mt\logs\
+
+      - name: Quit and uninstall, keeping the data
+        run: |
+          Get-Process MeetingTranscriber | ForEach-Object { $_.CloseMainWindow() | Out-Null }
+          Start-Sleep 5
+          Get-Process MeetingTranscriber -ErrorAction SilentlyContinue | Stop-Process
+          $dir = "$env:LOCALAPPDATA\Programs\Meeting Transcriber"
+          # _?= runs the uninstaller in place and waits; NSIS wants it last and unquoted.
+          $p = Start-Process "$dir\uninstall.exe" -ArgumentList "/S _?=$dir" -Wait -PassThru
+          if ($p.ExitCode -ne 0) { throw "the uninstaller exited with $($p.ExitCode)" }
+          if (Test-Path "$dir\MeetingTranscriber.exe") { throw "the app is still installed" }
+          if (Test-Path "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\Meeting Transcriber.lnk") { throw "the Start-menu shortcut was left" }
+          if (-not (Test-Path "$env:MT_HOME\meetings.db")) { throw "the uninstaller took the archive" }
