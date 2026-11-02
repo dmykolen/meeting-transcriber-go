@@ -115,23 +115,17 @@ jobs:
           python transcribe.py "$env:MT_HOME\meetings.db"
           if ($LASTEXITCODE -ne 0) { throw "the sample was not transcribed" }
 
+      # The artifact takes files from the workspace only, so they gather in diag.
       - name: Screenshot
         if: always()
         shell: powershell
         run: |
+          New-Item -ItemType Directory -Force diag | Out-Null
           Add-Type -AssemblyName System.Windows.Forms, System.Drawing
           $b = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
           $bmp = New-Object System.Drawing.Bitmap $b.Width, $b.Height
           [System.Drawing.Graphics]::FromImage($bmp).CopyFromScreen($b.Location, [System.Drawing.Point]::Empty, $b.Size)
-          $bmp.Save("$env:RUNNER_TEMP\screen.png")
-
-      - uses: actions/upload-artifact@v7
-        if: always()
-        with:
-          name: windows-check
-          path: |
-            ${{ runner.temp }}\screen.png
-            C:\mt\logs\
+          $bmp.Save("$pwd\diag\screen.png")
 
       - name: Quit and uninstall, keeping the data
         run: |
@@ -145,3 +139,15 @@ jobs:
           if (Test-Path "$dir\MeetingTranscriber.exe") { throw "the app is still installed" }
           if (Test-Path "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\Meeting Transcriber.lnk") { throw "the Start-menu shortcut was left" }
           if (-not (Test-Path "$env:MT_HOME\meetings.db")) { throw "the uninstaller took the archive" }
+
+      - name: Gather the app's log
+        if: always()
+        run: |
+          New-Item -ItemType Directory -Force diag | Out-Null
+          Copy-Item "$env:MT_HOME\logs\*" diag -ErrorAction SilentlyContinue
+
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: windows-check
+          path: diag/
