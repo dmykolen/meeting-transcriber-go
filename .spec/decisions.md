@@ -588,8 +588,9 @@ written in about 9 s.
 - sherpa-onnx is imported through its cross-platform package
   (`sherpa-onnx-go/sherpa_onnx`), which on macOS re-exports the same
   `sherpa-onnx-go-macos` module as before.
-- Whisper runs on the processor; no GPU backend is built for Windows, and its
-  speed there is not measured.
+- Whisper runs on the processor; no GPU backend is built for Windows. On the
+  4-core GitHub runner (Windows Server 2025) an 11-second recording took 33 s,
+  three times its length; a Mac with Metal is far faster.
 - The installer is per user (`%LOCALAPPDATA%\Programs\Meeting Transcriber`, no
   administrator), adds Start-menu and desktop shortcuts and an uninstall entry,
   and runs Microsoft's WebView2 bootstrapper only when the registry shows no
@@ -614,6 +615,14 @@ written in about 9 s.
   Windows would open a window for each. The Copilot SDK hides its CLI the same
   way. A `llama-server` left by a crash is not found again, as there is no
   `pkill`; it unloads its model after five idle minutes.
+- A window larger than its screen's work area opens maximised (`fit_windows.go`):
+  Windows centres it with the title bar above the top edge, as the GitHub
+  runner's 1024×768 screen showed, where macOS keeps it on the screen.
+- `.github/workflows/windows.yml`, run by hand before a release, builds the
+  installer on a macOS runner as `make exe` does and tries it on a Windows
+  runner: silent install, start, MCP over stdio and HTTP, one copy at a time,
+  whisper.cpp's spoken sample transcribed word for word, uninstall keeping the
+  archive. The runner has no audio devices, so live capture is not tried.
 - The strip is an always-on-top window kept out of the taskbar, without frame
   decorations, excluded from screen capture by Wails. Unlike the macOS panel, a
   click on it makes it active.
