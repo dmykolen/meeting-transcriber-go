@@ -72,9 +72,128 @@ Evidence: `exp/06_whisper_loops`, `exp/14_timeline`, `exp/15_rows`,
 - A learned name requires at least 30 seconds of speech evidence.
 - The microphone owner is assigned from settings, not matched as a stranger.
 - Community-1 was measured and did not justify adding Python and PyTorch.
-
 Evidence: `exp/11_speakers`, `exp/12_community1`, `exp/13_company`, and
 `exp/16_speakers2`.
+
+## Voice samples
+
+Each enrolled person keeps up to ten voiceprints, called samples: two lists in
+the person's row, `people.voiceprints` and `people.sources` (which recording and
+label each came from, and `confirmed`), index for index. A new recording's
+speakers are compared with them to put a name in place of a `SPEAKER_nn` label:
+`store.Recognise` takes the best cosine between the speaker and a person's
+samples and names the speaker when it is at least `store.Match` (0.55). Each
+person names at most one speaker per recording, the best-scoring one. Before
+that, `store.Same` merges two speakers of one recording when both match the
+same person and are at least `store.Rejoin` (0.75) alike. Neither threshold is
+the diarizer's clustering one above.
+
+Example: a colleague speaks in a new meeting. Of everybody's samples only the
+confirmed ones are compared; the colleague's from an earlier meeting scores
+0.85, the best of all, so the meeting screen shows the colleague's name with 85%
+in a dashed chip, with Yes and No, and, if the colleague has a free slot, this
+meeting's speaker is filed as an unconfirmed sample. Yes confirms that new
+sample, or files it as confirmed when there was no slot. No gives the speaker a free
+`SPEAKER_nn` label and deletes that sample; the earlier confirmed sample stays
+and may suggest the colleague again.
+
+Since 2026-11-02 the owner requires: the app never touches a sample the owner
+named or confirmed; its own guesses go only into free slots, unconfirmed, shown
+with their similarity and Yes and No; when the ten slots are full the app
+overwrites nothing of its own accord (the owner's own Yes or rename may); a
+rename takes the voice back from the old name; a deleted meeting takes its
+samples. The rest of this section is how that is built, and its
+known limits, which may be improved:
+
+- Only confirmed samples recognise people or merge speakers. A sample is
+  confirmed when the owner renames a speaker in a meeting, says Yes, or names
+  the microphone voice in Settings ("My voice", `Meetings.ThisIsMe`, which
+  confirms the microphone speaker, `Me`, of up to the ten latest recordings). A
+  rename to a name with no letters ("-") or to a `SPEAKER_nn` label applies as
+  typed but learns nothing: it was the owner's way to take a name away.
+- A name the app finds itself is a guess; the sample filed with it is an
+  unconfirmed sample, as is every sample saved before this. The recording keeps
+  the guess in `recordings.guesses` ({name: cosine}) until Yes, No or a rename;
+  the meeting screen shows the cosine as a percentage (a similarity, not a
+  probability) and the transcript underlines the name. Search and summaries use
+  the name as it stands, and a summary keeps an old name until it is refreshed.
+- `store.Remember` files a sample in this order; the lists keep filing order.
+  One recording gives a person one sample: a newer one replaces it, unless the
+  older is confirmed and the newer is not. Otherwise a free slot takes it. With
+  no free slot, a new unconfirmed sample is not filed, and the owner's sample
+  replaces the earliest-filed unconfirmed one, even one from a recording in the
+  bin (restoring that recording does not bring it back). Confirmed samples are
+  never pushed out to make room: with ten of them the owner's new one is not
+  filed (logged as "voice not filed"), though the name in the meeting changes.
+- An unconfirmed sample recognises nobody; it is kept so the owner can confirm
+  it by ear in Settings.
+- A rename (`DB.Rename`) deletes the old name's sample from that recording,
+  confirmed or not, and renames the speaker in the transcript, the keyword
+  index and `passages` (the search-by-meaning stretches). No (`DB.Reject`) is a
+  rename to the first free `SPEAKER_nn` of that recording. Speakers merged
+  under the name stay one label, and a No is not remembered: a new
+  transcription may guess the same person again. Other recordings and their
+  stored percentages are not re-checked.
+- Settings lists each sample with No (`DB.Reject` on its recording: the sample
+  goes and that meeting's voice loses the name), and an unconfirmed one also
+  with Yes when it can be played: its recording still has audio and a stretch
+  of that speaker. Yes there settles the meeting's guess too.
+- A recording in the bin keeps its samples and their slots; they neither
+  recognise nor show until it is restored. Deleting it for good (`DB.Delete`,
+  also when the bin is emptied) deletes them.
+- Samples saved before 2026-11-02 have no confirmation. Which names the app gave
+  by itself is only in the app log (`logs/mt.log`, from 2026-09-01), not in the
+  database, and the upgrade does not read the log. So after the upgrade nobody
+  is recognised until the owner confirms samples or renames speakers. A one-off
+  repair, `exp/26_voice_repair`, confirms the owner's past names from the log
+  (run on the owner's archive on 2026-11-03). Until then the
+  owner's own old samples count as unconfirmed, so with no free slot a new Yes
+  or rename may push one of them out. Names already in older meetings stay as
+  they are, without a percentage, and look like the owner's. The interface says
+  none of this yet.
+
+Why: every match used to be filed as a sample, and a full profile dropped the
+older of its two most alike samples, so the app's own guesses replaced the
+owner's (108 of 118 stored samples were the app's). Recording 322 then named its
+main speaker, 20 minutes of speech, after a colleague who was not there: 0.72
+for that colleague against 0.72 for the right person. Against the owner's own
+samples the same voice scores 0.85 for the right person and 0.62 for the
+absent one. A rename never took the voice back from the first name (recording
+258).
+
+`exp/25_confirmed/replay.py` measured it (`exp/out/25-confirmed.md`). It runs on
+a `sqlite3 .backup` of the owner's `meetings.db` and the app log, which stay on
+the owner's Mac: the owner runs it, or lets it be run there, and its numbers go
+into `exp/out/`. The command is at the top of the script. It is a Python model
+of the rules, not the Go code: a rule change is modelled and measured there
+first, then made in `internal/store` with a test in `people_test.go`. It replays
+all 324 logged transcriptions in order, matching each recording only against
+samples filed from earlier ones, and files the names the owner gave by hand as
+confirmed. The answers are the 13 speakers the owner named or corrected by
+hand: 6 voices of 4 people, and 7 voices that should carry no name, because
+the owner took it away (renamed to "-") or the voice is nobody enrolled. The owner corrected where the app was wrong, so the
+old rules score badly here by selection; what the set shows is whether a rule
+repeats those mistakes.
+
+| Rules | People's voices: right | Wrong | Left unnamed | Nameless voices: named | Speakers named in all |
+|---|---:|---:|---:|---:|---:|
+| Before | 0 | 5 | 1 | 3 of 7 | 330 |
+| The owner's, every sample recognises | 0 | 3 | 3 | 6 of 7 | 312 |
+| The owner's, confirmed samples only | 2 | 0 | 4 | 0 of 7 | 195 |
+
+With every sample recognising, the first guesses fill the free slots and stay,
+so an early wrong guess keeps naming people. Only those 13 speakers have a
+known answer; how many of the 195 or 330 names are right is not known. The 195
+assume the owner's past names are confirmed (11 people, 14 samples at the end
+of the replay); an upgraded archive starts with none.
+
+A change to these rules goes through the replay first: it must not add a wrong
+name (a person's voice named as someone else, or a nobody's voice named).
+Fewer names is a cost to report, not a failure.
+
+Not done: there is no margin over the second-best person, so a near tie still
+shows one name, and `store.Match` is unchanged. Both need a set of voices the
+owner confirms by ear, kept in `exp/truth/`; it has not been started.
 
 ## Queue and live behavior
 

@@ -110,7 +110,8 @@ SQLite stores:
 - transcript turns and summaries;
 - action items and manual notes;
 - full-text and semantic-search data;
-- people, voiceprints, and voiceprint provenance;
+- people, voiceprints, their provenance and whether the owner confirmed them,
+  and the names each recording still holds as guesses;
 - projects, deterministic standing, and model-maintained kept state;
 - deletion and retention metadata.
 

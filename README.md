@@ -45,8 +45,9 @@ full-screen apps and is left out of screen sharing.
 ### Writes the transcript and learns the voices
 
 Whisper turns the recording into a transcript; speaker separation splits the
-other side of the call into voices. Name a voice once and later meetings use
-the name when the voice matches. Click any line to hear it.
+other side of the call into voices. Name a voice once and later meetings
+suggest the name, with how alike the voice is, until you say yes or no. Click
+any line to hear it.
 
 <p align="center">
   <img src="docs/images/transcript.webp" width="920" alt="A transcript with named speakers, timestamps and the voices panel">
@@ -102,7 +103,7 @@ project state. See [MCP access](#mcp-access).
 | Voice notes | A Note button, transcription straight away, the text in your own words, tasks with dates, a screen of their own |
 | Import | Audio and video files from the native file picker |
 | Transcript | Timestamps, speaker names, click to play, waveform, notes, retranscription |
-| People | Learned voice names; the person at the Mac is identified once in Settings |
+| People | Voice names you gave or confirmed, each sample playable; the person at the Mac is identified once in Settings |
 | Summary | Overview, chapters, topics, decisions, open questions, tasks with owners and deadlines |
 | Today and Tasks | A recent briefing, open and overdue work, recurring questions |
 | Projects | A living status per project, with links back to each meeting |
