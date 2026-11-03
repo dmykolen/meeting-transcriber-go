@@ -609,4 +609,11 @@ export default {
   "Запис уже завершився: додайте нотатку в самій зустрічі": "The recording has ended: add the note in the meeting itself",
   "Мікрофон ще не відкрито": "The microphone is not open yet",
   "Порожня нотатка": "The note is empty",
+  "Імена з відсотком дав застосунок: це схожість голосу з тими, що ви підтвердили": "Names with a percentage were given by the app: it is how alike the voice is to the ones you confirmed",
+  "Упізнано застосунком, ще не підтверджено": "Recognised by the app, not yet confirmed",
+  "Так, це {name}": "Yes, this is {name}",
+  "Ні, це не {name}": "No, this is not {name}",
+  "{n} підтверджено": "{n} confirmed",
+  "Підтверджено": "Confirmed",
+  "Не {name}: зразок зникне, а в зустрічі голос утратить ім’я": "Not {name}: the sample goes, and in its meeting the voice loses the name",
 }

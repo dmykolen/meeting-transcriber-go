@@ -246,6 +246,9 @@ recordings.push(
   note({ id: 12, title: "note 12.wav", started: day(4, 7, 55), duration: 3, turns: 0 }),
 )
 const rushed = new Set<number>()
+// Names the app gave by itself in a meeting, and the yeses given since.
+const guessed: Record<number, Record<string, number>> = { 1: { "Taras Petrenko": 0.72 } }
+const vouched = new Set<string>()
 let dictated = 0 // when a note began being dictated, 0 while none is
 let meeting = 0 // when Record started a meeting, 0 while none records
 let missed = "" // when one was last dropped as silent
@@ -486,6 +489,7 @@ export const sample = {
     const queued = r.status === "queued"
     return {
       ...r,
+      guesses: { ...guessed[r.id] },
       transcript: queued ? [] : transcript,
       wait: !queued ? "" : rushed.has(r.id) ? "next" : "time",
       until: until.toISOString(),
@@ -535,6 +539,13 @@ export const sample = {
     ],
   }),
   Rename: async () => {},
+  Confirm: async (id: number, name: string) => {
+    delete guessed[id]?.[name]
+    vouched.add(`${id} ${name}`)
+  },
+  Reject: async (id: number, name: string) => {
+    delete guessed[id]?.[name]
+  },
   Paint: async () => {},
   Loose: async () => 12,
   Span: async () =>
@@ -707,10 +718,11 @@ export const sample = {
   }),
   PaintPerson: async () => {},
   RenameGroup: async () => {},
-  Samples: async () => [
+  Samples: async (name: string) => [
     {
       recording: 1,
-      speaker: "Sofia",
+      speaker: name,
+      confirmed: true,
       title: summary.title,
       audio: "sample-1.wav",
       start: 282,
@@ -718,7 +730,8 @@ export const sample = {
     },
     {
       recording: 2,
-      speaker: "Sofia",
+      speaker: name,
+      confirmed: vouched.has(`2 ${name}`),
       title: "Планування спринту 14",
       audio: "sample-2.wav",
       start: 40,
@@ -1026,11 +1039,21 @@ export const sample = {
           })),
         },
 
-  People: async () => [
-    { id: 1, name: "Marta", samples: 6, meetings: 12 },
-    { id: 2, name: "Sofia", samples: 4, meetings: 9 },
-    { id: 3, name: "Taras Petrenko", samples: 8, meetings: 21 },
-  ],
+  People: async () =>
+    (
+      [
+        ["Marta", 6, 2, 12],
+        ["Sofia", 4, 4, 9],
+        ["Taras Petrenko", 8, 0, 21],
+      ] as const
+    ).map(([name, samples, sure, meetings], i) => ({
+      id: i + 1,
+      name,
+      samples,
+      meetings,
+      colour: "",
+      sources: Array.from({ length: samples }, (_, j) => ({ confirmed: j < sure })),
+    })),
   Forget: async () => {},
   Summarise: async () => {},
 

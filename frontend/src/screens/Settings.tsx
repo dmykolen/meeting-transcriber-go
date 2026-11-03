@@ -1175,6 +1175,12 @@ function Face({
     await Meetings.PaintPerson(person.name, to)
     onChanged()
   }
+  const settle = async (answer: Promise<void>) => {
+    await answer
+    setSamples(null)
+    onChanged()
+  }
+  const sure = person.sources.filter((s) => s.confirmed).length
 
   return (
     <div className="border-b border-line/40 last:border-b-0">
@@ -1197,6 +1203,7 @@ function Face({
             <h3 className="truncate text-[13px] font-medium">{person.name}</h3>
             <p className="mt-0.5 text-[11px] text-faint">
               {person.samples} {many(person.samples, "зразок", "зразки", "зразків")} ·{" "}
+              {t("{n} підтверджено", { n: sure })} ·{" "}
               {person.meetings} {many(person.meetings, "зустріч", "зустрічі", "зустрічей")}
             </p>
           </span>
@@ -1282,11 +1289,39 @@ function Face({
                     </p>
                   ) : (
                     samples.map((src, i) => (
-                      <Snippet
-                        key={`${src.recording}-${i}`}
-                        source={src}
-                        colour={colour}
-                      />
+                      <div key={`${src.recording}-${i}`} className="flex items-center gap-1">
+                        <div className="min-w-0 flex-1">
+                          <Snippet source={src} colour={colour} />
+                        </div>
+                        <span className="flex w-11 shrink-0 justify-end gap-0.5">
+                          {src.confirmed ? (
+                            <span title={t("Підтверджено")} className="p-1 text-good/70">
+                              <Check size={12} />
+                            </span>
+                          ) : (
+                            // Only a voice that can be heard can be vouched for.
+                            src.audio &&
+                            src.finish > src.start && (
+                              <button
+                                onClick={() => settle(Meetings.Confirm(src.recording, person.name))}
+                                title={t("Так, це {name}", { name: person.name })}
+                                className="rounded-full p-1 text-faint transition-colors hover:bg-raised hover:text-good"
+                              >
+                                <Check size={12} />
+                              </button>
+                            )
+                          )}
+                          <button
+                            onClick={() => settle(Meetings.Reject(src.recording, person.name))}
+                            title={t("Не {name}: зразок зникне, а в зустрічі голос утратить ім’я", {
+                              name: person.name,
+                            })}
+                            className="rounded-full p-1 text-faint transition-colors hover:bg-raised hover:text-warn"
+                          >
+                            <X size={12} />
+                          </button>
+                        </span>
+                      </div>
                     ))
                   )}
                 </div>

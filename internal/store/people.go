@@ -4,13 +4,17 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
 	"math"
+	"slices"
 	"sort"
 	"strings"
 )
 
-// Keep is the per-person cap on stored voiceprints.
+// Keep is the per-person cap on stored voiceprints. The app fills free slots
+// with its guesses but never makes room for one; the owner's samples are only
+// ever replaced by the owner.
 const Keep = 10
 
 // Match is the recognition threshold against enrolled people.
@@ -32,16 +36,58 @@ type Person struct {
 
 // Source is where one voiceprint was taken from.
 type Source struct {
-	Recording int64   `json:"recording"`
-	Speaker   string  `json:"speaker"`
+	Recording int64  `json:"recording"`
+	Speaker   string `json:"speaker"`
+	// The owner named this voice or said yes to it. Only these samples
+	// recognise anybody: the app's own guesses filed themselves over good
+	// samples and named one colleague after another (recording 322).
+	Confirmed bool    `json:"confirmed"`
 	Title     string  `json:"title"`
 	Audio     string  `json:"audio"`
 	Start     float64 `json:"start"`
 	Finish    float64 `json:"finish"`
 }
 
-// People lists enrolled speakers.
+// People lists enrolled speakers with the samples that still stand. One from a
+// recording in the bin, or deleted since, neither recognises nor shows; it
+// keeps its slot, so restoring the recording gives it back as it was.
 func (d *DB) People() ([]Person, error) {
+	people, err := d.everyone()
+	if err != nil {
+		return nil, err
+	}
+	rows, err := d.sql.Query(`SELECT id FROM recordings WHERE deleted IS NULL`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	live := map[int64]bool{}
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		live[id] = true
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	for i, p := range people {
+		var prints [][]float32
+		came := []Source{}
+		for j, from := range p.Sources {
+			// A sample older than sources says nothing of where it is from.
+			if from.Recording == 0 || live[from.Recording] {
+				prints, came = append(prints, p.Voiceprints[j]), append(came, from)
+			}
+		}
+		people[i].Voiceprints, people[i].Sources, people[i].Samples = prints, came, len(prints)
+	}
+	return people, nil
+}
+
+// everyone reads every person with every stored sample.
+func (d *DB) everyone() ([]Person, error) {
 	rows, err := d.sql.Query(`
 		SELECT p.id, p.name, p.voiceprints, p.colour, p.sources,
 		       (SELECT COUNT(DISTINCT recording) FROM turns WHERE speaker = p.name)
@@ -58,63 +104,195 @@ func (d *DB) People() ([]Person, error) {
 		if err := rows.Scan(&p.ID, &p.Name, &raw, &p.Colour, &sources, &p.Meetings); err != nil {
 			return nil, err
 		}
-		if err := json.Unmarshal([]byte(raw), &p.Voiceprints); err != nil {
-			// A corrupt row should cost one person's recognition, not the list.
-			p.Voiceprints = nil
-		}
-		_ = json.Unmarshal([]byte(sources), &p.Sources)
+		p.Voiceprints, p.Sources = decode(raw, sources)
 		p.Samples = len(p.Voiceprints)
 		people = append(people, p)
 	}
 	return people, rows.Err()
 }
 
-// Remember files another sample of a voice under a name.
+// decode reads stored samples, sources index for index with prints. An older
+// row may hold fewer sources than prints; an unknown source reads as an empty
+// one.
+func decode(raw, sources string) ([][]float32, []Source) {
+	var prints [][]float32
+	if json.Unmarshal([]byte(raw), &prints) != nil {
+		// A corrupt row should cost one person's recognition, not the list.
+		prints = nil
+	}
+	var came []Source
+	_ = json.Unmarshal([]byte(sources), &came)
+	for len(came) < len(prints) {
+		came = append(came, Source{})
+	}
+	return prints, came[:len(prints)]
+}
+
+// Remember files a sample of a voice under a name, as the owner's word when
+// from.Confirmed and as the app's guess otherwise.
 func (d *DB) Remember(name string, print []float32, from Source) error {
 	if name == "" || len(print) == 0 {
 		return errors.New("nothing to remember")
 	}
-	var raw, sources string
-	err := d.sql.QueryRow(`SELECT voiceprints, sources FROM people WHERE name = ?`, name).
-		Scan(&raw, &sources)
+	tx, err := d.sql.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if err := remember(tx, name, print, from); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
 
-	var kept [][]float32
-	var came []Source
+// remember keeps one sample per person per recording.
+func remember(tx *sql.Tx, name string, print []float32, from Source) error {
+	prints, came, err := samples(tx, name)
+	if err != nil {
+		return err
+	}
+	same := slices.IndexFunc(came, func(s Source) bool { return from.Recording != 0 && s.Recording == from.Recording })
 	switch {
-	case errors.Is(err, sql.ErrNoRows):
-	case err != nil:
-		return err
+	case same >= 0 && came[same].Confirmed && !from.Confirmed:
+		return nil // a guess never overrules what the owner said
+	case same >= 0:
+		prints[same], came[same] = print, from
+	case len(prints) < Keep:
+		prints, came = append(prints, print), append(came, from)
+	case !from.Confirmed:
+		return nil
 	default:
-		_ = json.Unmarshal([]byte(raw), &kept)
-		_ = json.Unmarshal([]byte(sources), &came)
+		guess := slices.IndexFunc(came, func(s Source) bool { return !s.Confirmed })
+		if guess < 0 {
+			slog.Info("voice not filed: ten confirmed samples already", "name", name, "recording", from.Recording)
+			return nil
+		}
+		prints = append(slices.Delete(prints, guess, guess+1), print)
+		came = append(slices.Delete(came, guess, guess+1), from)
 	}
-	kept = append(kept, print)
-	// An older row may hold fewer sources than prints; pad so the two arrays
-	// stay index-for-index and an unknown source reads as an empty one.
-	for len(came) < len(kept)-1 {
-		came = append(came, Source{})
-	}
-	came = append(came, from)
+	return put(tx, name, prints, came)
+}
 
-	if drop := crowded(kept); drop >= 0 {
-		kept = append(kept[:drop:drop], kept[drop+1:]...)
-		came = append(came[:drop:drop], came[drop+1:]...)
+// samples reads one person's stored samples; nobody yet is none.
+func samples(tx *sql.Tx, name string) ([][]float32, []Source, error) {
+	var raw, sources string
+	err := tx.QueryRow(`SELECT voiceprints, sources FROM people WHERE name = ?`, name).Scan(&raw, &sources)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil, nil
 	}
+	if err != nil {
+		return nil, nil, err
+	}
+	prints, came := decode(raw, sources)
+	return prints, came, nil
+}
 
-	prints, err := json.Marshal(kept)
+// put writes one person's samples, enrolling the name if it is new.
+func put(tx *sql.Tx, name string, prints [][]float32, came []Source) error {
+	encoded, err := json.Marshal(append([][]float32{}, prints...))
 	if err != nil {
 		return err
 	}
-	where, err := json.Marshal(came)
+	where, err := json.Marshal(append([]Source{}, came...))
 	if err != nil {
 		return err
 	}
-	_, err = d.sql.Exec(
+	_, err = tx.Exec(
 		`INSERT INTO people (name, voiceprints, sources) VALUES (?, ?, ?)
 		 ON CONFLICT(name) DO UPDATE SET voiceprints = excluded.voiceprints,
 		                                 sources = excluded.sources`,
-		name, string(prints), string(where))
+		name, string(encoded), string(where))
 	return err
+}
+
+// unlearn takes back the samples one recording gave: one person's, or
+// everybody's when name is empty.
+func unlearn(tx *sql.Tx, recording int64, name string) error {
+	rows, err := tx.Query(`SELECT name, voiceprints, sources FROM people WHERE ? IN ('', name)`, name)
+	if err != nil {
+		return err
+	}
+	type person struct {
+		name   string
+		prints [][]float32
+		came   []Source
+	}
+	var changed []person
+	for rows.Next() {
+		var who, raw, sources string
+		if err := rows.Scan(&who, &raw, &sources); err != nil {
+			rows.Close()
+			return err
+		}
+		prints, came := decode(raw, sources)
+		p := person{name: who}
+		for i, from := range came {
+			if from.Recording != recording {
+				p.prints, p.came = append(p.prints, prints[i]), append(p.came, from)
+			}
+		}
+		if len(p.came) < len(came) {
+			changed = append(changed, p)
+		}
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	for _, p := range changed {
+		if err := put(tx, p.name, p.prints, p.came); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// Confirm is the owner's yes to a name in one recording: the guess is settled
+// and the voice's sample counts from now on.
+func (d *DB) Confirm(id int64, name string) error {
+	print := d.VoiceIn(id, name)
+	tx, err := d.sql.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if _, err := tx.Exec(`UPDATE recordings SET guesses = json_remove(guesses, '$.' || ?) WHERE id = ? AND guesses IS NOT NULL`,
+		name, id); err != nil {
+		return err
+	}
+	prints, came, err := samples(tx, name)
+	if err != nil {
+		return err
+	}
+	switch at := slices.IndexFunc(came, func(s Source) bool { return s.Recording == id }); {
+	case len(print) > 0:
+		err = remember(tx, name, print, Source{Recording: id, Speaker: name, Confirmed: true})
+	case at >= 0:
+		// The label was renamed since, but the sample still came from here.
+		came[at].Confirmed = true
+		err = put(tx, name, prints, came)
+	}
+	if err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+// Reject is the owner's no to a name in one recording: the voice becomes an
+// unnamed speaker again, and the name gives back the sample it took from here.
+func (d *DB) Reject(id int64, name string) error {
+	taken, err := d.speakers(id)
+	if err != nil {
+		return err
+	}
+	var voices map[string]json.RawMessage
+	_ = json.Unmarshal([]byte(d.RawVoices(id)), &voices)
+	for n := 0; ; n++ {
+		label := fmt.Sprintf("SPEAKER_%02d", n)
+		if _, held := voices[label]; !held && !slices.Contains(taken, label) {
+			return d.Rename(id, name, label)
+		}
+	}
 }
 
 // PaintPerson sets or clears a person's explicit colour.
@@ -147,18 +325,27 @@ func (d *DB) Sample(from Source) (Source, bool) {
 	return from, true
 }
 
-// SaveVoices keeps this recording's current speaker voiceprints.
-func (d *DB) SaveVoices(recording int64, prints map[string][]float32) error {
-	// Even an empty map must be written; retranscription can renumber clusters,
+// SaveVoices keeps this recording's current speaker voiceprints and the names
+// the app guessed among them.
+func (d *DB) SaveVoices(recording int64, prints map[string][]float32, guesses map[string]float64) error {
+	// Even empty maps must be written; retranscription can renumber clusters,
 	// so stale labels would poison later renames.
 	if prints == nil {
 		prints = map[string][]float32{}
+	}
+	if guesses == nil {
+		guesses = map[string]float64{}
 	}
 	encoded, err := json.Marshal(prints)
 	if err != nil {
 		return err
 	}
-	_, err = d.sql.Exec(`UPDATE recordings SET voices = ? WHERE id = ?`, string(encoded), recording)
+	guessed, err := json.Marshal(guesses)
+	if err != nil {
+		return err
+	}
+	_, err = d.sql.Exec(`UPDATE recordings SET voices = ?, guesses = ? WHERE id = ?`,
+		string(encoded), string(guessed), recording)
 	return err
 }
 
@@ -181,27 +368,16 @@ func (d *DB) Forget(name string) error {
 	return err
 }
 
-// crowded returns the least useful sample to drop, or -1 when there is room.
-func crowded(samples [][]float32) int {
-	if len(samples) <= Keep {
-		return -1
-	}
-	worst, twin := -2.0, 0
-	for i := range samples {
-		for j := range samples {
-			if i == j {
-				continue
-			}
-			if c := Cosine(samples[i], samples[j]); c > worst {
-				worst, twin = c, min(i, j)
-			}
-		}
-	}
-	return twin
+// Guess is a name the app gave a voice by itself, and how alike the voice is to
+// that person's confirmed samples (cosine, -1..1).
+type Guess struct {
+	Name  string
+	Score float64
 }
 
-// Recognise pairs one recording's voiceprints with enrolled people.
-func Recognise(prints map[string][]float32, people []Person) map[string]string {
+// Recognise pairs one recording's voiceprints with enrolled people, against
+// the samples the owner confirmed only.
+func Recognise(prints map[string][]float32, people []Person) map[string]Guess {
 	type pair struct {
 		label string
 		who   int
@@ -211,7 +387,7 @@ func Recognise(prints map[string][]float32, people []Person) map[string]string {
 	for label, print := range prints {
 		for i, person := range people {
 			best := -1.0
-			for _, sample := range person.Voiceprints {
+			for _, sample := range person.sure() {
 				if c := Cosine(print, sample); c > best {
 					best = c
 				}
@@ -223,15 +399,26 @@ func Recognise(prints map[string][]float32, people []Person) map[string]string {
 	}
 	sort.Slice(pairs, func(a, b int) bool { return pairs[a].score > pairs[b].score })
 
-	names, takenLabel, takenPerson := map[string]string{}, map[string]bool{}, map[int]bool{}
+	names, takenLabel, takenPerson := map[string]Guess{}, map[string]bool{}, map[int]bool{}
 	for _, p := range pairs {
 		if takenLabel[p.label] || takenPerson[p.who] {
 			continue
 		}
 		takenLabel[p.label], takenPerson[p.who] = true, true
-		names[p.label] = people[p.who].Name
+		names[p.label] = Guess{people[p.who].Name, p.score}
 	}
 	return names
+}
+
+// sure is a person's confirmed samples.
+func (p Person) sure() [][]float32 {
+	var out [][]float32
+	for i, print := range p.Voiceprints {
+		if i < len(p.Sources) && p.Sources[i].Confirmed {
+			out = append(out, print)
+		}
+	}
+	return out
 }
 
 // Cosine is the similarity of two voiceprints in -1..1.
@@ -260,7 +447,7 @@ func (d *DB) RawVoices(recording int64) string {
 
 // Trace backfills source metadata for older saved voiceprints.
 func (d *DB) Trace() error {
-	people, err := d.People()
+	people, err := d.everyone()
 	if err != nil {
 		return err
 	}
@@ -379,7 +566,7 @@ func Same(prints map[string][]float32, people []Person) map[string]string {
 	}{}
 	for label, print := range prints {
 		for _, person := range people {
-			for _, sample := range person.Voiceprints {
+			for _, sample := range person.sure() {
 				c := Cosine(print, sample)
 				if c >= Match && c > best[label].score {
 					best[label] = struct {

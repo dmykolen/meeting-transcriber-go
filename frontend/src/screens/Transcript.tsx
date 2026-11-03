@@ -226,6 +226,17 @@ export default function Transcript({
     setProblem("")
     write(id, meeting.title, !s)
   }
+  const settle = async (answer: () => Promise<void>) => {
+    try {
+      await answer()
+      await load()
+      onChanged()
+    } catch (e) {
+      setProblem(why(e))
+    }
+  }
+  const guesses = meeting.guesses ?? {}
+  const guessed = Object.keys(guesses).length > 0
   const analytics = (
     <>
       <Shape id={id} colours={colours} onJump={(t) => jump(t, true)} />
@@ -236,6 +247,7 @@ export default function Transcript({
             key={name}
             name={name}
             colour={colours.get(name)!}
+            guess={guesses[name]}
             editing={renaming === name}
             onEdit={() => setRenaming(name)}
             onDone={async (to) => {
@@ -246,8 +258,15 @@ export default function Transcript({
                 onChanged()
               }
             }}
+            onConfirm={() => settle(() => Meetings.Confirm(id, name))}
+            onReject={() => settle(() => Meetings.Reject(id, name))}
           />
         ))}
+        {guessed && (
+          <p className="speaker-guessed">
+            {t("Імена з відсотком дав застосунок: це схожість голосу з тими, що ви підтвердили")}
+          </p>
+        )}
       </div>
     </>
   )
@@ -281,11 +300,14 @@ export default function Transcript({
         </button>
         {narrow && (
           <button
-            className="ui-icon"
+            className="ui-icon relative"
             aria-label={t("Голоси й ритм")}
             onClick={() => setRight(true)}
           >
             <PanelRight size={16} />
+            {guessed && (
+              <span className="absolute right-1 top-1 size-1.5 rounded-full bg-accent" />
+            )}
           </button>
         )}
         <div className="relative" ref={menuBox}>
@@ -936,7 +958,12 @@ export default function Transcript({
                     </button>
                     <div>
                       <button
-                        className="turn-speaker"
+                        className={`turn-speaker ${turn.speaker && turn.speaker in guesses ? "guessed" : ""}`}
+                        title={
+                          turn.speaker && turn.speaker in guesses
+                            ? t("Упізнано застосунком, ще не підтверджено")
+                            : undefined
+                        }
                         style={{ color: colours.get(turn.speaker || "") }}
                         onClick={() =>
                           setLit(lit === turn.speaker ? null : (turn.speaker ?? null))
@@ -1077,18 +1104,26 @@ function local(iso: string) {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 
+/** One speaker's name, and for a name the app gave by itself, how alike the
+    voice is and a yes or a no. */
 function SpeakerChip({
   name,
   colour,
+  guess,
   editing,
   onEdit,
   onDone,
+  onConfirm,
+  onReject,
 }: {
   name: string
   colour: string
+  guess?: number
   editing: boolean
   onEdit: () => void
   onDone: (to: string) => void
+  onConfirm: () => void
+  onReject: () => void
 }) {
   const [value, setValue] = useState(name)
   useEffect(() => setValue(name), [name, editing])
@@ -1108,15 +1143,38 @@ function SpeakerChip({
       />
     )
   }
-  return (
+  const chip = (
     <button
       onClick={onEdit}
       title={t("Змінити ім’я учасника")}
-      className="flex items-center gap-1.5 rounded-full border border-line/60 bg-surface/60 px-2.5 py-0.5 text-[11.5px] text-soft transition-colors hover:border-accent/40 hover:text-text"
+      className={`flex items-center gap-1.5 rounded-full border bg-surface/60 px-2.5 py-0.5 text-[11.5px] text-soft transition-colors hover:border-accent/40 hover:text-text ${guess === undefined ? "border-line/60" : "border-dashed border-line"}`}
     >
       <span className="size-1.5 rounded-full" style={{ background: colour }} />
       {name}
+      {guess !== undefined && (
+        <span className="tabular-nums text-faint">{Math.round(guess * 100)}%</span>
+      )}
     </button>
+  )
+  if (guess === undefined) return chip
+  return (
+    <div className="flex items-center gap-0.5">
+      {chip}
+      <button
+        onClick={onConfirm}
+        title={t("Так, це {name}", { name })}
+        className="rounded-full p-1 text-faint transition-colors hover:bg-raised hover:text-good"
+      >
+        <Check size={12} />
+      </button>
+      <button
+        onClick={onReject}
+        title={t("Ні, це не {name}", { name })}
+        className="rounded-full p-1 text-faint transition-colors hover:bg-raised hover:text-warn"
+      >
+        <X size={12} />
+      </button>
+    </div>
   )
 }
 

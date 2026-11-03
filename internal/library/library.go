@@ -382,20 +382,23 @@ func (l *Library) process(ctx context.Context, id int64) error {
 		slog.Info("clusters rejoined", "id", id, "merged", len(same))
 	}
 
+	guesses := map[string]float64{}
 	if names := store.Recognise(enough(read.Voices, turns), people); len(names) > 0 {
 		for i := range turns {
-			if name, known := names[turns[i].Speaker]; known {
-				turns[i].Speaker = name
+			if g, known := names[turns[i].Speaker]; known {
+				turns[i].Speaker = g.Name
 			}
 		}
-		for label, name := range names {
-			// Another sample of a known voice improves later recognition.
-			if err := l.db.Remember(name, read.Voices[label],
-				store.Source{Recording: id, Speaker: name}); err != nil {
-				slog.Warn("could not file a voice", "name", name, "err", err)
+		for label, g := range names {
+			// A guess waits in a free slot for the owner's yes; until then it
+			// recognises nobody.
+			if err := l.db.Remember(g.Name, read.Voices[label],
+				store.Source{Recording: id, Speaker: g.Name}); err != nil {
+				slog.Warn("could not file a voice", "name", g.Name, "err", err)
 			}
-			read.Voices[name] = read.Voices[label]
+			read.Voices[g.Name] = read.Voices[label]
 			delete(read.Voices, label)
+			guesses[g.Name] = g.Score
 		}
 		slog.Info("voices recognised", "id", id, "who", values(names))
 	}
@@ -411,10 +414,13 @@ func (l *Library) process(ctx context.Context, id int64) error {
 			read.Voices[owner] = print
 			delete(read.Voices, Me)
 		}
+		// The settings name the microphone side, so a no to the owner's name
+		// heard on the far side must not unname the owner too.
+		delete(guesses, owner)
 	}
 
 	// Store voiceprints under the label that ended up in the transcript.
-	if err := l.db.SaveVoices(id, read.Voices); err != nil {
+	if err := l.db.SaveVoices(id, read.Voices, guesses); err != nil {
 		slog.Warn("could not keep the voices of this recording", "id", id, "err", err)
 	}
 
@@ -650,10 +656,10 @@ func (l *Library) Summarise(ctx context.Context, id int64) error {
 	return l.summarise(ctx, id, turns)
 }
 
-func values(m map[string]string) []string {
+func values(m map[string]store.Guess) []string {
 	out := make([]string, 0, len(m))
-	for _, v := range m {
-		out = append(out, v)
+	for _, g := range m {
+		out = append(out, fmt.Sprintf("%s %.3f", g.Name, g.Score))
 	}
 	sort.Strings(out)
 	return out

@@ -715,6 +715,17 @@ button:active:not([role="checkbox"]) {
   font-size: 9px;
   color: var(--color-faint);
 }
+.speaker-guessed {
+  width: 100%;
+  margin-top: 4px;
+  font-size: 10.5px;
+  line-height: 1.45;
+  color: var(--color-faint);
+}
+.turn-speaker.guessed {
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+}
 .reader-find {
   display: flex;
   gap: 8px;

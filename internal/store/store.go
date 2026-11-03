@@ -55,8 +55,11 @@ type Recording struct {
 	Problem  string    `json:"problem,omitempty"`
 	Summary  *Summary  `json:"summary,omitempty"`
 	Speakers []string  `json:"speakers,omitempty"`
-	Turns    int       `json:"turns"`
-	Note     string    `json:"note,omitempty"`
+	// Names the app gave voices by itself, with how alike each voice was to
+	// the person's confirmed samples, until the owner says yes or no.
+	Guesses map[string]float64 `json:"guesses,omitempty"`
+	Turns   int                `json:"turns"`
+	Note    string             `json:"note,omitempty"`
 }
 
 // Summary is the stored JSON summary payload.
@@ -111,7 +114,7 @@ func Open(path string) (*DB, error) {
 	// here is the ordinary outcome — it means the column is already there.
 	for _, column := range []string{
 		`voices TEXT`, `deleted INTEGER`, `folder INTEGER`,
-		`titled INTEGER NOT NULL DEFAULT 0`,
+		`titled INTEGER NOT NULL DEFAULT 0`, `guesses TEXT`,
 	} {
 		_, _ = handle.Exec(`ALTER TABLE recordings ADD COLUMN ` + column)
 	}
@@ -174,6 +177,9 @@ CREATE TABLE IF NOT EXISTS recordings (
   -- One voiceprint per speaker label, so that naming somebody after the fact
   -- still teaches the app what they sound like.
   voices    TEXT,
+  -- {name: similarity} for the names the app gave by itself and the owner has
+  -- not yet confirmed or corrected.
+  guesses   TEXT,
   -- When it was moved to the bin, or null while it is live.
   deleted   INTEGER,
   -- Which group it is filed under, or null.
@@ -363,18 +369,19 @@ func (d *DB) SaveNote(id int64, note string) error {
 	return err
 }
 
-// Rename changes a speaker label everywhere in one recording.
+// Rename changes a speaker label everywhere in one recording. The owner has
+// said who this is, so a guess under either name is settled, and the old name
+// gives back the sample it took from this recording.
 func (d *DB) Rename(id int64, from, to string) error {
 	tx, err := d.sql.Begin()
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback()
-	if _, err := tx.Exec(`UPDATE turns SET speaker = ? WHERE recording = ? AND speaker = ?`, to, id, from); err != nil {
-		return err
-	}
-	if _, err := tx.Exec(`UPDATE transcript SET speaker = ? WHERE recording = ? AND speaker = ?`, to, id, from); err != nil {
-		return err
+	for _, table := range []string{"turns", "transcript", "passages"} {
+		if _, err := tx.Exec(`UPDATE `+table+` SET speaker = ? WHERE recording = ? AND speaker = ?`, to, id, from); err != nil {
+			return err
+		}
 	}
 	// The voiceprint moves with the label, so a second rename in the same
 	// meeting still finds it.
@@ -382,6 +389,13 @@ func (d *DB) Rename(id int64, from, to string) error {
 		`UPDATE recordings SET voices = json_remove(json_set(voices, '$.' || ?, json_extract(voices, '$.' || ?)), '$.' || ?)
 		 WHERE id = ? AND voices IS NOT NULL AND json_extract(voices, '$.' || ?) IS NOT NULL`,
 		to, from, from, id, from); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(`UPDATE recordings SET guesses = json_remove(guesses, '$.' || ?, '$.' || ?) WHERE id = ? AND guesses IS NOT NULL`,
+		from, to, id); err != nil {
+		return err
+	}
+	if err := unlearn(tx, id, from); err != nil {
 		return err
 	}
 	return tx.Commit()
@@ -467,6 +481,13 @@ func (d *DB) Get(id int64) (*Recording, error) {
 	if r.Speakers, err = d.speakers(id); err != nil {
 		return nil, err
 	}
+	var guesses sql.NullString
+	if err := d.sql.QueryRow(`SELECT guesses FROM recordings WHERE id = ?`, id).Scan(&guesses); err != nil {
+		return nil, err
+	}
+	if guesses.Valid {
+		_ = json.Unmarshal([]byte(guesses.String), &r.Guesses)
+	}
 	return &r, nil
 }
 
@@ -506,7 +527,8 @@ func (d *DB) speakers(id int64) ([]string, error) {
 	return who, rows.Err()
 }
 
-// Delete forgets a recording and everything attached to it.
+// Delete forgets a recording and everything attached to it, the voice samples
+// it gave people included.
 func (d *DB) Delete(id int64) (string, error) {
 	var audio string
 	if err := d.sql.QueryRow(`SELECT audio FROM recordings WHERE id = ?`, id).Scan(&audio); err != nil {
@@ -521,6 +543,9 @@ func (d *DB) Delete(id int64) (string, error) {
 		return "", err
 	}
 	if _, err := tx.Exec(`DELETE FROM recordings WHERE id = ?`, id); err != nil {
+		return "", err
+	}
+	if err := unlearn(tx, id, ""); err != nil {
 		return "", err
 	}
 	return audio, tx.Commit()

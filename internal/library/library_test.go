@@ -292,3 +292,43 @@ func TestAskingWithoutAKeySaysSoRatherThanFailingOddly(t *testing.T) {
 		t.Fatal("the passages were found; only the answer needed a key")
 	}
 }
+
+// A voice recognised by the app is a guess: it is filed beside the owner's
+// samples without counting, and the recording keeps how alike it was until the
+// owner says yes.
+func TestARecognisedVoiceIsAGuessUntilTheOwnerSaysSo(t *testing.T) {
+	base, alike := []float32{1, 0.1, 0}, []float32{0.9, 0.2, 0.1}
+	fake := &fakeEngine{
+		turns:  []engine.Turn{{Start: 0, End: 40, Speaker: "SPEAKER_00", Text: "реліз у п’ятницю"}},
+		voices: map[string][]float32{"SPEAKER_00": alike},
+	}
+	lib, db, dir := setup(t, fake)
+	silence(t, dir, "a.wav", 1)
+	silence(t, dir, "b.wav", 1)
+	a, _ := lib.Add(store.Meeting, "a.wav", time.Now(), "")
+	if err := db.Remember("Serhii", base, store.Source{Recording: a.ID, Speaker: "Serhii", Confirmed: true}); err != nil {
+		t.Fatal(err)
+	}
+	b, _ := lib.Add(store.Meeting, "b.wav", time.Now(), "")
+	if err := lib.process(context.Background(), b.ID); err != nil {
+		t.Fatal(err)
+	}
+
+	got, _ := db.Get(b.ID)
+	if len(got.Speakers) != 1 || got.Speakers[0] != "Serhii" || got.Guesses["Serhii"] < store.Match {
+		t.Fatalf("speakers %v guesses %v, want Serhii guessed", got.Speakers, got.Guesses)
+	}
+	people, _ := db.People()
+	if s := people[0].Sources; len(s) != 2 || s[1].Recording != b.ID || s[1].Confirmed {
+		t.Fatalf("sources %+v, want the guess filed unconfirmed beside the owner's sample", s)
+	}
+
+	if err := db.Confirm(b.ID, "Serhii"); err != nil {
+		t.Fatal(err)
+	}
+	got, _ = db.Get(b.ID)
+	people, _ = db.People()
+	if len(got.Guesses) != 0 || !people[0].Sources[1].Confirmed {
+		t.Fatalf("after yes: guesses %v sources %+v", got.Guesses, people[0].Sources)
+	}
+}

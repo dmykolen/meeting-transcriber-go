@@ -14,6 +14,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode"
 
 	"github.com/dmykolen/meeting-transcriber-go/internal/home"
 	"github.com/dmykolen/meeting-transcriber-go/internal/library"
@@ -266,22 +267,28 @@ func (m *Meetings) Ask(question string) (*Answer, error) {
 }
 
 // Rename changes a speaker's label throughout one meeting and teaches the
-// matching voice when possible.
+// matching voice when possible, as the owner's word: the old name forgets it.
 func (m *Meetings) Rename(id int64, from, to string) error {
 	print := m.db.VoiceIn(id, from)
 	if err := m.db.Rename(id, from, to); err != nil {
 		return err
 	}
-	if len(print) == 0 {
-		// The rename still stands for this meeting; there just is not enough
-		// speech to learn from.
+	if len(print) == 0 || !strings.ContainsFunc(to, unicode.IsLetter) || strings.HasPrefix(strings.ToUpper(to), "SPEAKER_") {
+		// The rename still stands for this meeting; there is no voice to learn,
+		// or the new name ("-", SPEAKER_05) only takes one away.
 		return nil
 	}
-	if err := m.db.Remember(to, print, store.Source{Recording: id, Speaker: to}); err != nil {
+	if err := m.db.Remember(to, print, store.Source{Recording: id, Speaker: to, Confirmed: true}); err != nil {
 		slog.Warn("renamed, but could not learn the voice", "name", to, "err", err)
 	}
 	return nil
 }
+
+// Confirm says yes to the name a voice has in one meeting.
+func (m *Meetings) Confirm(id int64, name string) error { return m.db.Confirm(id, name) }
+
+// Reject says no to it: the voice is unnamed again and the person forgets it.
+func (m *Meetings) Reject(id int64, name string) error { return m.db.Reject(id, name) }
 
 // Retitle overrides the model-generated title.
 func (m *Meetings) Retitle(id int64, title string) error { return m.db.Retitle(id, title) }
@@ -303,7 +310,7 @@ func (m *Meetings) ThisIsMe(name string) (int, error) {
 		if len(print) == 0 {
 			continue
 		}
-		if err := m.db.Remember(name, print, store.Source{Recording: r.ID, Speaker: name}); err != nil {
+		if err := m.db.Remember(name, print, store.Source{Recording: r.ID, Speaker: name, Confirmed: true}); err != nil {
 			return 0, err
 		}
 		if err := m.db.Rename(r.ID, library.Me, name); err != nil {

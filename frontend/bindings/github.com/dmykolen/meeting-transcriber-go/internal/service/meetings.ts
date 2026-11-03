@@ -113,6 +113,13 @@ export function CheckUpdate(): $CancellablePromise<void> {
 }
 
 /**
+ * Confirm says yes to the name a voice has in one meeting.
+ */
+export function Confirm(id: number, name: string): $CancellablePromise<void> {
+    return $Call.ByID(1366173308, id, name);
+}
+
+/**
  * ConnectCopilot signs in to GitHub Copilot in the browser. It returns at once;
  * AIStatus follows the sign-in.
  */
@@ -413,13 +420,20 @@ export function Reindex(): $CancellablePromise<$models.Indexed> {
     });
 }
 
+/**
+ * Reject says no to it: the voice is unnamed again and the person forgets it.
+ */
+export function Reject(id: number, name: string): $CancellablePromise<void> {
+    return $Call.ByID(2413344287, id, name);
+}
+
 export function RemoveNote(id: number): $CancellablePromise<void> {
     return $Call.ByID(4288311552, id);
 }
 
 /**
  * Rename changes a speaker's label throughout one meeting and teaches the
- * matching voice when possible.
+ * matching voice when possible, as the owner's word: the old name forgets it.
  */
 export function Rename(id: number, $from: string, to: string): $CancellablePromise<void> {
     return $Call.ByID(3231081830, id, $from, to);

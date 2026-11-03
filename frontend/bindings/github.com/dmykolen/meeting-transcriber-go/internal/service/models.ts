@@ -286,6 +286,12 @@ export class Meeting {
     "problem"?: string;
     "summary"?: store$0.Summary | null;
     "speakers"?: string[];
+
+    /**
+     * Names the app gave voices by itself, with how alike each voice was to
+     * the person's confirmed samples, until the owner says yes or no.
+     */
+    "guesses"?: { [_ in string]?: number };
     "turns": number;
     "note"?: string;
     "transcript": store$0.Turn[];
@@ -351,7 +357,8 @@ export class Meeting {
     static createFrom($$source: any = {}): Meeting {
         const $$createField11_0 = $$createType8;
         const $$createField12_0 = $$createType0;
-        const $$createField15_0 = $$createType10;
+        const $$createField13_0 = $$createType9;
+        const $$createField16_0 = $$createType11;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("summary" in $$parsedSource) {
             $$parsedSource["summary"] = $$createField11_0($$parsedSource["summary"]);
@@ -359,8 +366,11 @@ export class Meeting {
         if ("speakers" in $$parsedSource) {
             $$parsedSource["speakers"] = $$createField12_0($$parsedSource["speakers"]);
         }
+        if ("guesses" in $$parsedSource) {
+            $$parsedSource["guesses"] = $$createField13_0($$parsedSource["guesses"]);
+        }
         if ("transcript" in $$parsedSource) {
-            $$parsedSource["transcript"] = $$createField15_0($$parsedSource["transcript"]);
+            $$parsedSource["transcript"] = $$createField16_0($$parsedSource["transcript"]);
         }
         return new Meeting($$parsedSource as Partial<Meeting>);
     }
@@ -686,7 +696,7 @@ export class UpdateState {
      * Creates a new UpdateState instance from a string or object.
      */
     static createFrom($$source: any = {}): UpdateState {
-        const $$createField1_0 = $$createType12;
+        const $$createField1_0 = $$createType13;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("available" in $$parsedSource) {
             $$parsedSource["available"] = $$createField1_0($$parsedSource["available"]);
@@ -786,8 +796,8 @@ export class UsageReport {
      * Creates a new UsageReport instance from a string or object.
      */
     static createFrom($$source: any = {}): UsageReport {
-        const $$createField1_0 = $$createType14;
-        const $$createField2_0 = $$createType16;
+        const $$createField1_0 = $$createType15;
+        const $$createField2_0 = $$createType17;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("models" in $$parsedSource) {
             $$parsedSource["models"] = $$createField1_0($$parsedSource["models"]);
@@ -899,6 +909,12 @@ export class VoiceNote {
     "problem"?: string;
     "summary"?: store$0.Summary | null;
     "speakers"?: string[];
+
+    /**
+     * Names the app gave voices by itself, with how alike each voice was to
+     * the person's confirmed samples, until the owner says yes or no.
+     */
+    "guesses"?: { [_ in string]?: number };
     "turns": number;
     "note"?: string;
 
@@ -967,12 +983,16 @@ export class VoiceNote {
     static createFrom($$source: any = {}): VoiceNote {
         const $$createField11_0 = $$createType8;
         const $$createField12_0 = $$createType0;
+        const $$createField13_0 = $$createType9;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("summary" in $$parsedSource) {
             $$parsedSource["summary"] = $$createField11_0($$parsedSource["summary"]);
         }
         if ("speakers" in $$parsedSource) {
             $$parsedSource["speakers"] = $$createField12_0($$parsedSource["speakers"]);
+        }
+        if ("guesses" in $$parsedSource) {
+            $$parsedSource["guesses"] = $$createField13_0($$parsedSource["guesses"]);
         }
         return new VoiceNote($$parsedSource as Partial<VoiceNote>);
     }
@@ -988,11 +1008,12 @@ const $$createType5 = store$0.KnowledgeHit.createFrom;
 const $$createType6 = $Create.Array($$createType5);
 const $$createType7 = store$0.Summary.createFrom;
 const $$createType8 = $Create.Nullable($$createType7);
-const $$createType9 = store$0.Turn.createFrom;
-const $$createType10 = $Create.Array($$createType9);
-const $$createType11 = update$0.Release.createFrom;
-const $$createType12 = $Create.Nullable($$createType11);
-const $$createType13 = UsageRow.createFrom;
-const $$createType14 = $Create.Array($$createType13);
-const $$createType15 = UsageDay.createFrom;
-const $$createType16 = $Create.Array($$createType15);
+const $$createType9 = $Create.Map($Create.Any, $Create.Any);
+const $$createType10 = store$0.Turn.createFrom;
+const $$createType11 = $Create.Array($$createType10);
+const $$createType12 = update$0.Release.createFrom;
+const $$createType13 = $Create.Nullable($$createType12);
+const $$createType14 = UsageRow.createFrom;
+const $$createType15 = $Create.Array($$createType14);
+const $$createType16 = UsageDay.createFrom;
+const $$createType17 = $Create.Array($$createType16);

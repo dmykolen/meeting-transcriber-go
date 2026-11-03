@@ -172,6 +172,9 @@ export type Recording = {
   problem?: string
   summary?: Summary
   speakers?: string[]
+  /** Names the app gave by itself, with how alike each voice is (0..1) to the
+      person's confirmed samples, until the owner says yes or no. */
+  guesses?: Record<string, number>
   turns: number
   note?: string
 }
@@ -260,6 +263,8 @@ export type Person = {
 export type Source = {
   recording: number
   speaker: string
+  /** Named or confirmed by the owner; only these recognise anybody. */
+  confirmed: boolean
   title: string
   audio: string
   start: number
