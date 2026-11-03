@@ -735,9 +735,12 @@ written in about 9 s.
   Windows would open a window for each. The Copilot SDK hides its CLI the same
   way. A `llama-server` left by a crash is not found again, as there is no
   `pkill`; it unloads its model after five idle minutes.
-- A window larger than its screen's work area opens maximised (`fit_windows.go`):
-  Windows centres it with the title bar above the top edge, as the GitHub
-  runner's 1024×768 screen showed, where macOS keeps it on the screen.
+- A window larger than its screen's work area is maximised when it is shown
+  (`fit_windows.go`): Windows centres it with the title bar above the top edge,
+  as the GitHub runner's 1024×768 screen showed, where macOS keeps it on the
+  screen. It does not always work: of the two runs since, 8e9f524's showed the
+  window maximised and 1.9.0's showed it as before the fix, with the same window
+  code. The workflow does not check the window yet.
 - `.github/workflows/windows.yml`, run by hand before a release, builds the
   installer on a macOS runner as `make exe` does and tries it on a Windows
   runner: silent install, start, MCP over stdio and HTTP, one copy at a time,
